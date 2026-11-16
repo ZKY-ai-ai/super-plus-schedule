@@ -8,6 +8,7 @@
 | 范围 | 文件 |
 |---|---|
 | 笔记、章节、链接 | `src/lib/notes.ts` |
+| 课程目录提取 | `src/lib/catalog.ts` |
 | AI 查询、聊天、授权、人格、记忆 | `src/lib/ai.ts` |
 | 笔记/AI 页面 | `src/components/notes/`、`src/components/ai/` |
 | 笔记/AI 样式 | `src/styles/notes.css`、`src/styles/ai.css` |
@@ -278,9 +279,38 @@ describePermissions(permissions: AiPermissions): Array<{ key; label; enabled; hi
 ### 3.6 页面与调用方式
 
 - `components/notes/NotesWorkspace.tsx`：笔记列表、章节看板、链接导入、全文搜索。
-- `components/ai/AiWorkspace.tsx`：对话、人格与授权、长期记忆、下一节/今日概览；内部按当前周构建快照并调用 `complete`。
+- `components/ai/AiWorkspace.tsx`：对话、目录提取、人格与授权、长期记忆、下一节/今日概览；内部按当前周构建快照并调用 `complete`。
 - `components/SettingsModal.tsx` 的「笔记与 AI」tab：复用 `AiSettingsPanel`，与工作台共享同一份 `kexu:ai:settings:v1`。
 - 路由：`AppPage` 增加 `notes`、`ai`，由 `App.tsx` 按页面渲染，不新增课表数据耦合。
+
+### 3.7 课程目录提取（F115）
+
+```ts
+interface CatalogCourse {
+  name: string;
+  credits: number | null;
+  prerequisites: string[];
+  semester: number | null;
+  raw: string;
+}
+
+interface CatalogParseResult {
+  courses: CatalogCourse[];
+  skipped: number;
+  total: number;
+}
+
+parseCatalog(text: string): CatalogParseResult
+catalogToMarkdown(courses: CatalogCourse[]): string
+catalogStats(courses: CatalogCourse[]): {
+  total: number; credits: number; withPrerequisites: number;
+}
+```
+
+- 输入是粘贴的纯文本目录：自由行（`高等数学 5 学分 先修：无 第 1 学期`）与 Markdown 表格行都支持。
+- 只采纳能读到课程名、且至少读到学分/先修/开课学期之一的行；表头、说明文字与重复课程计入 `skipped`，不猜测。
+- 界面位于 AI 页「目录提取」tab：解析结果可预览、复制 Markdown、保存为笔记（标签 `课程目录`），不联网、不上传。
+- 解析是纯函数，不依赖 DOM 与存储；保存笔记由组件调用 `notes.ts` 完成。
 
 ## 四、跨泳道约定
 
@@ -307,4 +337,5 @@ pnpm build
 - 链接：URL 提取与非法协议拒绝、CORS 失败降级、Markdown 分享。
 - AI：今日/明日/周几/下周/第 N 周/下一节/剩余/某课/计数意图、跨周边界、课程简称、授权裁剪、设置与聊天容错、OpenAI 兼容请求体与错误分支使用注入的 fake fetch。
 - 记忆：意图提取与疑问句拒绝、去重与截断、增删改清、损坏数据容错、系统提示注入、本地确认与回忆、远程系统提示携带。
+- 目录：自由行与表格行解析、无元数据行跳过、表头与分隔线过滤、去重、Markdown 输出与统计。
 - 所有用例不依赖真实网络与系统时间。

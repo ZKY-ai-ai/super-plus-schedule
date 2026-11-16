@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  BookOpenCheck,
   CalendarClock,
   Heart,
   Layers,
@@ -29,6 +30,7 @@ import { loadNotes } from "../../lib/notes";
 import { formatMonthDay, getWeekNumber, weekdayLabel } from "../../lib/date";
 import { AiChatPanel } from "./AiChatPanel";
 import { AiSettingsPanel } from "./AiSettingsPanel";
+import { CatalogExtractPanel } from "./CatalogExtractPanel";
 import "../../styles/ai.css";
 
 interface AiWorkspaceProps {
@@ -38,7 +40,7 @@ interface AiWorkspaceProps {
   onNotify: (message: string, tone?: "success" | "error") => void;
 }
 
-type AiTab = "chat" | "settings";
+type AiTab = "chat" | "catalog" | "settings";
 
 export function AiWorkspace({ courses, semester, now, onNotify }: AiWorkspaceProps) {
   const [settings, setSettings] = useState<AiSettings>(() => loadAiSettings());
@@ -149,6 +151,16 @@ export function AiWorkspace({ courses, semester, now, onNotify }: AiWorkspacePro
             <button
               type="button"
               role="tab"
+              aria-selected={tab === "catalog"}
+              className={tab === "catalog" ? "is-active" : ""}
+              onClick={() => setTab("catalog")}
+            >
+              <BookOpenCheck size={15} />
+              目录提取
+            </button>
+            <button
+              type="button"
+              role="tab"
               aria-selected={tab === "settings"}
               className={tab === "settings" ? "is-active" : ""}
               onClick={() => setTab("settings")}
@@ -167,6 +179,8 @@ export function AiWorkspace({ courses, semester, now, onNotify }: AiWorkspacePro
               onOpenSettings={() => setTab("settings")}
               onNotify={onNotify}
             />
+          ) : tab === "catalog" ? (
+            <CatalogExtractPanel onNotify={onNotify} />
           ) : (
             <AiSettingsPanel
               settings={settings}
