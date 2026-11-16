@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Compass, GraduationCap, Timer } from "lucide-react";
 import type { Course, Period, ScheduleEvent, Session } from "../../types";
 import type { GapPreferences } from "../../lib/gaps";
@@ -7,6 +6,8 @@ import { SelectionBoard } from "./SelectionBoard";
 import { StudyPanel } from "./StudyPanel";
 
 interface PlanPageProps {
+  tab: PlanTab;
+  onChangeTab: (tab: PlanTab) => void;
   now: Date;
   week: number;
   dates: Date[];
@@ -22,7 +23,7 @@ interface PlanPageProps {
   onAddCourse: () => void;
 }
 
-type PlanTab = "gaps" | "study" | "select";
+export type PlanTab = "gaps" | "study" | "select";
 
 const TABS: Array<{ id: PlanTab; label: string; hint: string; icon: typeof Compass }> = [
   { id: "gaps", label: "空档与规划", hint: "找空档、算步行、定出发", icon: Compass },
@@ -42,11 +43,11 @@ export function PlanPage({
   events,
   preferences,
   onChangePreferences,
+  tab,
+  onChangeTab,
   onSelectCourse,
   onAddCourse,
 }: PlanPageProps) {
-  const [tab, setTab] = useState<PlanTab>("gaps");
-
   return (
     <div className="plan-page">
       <nav className="plan-tabs" role="tablist" aria-label="规划页视图">
@@ -60,7 +61,7 @@ export function PlanPage({
               type="button"
               role="tab"
               aria-selected={active}
-              onClick={() => setTab(item.id)}
+              onClick={() => onChangeTab(item.id)}
             >
               <span className="plan-tab-icon">
                 <Icon size={16} />

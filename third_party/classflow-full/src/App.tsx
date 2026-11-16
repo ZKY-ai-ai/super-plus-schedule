@@ -80,7 +80,8 @@ import { Topbar } from "./components/Topbar";
 import { WallpaperModal } from "./components/WallpaperModal";
 import { WeekHero } from "./components/WeekHero";
 import { WeekPickerModal } from "./components/WeekPickerModal";
-import { PlanPage } from "./components/planner/PlanPage";
+import { CommandPalette, type CommandItem } from "./components/CommandPalette";
+import { PlanPage, type PlanTab } from "./components/planner/PlanPage";
 import { loadGapPreferences, type GapPreferences } from "./lib/gaps";
 
 interface ConfirmState {
@@ -115,6 +116,8 @@ export default function App() {
   );
   const [selectedDay, setSelectedDay] = useState(() => getWeekdayNumber(new Date()));
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [planTab, setPlanTab] = useState<PlanTab>("gaps");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [timetablesOpen, setTimetablesOpen] = useState(false);
   const [wallpaperOpen, setWallpaperOpen] = useState(false);
@@ -672,6 +675,11 @@ export default function App() {
 
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen((current) => !current);
+        return;
+      }
       if (event.key === "Escape" && sidebarOpen) {
         setSidebarOpen(false);
         return;
@@ -706,6 +714,79 @@ export default function App() {
     return () => document.removeEventListener("keydown", handleKeydown);
   }, [sidebarOpen, page, semester.totalWeeks, currentWeek, todayNumber, viewDays, now]);
 
+
+  const paletteCommands: CommandItem[] = [
+    { id: "go-timetable", group: "导航", label: "周课表", run: () => navigate("timetable") },
+    { id: "go-agenda", group: "导航", label: "日程与单日", run: () => navigate("agenda") },
+    {
+      id: "go-gaps",
+      group: "导航",
+      label: "空档与规划",
+      hint: "找空档、算步行",
+      run: () => {
+        setPlanTab("gaps");
+        navigate("plan");
+      },
+    },
+    {
+      id: "go-study",
+      group: "导航",
+      label: "学习与统计",
+      hint: "番茄钟、待办、热力图",
+      run: () => {
+        setPlanTab("study");
+        navigate("plan");
+      },
+    },
+    {
+      id: "go-select",
+      group: "导航",
+      label: "选课规划",
+      hint: "课程池与多方案",
+      run: () => {
+        setPlanTab("select");
+        navigate("plan");
+      },
+    },
+    { id: "go-courses", group: "导航", label: "课程库", run: () => navigate("courses") },
+    { id: "go-profile", group: "导航", label: "我的", run: () => navigate("profile") },
+    {
+      id: "act-new-course",
+      group: "操作",
+      label: "新建课程",
+      shortcut: "N",
+      run: () => openEditor(),
+    },
+    {
+      id: "act-new-event",
+      group: "操作",
+      label: "添加日程",
+      shortcut: "E",
+      run: () => openEventEditor({ date: dateKey(viewDates[selectedDay - 1] ?? now) }),
+    },
+    {
+      id: "act-today",
+      group: "操作",
+      label: "回到今天",
+      shortcut: "T",
+      run: () => {
+        setWeek(currentWeek);
+        setSelectedDay(viewDays.includes(todayNumber) ? todayNumber : viewDays[0] ?? 1);
+        navigate("timetable");
+      },
+    },
+    { id: "act-theme", group: "操作", label: "切换主题", run: toggleTheme },
+    { id: "act-settings", group: "操作", label: "打开设置", run: () => setSettingsOpen(true) },
+    { id: "act-timetables", group: "操作", label: "管理课表", run: () => setTimetablesOpen(true) },
+    { id: "act-print", group: "操作", label: "打印课表", run: printTimetable },
+    ...courses.map((course) => ({
+      id: `course-${course.id}`,
+      group: "课程",
+      label: course.name,
+      hint: [course.teacher, course.location].filter(Boolean).join(" · "),
+      run: () => openCourseDetail(course),
+    })),
+  ];
 
   return (
     <div className="app-shell">
@@ -758,6 +839,7 @@ export default function App() {
           onManageTimetables={() => setTimetablesOpen(true)}
           onOpenWeekPicker={() => setWeekPickerOpen(true)}
           onToggleTheme={toggleTheme}
+          onOpenPalette={() => setPaletteOpen(true)}
         />
 
         <main className="main">
@@ -867,6 +949,8 @@ export default function App() {
             />
           ) : page === "plan" ? (
             <PlanPage
+              tab={planTab}
+              onChangeTab={setPlanTab}
               now={now}
               week={week}
               dates={viewDates}
@@ -1021,6 +1105,12 @@ export default function App() {
       ) : null}
 
       <Toast toast={toast} onClose={closeToast} />
+
+      <CommandPalette
+        open={paletteOpen}
+        commands={paletteCommands}
+        onClose={() => setPaletteOpen(false)}
+      />
 
       {page === "timetable" ? <DesktopPet /> : null}
 
