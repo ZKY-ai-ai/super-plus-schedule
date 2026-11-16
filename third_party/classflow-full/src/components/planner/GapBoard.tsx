@@ -300,8 +300,12 @@ export function GapBoard({
               <div className="planner-empty">
                 <Footprints size={20} />
                 <div>
-                  <strong>课程首尾相接</strong>
-                  <span>没有完整空档，课间记得起身活动一下。</span>
+                  <strong>{daySessions.length <= 1 ? "没有课间空档" : "课程首尾相接"}</strong>
+                  <span>
+                    {daySessions.length <= 1
+                      ? "这一天只有一节课，不用赶场。"
+                      : "没有完整空档，课间记得起身活动一下。"}
+                  </span>
                 </div>
               </div>
             ) : (
@@ -461,7 +465,7 @@ export function GapBoard({
                 <strong>{Math.round(availability.emptyRate * 100)}%</strong>
                 <span>空座率</span>
               </div>
-              <p>按第 {selectedDay} 天当前周课表推算，未录入地点的课程不会占用教室。</p>
+              <p>按当前周课表推算，未录入地点的课程不会占用教室。</p>
             </div>
 
             {roomFormOpen ? (

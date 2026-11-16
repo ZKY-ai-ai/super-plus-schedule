@@ -46,6 +46,7 @@ export function WeeklyShareCard({
   const [code, setCode] = useState("");
   const [importText, setImportText] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const start = weekDates[0]
     ? new Date(weekDates[0].getFullYear(), weekDates[0].getMonth(), weekDates[0].getDate())
@@ -234,17 +235,25 @@ export function WeeklyShareCard({
                 const mine = item.id === ownShare?.id;
                 return (
                   <li key={item.id} className={mine ? "is-me" : ""}>
-                    <span className="share-rank-index">{index + 1}</span>
-                    <div className="share-rank-copy">
-                      <strong>
-                        {item.name}
-                        {mine ? <em>我</em> : null}
-                      </strong>
-                      <span>
-                        第 {item.week} 周 · 自习 {formatDuration(item.studyMinutes)} · 待办 {item.tasksDone}
-                      </span>
-                    </div>
-                    <span className="share-rank-score">{shareScore(item)}</span>
+                    <button
+                      className="share-rank-open"
+                      type="button"
+                      onClick={() => setDetailId(detailId === item.id ? null : item.id)}
+                      aria-expanded={detailId === item.id}
+                      aria-label={`查看 ${item.name} 的第 ${item.week} 周周报`}
+                    >
+                      <span className="share-rank-index">{index + 1}</span>
+                      <div className="share-rank-copy">
+                        <strong>
+                          {item.name}
+                          {mine ? <em>我</em> : null}
+                        </strong>
+                        <span>
+                          第 {item.week} 周 · 自习 {formatDuration(item.studyMinutes)} · 待办 {item.tasksDone}
+                        </span>
+                      </div>
+                      <span className="share-rank-score">{shareScore(item)}</span>
+                    </button>
                     {mine ? null : (
                       <button
                         className="task-delete"
@@ -255,6 +264,43 @@ export function WeeklyShareCard({
                         <Trash2 size={12} />
                       </button>
                     )}
+                    {detailId === item.id ? (
+                      <div className="share-detail">
+                        <div>
+                          <span>学期</span>
+                          <strong>{item.term || "未填写"}</strong>
+                        </div>
+                        <div>
+                          <span>课时</span>
+                          <strong>{formatDuration(item.classMinutes)}</strong>
+                        </div>
+                        <div>
+                          <span>自习</span>
+                          <strong>{formatDuration(item.studyMinutes)}</strong>
+                        </div>
+                        <div>
+                          <span>完成待办</span>
+                          <strong>{item.tasksDone} 项</strong>
+                        </div>
+                        <div>
+                          <span>课程数</span>
+                          <strong>{item.courseCount} 门</strong>
+                        </div>
+                        <div>
+                          <span>专注分</span>
+                          <strong>{shareScore(item)}</strong>
+                        </div>
+                        <p>
+                          第 {item.week} 周周报 · 生成于{" "}
+                          {new Date(item.createdAt).toLocaleString("zh-CN", {
+                            month: "numeric",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                    ) : null}
                   </li>
                 );
               })}

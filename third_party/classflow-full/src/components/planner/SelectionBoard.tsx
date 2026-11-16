@@ -449,7 +449,7 @@ export function SelectionBoard({ courses }: SelectionBoardProps) {
                 />
               </label>
               <button className="primary-button" type="submit" disabled={!draft.name.trim()}>
-                加入课程池
+                添加并选入方案
               </button>
             </form>
           ) : null}

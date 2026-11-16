@@ -190,12 +190,30 @@
 
 .share-rank-list li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 7px 9px;
   border: 1px solid var(--line);
   border-radius: 9px;
   background: var(--surface);
+}
+
+.share-rank-open {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.share-rank-open:hover .share-rank-copy strong {
+  color: var(--coral);
 }
 
 .share-rank-list li.is-me {
@@ -270,6 +288,45 @@
 
 .share-rank-list .task-delete {
   flex: none;
+}
+
+.share-detail {
+  display: grid;
+  flex-basis: 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.share-detail > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.share-detail span {
+  color: var(--muted);
+  font-size: 8.5px;
+}
+
+.share-detail strong {
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.share-detail p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 8.5px;
 }
 
 @media (max-width: 760px) {
