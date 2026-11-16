@@ -82,6 +82,8 @@ import { WeekHero } from "./components/WeekHero";
 import { WeekPickerModal } from "./components/WeekPickerModal";
 import { CommandPalette, type CommandItem } from "./components/CommandPalette";
 import { PlanPage, type PlanTab } from "./components/planner/PlanPage";
+import { NotesWorkspace } from "./components/notes/NotesWorkspace";
+import { AiWorkspace } from "./components/ai/AiWorkspace";
 import { loadGapPreferences, type GapPreferences } from "./lib/gaps";
 
 interface ConfirmState {
@@ -187,6 +189,10 @@ export default function App() {
   const viewSemester = useMemo(
     () => ({ ...semester, periods: viewPeriods }),
     [semester, viewPeriods],
+  );
+  const currentSemester = useMemo(
+    () => ({ ...semester, periods: currentPeriods }),
+    [semester, currentPeriods],
   );
   const viewStats = useMemo(
     () => getWeekStats(viewSessions, viewPeriods),
@@ -748,6 +754,20 @@ export default function App() {
         navigate("plan");
       },
     },
+    {
+      id: "go-notes",
+      group: "导航",
+      label: "笔记与看板",
+      hint: "笔记、章节、链接导入",
+      run: () => navigate("notes"),
+    },
+    {
+      id: "go-ai",
+      group: "导航",
+      label: "AI 助手",
+      hint: "对话、查课、授权",
+      run: () => navigate("ai"),
+    },
     { id: "go-courses", group: "导航", label: "课程库", run: () => navigate("courses") },
     { id: "go-profile", group: "导航", label: "我的", run: () => navigate("profile") },
     {
@@ -953,6 +973,7 @@ export default function App() {
               onChangeTab={setPlanTab}
               now={now}
               week={week}
+              term={semester.name}
               dates={viewDates}
               periods={viewPeriods}
               sessions={viewSessions}
@@ -964,6 +985,15 @@ export default function App() {
               onChangePreferences={setGapPrefs}
               onSelectCourse={openCourseDetail}
               onAddCourse={() => openEditor()}
+            />
+          ) : page === "notes" ? (
+            <NotesWorkspace courses={courses} onNotify={notify} />
+          ) : page === "ai" ? (
+            <AiWorkspace
+              courses={courses}
+              semester={currentSemester}
+              now={now}
+              onNotify={notify}
             />
           ) : page === "profile" ? (
             <ProfilePage

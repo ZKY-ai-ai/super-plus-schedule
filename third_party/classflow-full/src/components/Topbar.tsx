@@ -19,6 +19,16 @@ interface TopbarProps {
   onOpenPalette: () => void;
 }
 
+const PAGE_LABELS: Record<AppPage, string> = {
+  timetable: "周课表",
+  agenda: "日程与单日",
+  plan: "空档与规划",
+  notes: "笔记与看板",
+  ai: "AI 助手",
+  courses: "课程库",
+  profile: "我的",
+};
+
 export function Topbar({
   page,
   timetableName,
@@ -57,17 +67,7 @@ export function Topbar({
           {timetableName}
         </button>
         <span className="breadcrumb-slash">/</span>
-        <span>
-          {page === "timetable"
-            ? "周课表"
-            : page === "agenda"
-              ? "日程与单日"
-              : page === "plan"
-                ? "空档与规划"
-                : page === "profile"
-                  ? "我的"
-                  : "课程库"}
-        </span>
+        <span>{PAGE_LABELS[page]}</span>
         {page === "agenda" ? (
           <button
             className="breadcrumb-week"
