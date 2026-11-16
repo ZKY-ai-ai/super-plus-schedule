@@ -30,7 +30,9 @@
 
 1. 从 `main` 切出功能分支，命名 `feat/<内容>` 或 `fix/<内容>`。
 2. 提交信息用动词开头说清改动，一个提交只做一件事。
-3. 发起 PR，由另一位协作者审核后合入 `main`。
+3. 发起 PR，由另一位协作者批准后合入 `main`，作者不给自己批准。PR 描述模板见 [.github/pull_request_template.md](.github/pull_request_template.md)。
+
+`main` 目前**没有技术层面的分支保护**：GitHub 免费版的私有仓库不开放 protected branches 和 rulesets，直推 `main` 拦不住，只能靠上面的约定。真出问题用 `git revert` 回滚，不要 `--force` 改写已推送的历史。日后升级 GitHub Pro 或转为公开仓库，再补上强制保护。
 
 ## 许可
 
