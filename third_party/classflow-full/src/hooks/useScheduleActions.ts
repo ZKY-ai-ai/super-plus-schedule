@@ -185,6 +185,46 @@ export function useScheduleActions({
       return true;
     });
 
+  const moveCourseSlot = (
+    courseId: string,
+    slotId: string,
+    day: number,
+    start: number,
+  ): ImportResult => {
+    const course = courses.find((item) => item.id === courseId);
+    const slot = course?.slots.find((item) => item.id === slotId);
+    if (!course || !slot) return { ok: false, message: "没有找到这个时间段。" };
+    const duration = slot.end - slot.start;
+    const maxPeriod = Math.max(1, store.semester.periods.length);
+    const nextStart = Math.min(Math.max(start, 1), Math.max(1, maxPeriod - duration));
+    const nextDay = Math.min(Math.max(day, 1), 7);
+    if (nextDay === slot.day && nextStart === slot.start) {
+      return { ok: false, message: "位置没有变化。" };
+    }
+    updateActiveTimetable((current) => ({
+      ...current,
+      courses: current.courses.map((item) =>
+        item.id !== courseId
+          ? item
+          : {
+              ...item,
+              updatedAt: new Date().toISOString(),
+              slots: item.slots.map((entry) =>
+                entry.id === slotId
+                  ? { ...entry, day: nextDay, start: nextStart, end: nextStart + duration }
+                  : entry,
+              ),
+            },
+      ),
+    }));
+    notify(
+      `已把「${course.name}」移到周${"一二三四五六日"[nextDay - 1]}第 ${nextStart}${
+        duration > 0 ? `–${nextStart + duration}` : ""
+      } 节。`,
+    );
+    return { ok: true, message: "" };
+  };
+
   const saveEvent = (event: ScheduleEvent) => {
     const editing = store.events.some((item) => item.id === event.id);
     updateActiveTimetable((current) => {
@@ -694,6 +734,7 @@ export function useScheduleActions({
   return {
     saveCourse,
     addTextCourses,
+    moveCourseSlot,
     requestDeleteCourse,
     saveEvent,
     requestDeleteEvent,

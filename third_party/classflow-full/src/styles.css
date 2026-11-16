@@ -1543,6 +1543,7 @@ html[data-theme="whale"] .view-switch button.is-active {
 .course-block {
   position: absolute;
   z-index: 3;
+  cursor: grab;
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -1593,6 +1594,24 @@ html[data-theme="whale"] .course-block {
 .course-block.is-conflict .course-block-meta,
 .course-block.is-conflict .course-block-foot {
   display: none;
+}
+
+body.is-dragging-course {
+  cursor: grabbing;
+  user-select: none;
+}
+
+body.is-dragging-course .course-block {
+  cursor: grabbing;
+}
+
+body.is-dragging-course .tt-slot {
+  transition: background 120ms ease;
+}
+
+body.is-dragging-course .tt-slot:hover {
+  background: color-mix(in srgb, var(--tone, var(--ink)) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 12%, transparent);
 }
 
 .conflict-mark {

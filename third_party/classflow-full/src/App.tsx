@@ -452,6 +452,7 @@ export default function App() {
                       now={now}
                       onSelectCourse={openCourseDetail}
                       onSessionMenu={(session) => setSessionMenu({ session, week: view.week })}
+                      onMoveSlot={actions.moveCourseSlot}
                       onPrevWeek={() => view.goToWeek(view.week - 1)}
                       onNextWeek={() => view.goToWeek(view.week + 1)}
                       onAddAt={(day, start) => openEditor({ prefill: { day, start } })}

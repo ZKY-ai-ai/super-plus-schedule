@@ -24,6 +24,7 @@ interface TimetableProps {
   now: Date;
   onSelectCourse: (course: Course) => void;
   onSessionMenu: (session: Session) => void;
+  onMoveSlot: (courseId: string, slotId: string, day: number, start: number) => void;
   onPrevWeek: () => void;
   onNextWeek: () => void;
   onAddAt: (day: number, start: number) => void;
@@ -58,6 +59,7 @@ export function Timetable({
   now,
   onSelectCourse,
   onSessionMenu,
+  onMoveSlot,
   onPrevWeek,
   onNextWeek,
   onAddAt,
@@ -123,6 +125,39 @@ export function Timetable({
     event.preventDefault();
     event.stopPropagation();
     suppressClick.current = false;
+  };
+
+  const beginDrag = (event: React.PointerEvent, session: Session) => {
+    if (event.pointerType !== "mouse" || event.button !== 0) return;
+    if ((event.target as HTMLElement).closest("button")) return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let moved = false;
+    const onMove = (moveEvent: PointerEvent) => {
+      if (!moved && Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) > 6) {
+        moved = true;
+        document.body.classList.add("is-dragging-course");
+      }
+    };
+    const onUp = (upEvent: PointerEvent) => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      document.body.classList.remove("is-dragging-course");
+      if (!moved) return;
+      const target = document
+        .elementFromPoint(upEvent.clientX, upEvent.clientY)
+        ?.closest<HTMLElement>(".tt-slot");
+      const day = Number(target?.dataset.day);
+      const period = Number(target?.dataset.period);
+      suppressClick.current = true;
+      window.setTimeout(() => {
+        suppressClick.current = false;
+      }, 300);
+      if (!target || !day || !period) return;
+      onMoveSlot(session.course.id, session.slot.id, day, period);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   };
 
   if (courses.length === 0) {
@@ -216,6 +251,8 @@ export function Timetable({
                     className="tt-slot"
                     type="button"
                     key={period.index}
+                    data-day={day}
+                    data-period={period.index}
                     onClick={() => onAddAt(day, period.index)}
                     disabled={holiday}
                     aria-label={
@@ -252,6 +289,7 @@ export function Timetable({
                       style={courseBlockStyle(session)}
                       key={session.id}
                       onClick={() => onSelectCourse(session.course)}
+                      onPointerDown={(event) => beginDrag(event, session)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
@@ -264,7 +302,7 @@ export function Timetable({
                       }}
                       title={`${courseDisplayName(session.course, showAliases)}｜${
                         session.course.location || "未填地点"
-                      }｜右键调整这一次课`}
+                      }｜拖动换时间，右键调整这一次课`}
                     >
                       <span className="course-block-top">
                         <span className="course-block-name">
