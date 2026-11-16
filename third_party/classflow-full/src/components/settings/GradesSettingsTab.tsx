@@ -2,12 +2,15 @@ import { useMemo, useState } from "react";
 import { CalendarClock, GraduationCap, Plus, Trash2 } from "lucide-react";
 import type { Course } from "../../types";
 import {
+  COURSE_STATUSES,
   formatScore,
   isFailed,
   loadGrades,
   loadGradeSettings,
   saveGrades,
   saveGradeSettings,
+  semesterStats,
+  type CourseStatus,
   type GradeRecord,
   type GradeSettings,
 } from "../../lib/grades";
@@ -60,6 +63,7 @@ export function GradesSettingsTab({ timetableId, courses }: GradesSettingsTabPro
   );
   const entered = records.filter((record) => record.score !== null).length;
   const failed = records.filter((record) => isFailed(record)).length;
+  const stats = semesterStats(records);
 
   const now = new Date();
   const sortedExams = sortExams(exams);
@@ -86,23 +90,58 @@ export function GradesSettingsTab({ timetableId, courses }: GradesSettingsTabPro
     }
   };
 
+  const updateRecord = (courseId: string, patch: Partial<GradeRecord>) => {
+    const existing = records.find((record) => record.courseId === courseId);
+    const base: GradeRecord = existing ?? {
+      courseId,
+      score: null,
+      credits: null,
+      status: "normal",
+      updatedAt: new Date().toISOString(),
+    };
+    const next: GradeRecord = { ...base, ...patch, updatedAt: new Date().toISOString() };
+    const rest = records.filter((record) => record.courseId !== courseId);
+    if (next.score === null && next.credits === null && next.status === "normal") {
+      persist(rest);
+    } else {
+      persist([...rest, next]);
+    }
+  };
+
   const updateScore = (courseId: string, raw: string) => {
     const trimmed = raw.trim();
     if (!trimmed) {
-      persist(records.filter((record) => record.courseId !== courseId));
+      updateRecord(courseId, { score: null });
       return;
     }
     const parsed = Number(trimmed);
     if (!Number.isFinite(parsed)) return;
     const score = Math.min(100, Math.max(0, Math.round(parsed * 10) / 10));
-    const next: GradeRecord = { courseId, score, updatedAt: new Date().toISOString() };
-    persist([...records.filter((record) => record.courseId !== courseId), next]);
+    updateRecord(courseId, { score });
+  };
+
+  const updateCredits = (courseId: string, raw: string) => {
+    const trimmed = raw.trim();
+    const parsed = Number(trimmed);
+    if (!trimmed || !Number.isFinite(parsed) || parsed <= 0) {
+      updateRecord(courseId, { credits: null });
+      return;
+    }
+    updateRecord(courseId, { credits: Math.min(30, Math.round(parsed * 10) / 10) });
+  };
+
+  const updateStatus = (courseId: string, status: CourseStatus) => {
+    updateRecord(courseId, { status });
+  };
+
+  const updateSettings = (patch: Partial<GradeSettings>) => {
+    const next = { ...settings, ...patch };
+    setSettings(next);
+    saveGradeSettings(next);
   };
 
   const togglePrivacy = (hideScores: boolean) => {
-    const next = { hideScores };
-    setSettings(next);
-    saveGradeSettings(next);
+    updateSettings({ hideScores });
   };
 
   const addExam = () => {
@@ -346,6 +385,49 @@ export function GradesSettingsTab({ timetableId, courses }: GradesSettingsTabPro
         </div>
       ) : (
         <>
+          <div className="grade-stats">
+            <div className="grade-stat">
+              <span>加权平均</span>
+              <strong>{settings.hideScores ? "••" : (stats.weightedAverage ?? "—")}</strong>
+            </div>
+            <div className="grade-stat">
+              <span>绩点</span>
+              <strong>{settings.hideScores ? "••" : (stats.gpa ?? "—")}</strong>
+            </div>
+            <div className="grade-stat">
+              <span>已获学分</span>
+              <strong>
+                {settings.hideScores ? "••" : stats.earnedCredits}
+                {settings.hideScores ? "" : stats.creditTotal > 0 ? ` / ${stats.creditTotal}` : ""}
+              </strong>
+            </div>
+          </div>
+
+          <label className="field grade-required">
+            <span className="field-label">毕业要求学分</span>
+            <input
+              className="field-input"
+              type="number"
+              min={0}
+              max={400}
+              step={1}
+              value={settings.requiredCredits || ""}
+              onChange={(event) => {
+                const parsed = Number(event.target.value);
+                updateSettings({
+                  requiredCredits:
+                    Number.isFinite(parsed) && parsed > 0 ? Math.min(400, Math.round(parsed)) : 0,
+                });
+              }}
+              placeholder="未设置"
+            />
+            {settings.requiredCredits > 0 ? (
+              <small className="field-hint">
+                学分进度 {Math.min(100, Math.round((stats.earnedCredits / settings.requiredCredits) * 100))}%
+              </small>
+            ) : null}
+          </label>
+
           <div className="grade-summary">
             <span>
               已录入 <strong>{settings.hideScores ? "••" : entered}</strong> 门
@@ -371,6 +453,31 @@ export function GradesSettingsTab({ timetableId, courses }: GradesSettingsTabPro
                       {course.teacher || "未填教师"} · {course.slots.length} 个时段
                     </small>
                   </span>
+                  <select
+                    className="field-input grade-status"
+                    value={record?.status ?? "normal"}
+                    onChange={(event) =>
+                      updateStatus(course.id, event.target.value as CourseStatus)
+                    }
+                    aria-label={`${course.name}的修读状态`}
+                  >
+                    {COURSE_STATUSES.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="field-input grade-credits"
+                    type="number"
+                    min={0}
+                    max={30}
+                    step={0.5}
+                    value={record?.credits ?? ""}
+                    onChange={(event) => updateCredits(course.id, event.target.value)}
+                    placeholder="学分"
+                    aria-label={`${course.name}的学分`}
+                  />
                   {settings.hideScores ? (
                     <span className="grade-score-masked">{formatScore(record, true)}</span>
                   ) : (
@@ -391,7 +498,7 @@ export function GradesSettingsTab({ timetableId, courses }: GradesSettingsTabPro
               );
             })}
           </div>
-          <p className="settings-note">清空分数即可移除记录；分数范围 0–100，支持一位小数。</p>
+          <p className="settings-note">清空分数即可移除记录；学分用于计算加权平均与绩点。</p>
         </>
       )}
     </section>

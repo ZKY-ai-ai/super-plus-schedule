@@ -9733,3 +9733,47 @@ html[data-theme="whale"] .week-pick.is-selected span {
   font-size: 9px;
   cursor: pointer;
 }
+
+/* ---- Grade stats, credits and course status (乙) ---- */
+.grade-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.grade-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.grade-stat span {
+  color: var(--faint);
+  font-size: 8px;
+}
+
+.grade-stat strong {
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.grade-required {
+  margin-top: 10px;
+}
+
+.grade-status {
+  width: 78px;
+  flex: 0 0 auto;
+}
+
+.grade-credits {
+  width: 56px;
+  flex: 0 0 auto;
+  text-align: right;
+}
