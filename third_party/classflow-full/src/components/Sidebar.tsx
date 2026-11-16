@@ -1,6 +1,7 @@
 import {
   BookOpen,
   CalendarDays,
+  Compass,
   Layers,
   LayoutGrid,
   Moon,
@@ -117,6 +118,15 @@ export function Sidebar({
           <CalendarDays size={17} strokeWidth={1.8} />
           <span>日程与单日</span>
           <span className="nav-count">{agendaCount}</span>
+        </button>
+        <button
+          className={`nav-item ${page === "plan" ? "is-active" : ""}`}
+          type="button"
+          onClick={() => onNavigate("plan")}
+          aria-current={page === "plan" ? "page" : undefined}
+        >
+          <Compass size={17} strokeWidth={1.8} />
+          <span>空档与规划</span>
         </button>
         <button
           className={`nav-item ${page === "profile" ? "is-active" : ""}`}

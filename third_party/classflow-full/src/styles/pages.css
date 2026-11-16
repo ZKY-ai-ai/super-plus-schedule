@@ -761,7 +761,7 @@
     z-index: 32;
     display: grid;
     height: calc(58px + env(safe-area-inset-bottom));
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
     border-top: 1px solid color-mix(in srgb, var(--line) 84%, transparent);
     background: color-mix(in srgb, var(--surface) 92%, transparent);

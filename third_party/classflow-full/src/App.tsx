@@ -80,6 +80,8 @@ import { Topbar } from "./components/Topbar";
 import { WallpaperModal } from "./components/WallpaperModal";
 import { WeekHero } from "./components/WeekHero";
 import { WeekPickerModal } from "./components/WeekPickerModal";
+import { GapBoard } from "./components/planner/GapBoard";
+import { loadGapPreferences, type GapPreferences } from "./lib/gaps";
 
 interface ConfirmState {
   title: string;
@@ -123,6 +125,7 @@ export default function App() {
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [storageOk, setStorageOk] = useState(true);
+  const [gapPrefs, setGapPrefs] = useState<GapPreferences>(() => loadGapPreferences());
   const toastId = useRef(0);
   const confirmResolve = useRef<((value: boolean) => void) | null>(null);
 
@@ -861,6 +864,18 @@ export default function App() {
               onAddAt={(day, start) => openEditor({ prefill: { day, start } })}
               onAddEventAt={(date) => openEventEditor({ date: date || dateKey(now) })}
               onSelectEvent={(event) => openEventEditor({ event })}
+            />
+          ) : page === "plan" ? (
+            <GapBoard
+              now={now}
+              week={week}
+              dates={viewDates}
+              periods={viewPeriods}
+              sessions={viewSessions}
+              onSelectCourse={openCourseDetail}
+              onAddCourse={() => openEditor()}
+              preferences={gapPrefs}
+              onChangePreferences={setGapPrefs}
             />
           ) : page === "profile" ? (
             <ProfilePage
