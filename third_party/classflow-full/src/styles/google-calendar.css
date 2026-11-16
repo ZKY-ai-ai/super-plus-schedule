@@ -1,0 +1,208 @@
+.google-calendar-pane .inline-notice {
+  margin: 0 0 14px;
+}
+
+.google-calendar-redirect {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 16px;
+}
+
+.google-calendar-redirect code {
+  display: block;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.google-calendar-status {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.google-calendar-status-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 12.5px;
+}
+
+.google-calendar-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--faint);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--faint) 18%, transparent);
+}
+
+.google-calendar-dot.is-on {
+  background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 18%, transparent);
+}
+
+.google-calendar-busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.google-calendar-spin {
+  animation: google-calendar-spin 1s linear infinite;
+}
+
+@keyframes google-calendar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .google-calendar-spin {
+    animation: none;
+  }
+}
+
+.google-calendar-meta {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.google-calendar-meta > div {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.google-calendar-meta dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.google-calendar-meta dd {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.google-calendar-meta code {
+  background: transparent;
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+
+.google-calendar-status-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+
+.google-calendar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.google-calendar-progress {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.google-calendar-progress-head {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.google-calendar-progress progress {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--forest);
+}
+
+.google-calendar-result {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.google-calendar-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.google-calendar-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.google-calendar-stat strong {
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.google-calendar-stat.is-ok strong {
+  color: var(--success);
+}
+
+.google-calendar-stat.is-bad strong {
+  color: var(--danger);
+}
+
+.google-calendar-failures {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 10px 0 0;
+  border-top: 1px dashed var(--line);
+  list-style: none;
+}
+
+.google-calendar-failures li {
+  display: grid;
+  gap: 2px;
+  color: var(--ink-2);
+  font-size: 11px;
+}
+
+.google-calendar-failures small {
+  color: var(--danger);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.google-calendar-failures .google-calendar-more {
+  color: var(--muted);
+}
