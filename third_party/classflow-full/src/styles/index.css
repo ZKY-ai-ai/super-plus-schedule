@@ -1,0 +1,17 @@
+/*
+ * 课序样式入口。
+ * 顺序与拆分前的 styles.css 完全一致，避免层叠结果发生变化。
+ */
+@import "./tokens.css";
+@import "./base.css";
+@import "./shell.css";
+@import "./timetable.css";
+@import "./day-rail.css";
+@import "./courses.css";
+@import "./modals.css";
+@import "./settings.css";
+@import "./chrome.css";
+@import "./responsive.css";
+@import "./timetable-v2.css";
+@import "./print.css";
+@import "./pages.css";

@@ -1,0 +1,321 @@
+/* --------------------------------------------------------------------------
+   Course library
+   -------------------------------------------------------------------------- */
+
+.library-page {
+  padding-top: 42px;
+  animation: fade-up 420ms both;
+}
+
+.library-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 25px;
+}
+
+.library-head h1 {
+  margin-top: 5px;
+  font-family: var(--display);
+  font-size: clamp(44px, 4.7vw, 60px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.library-head p:not(.eyebrow) {
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.library-head .primary-button {
+  margin-bottom: 4px;
+}
+
+.library-summary {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 15px 19px;
+  margin-top: 27px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.library-summary > div {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.library-summary strong {
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.library-summary span {
+  color: var(--muted);
+  font-size: 8.5px;
+}
+
+.library-summary > p {
+  margin-left: auto;
+  color: var(--faint);
+  font-size: 8.5px;
+}
+
+.library-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 22px 0 17px;
+}
+
+.search-field {
+  display: flex;
+  width: min(390px, 100%);
+  height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 11px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.search-field:focus-within {
+  border-color: color-mix(in srgb, var(--coral) 45%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--coral) 7%, transparent);
+}
+
+.search-field input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 10.5px;
+}
+
+.search-field input::placeholder {
+  color: var(--faint);
+}
+
+.search-field button {
+  color: var(--coral);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.library-result {
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 8px;
+}
+
+.course-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(285px, 1fr));
+  gap: 14px;
+}
+
+.course-card {
+  position: relative;
+  display: flex;
+  min-height: 208px;
+  flex-direction: column;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.course-card:hover {
+  border-color: color-mix(in srgb, var(--tone) 30%, var(--line));
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.course-card-accent {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: var(--tone);
+  opacity: 0.82;
+}
+
+.course-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.course-card-count {
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 7.5px;
+  letter-spacing: 0.02em;
+}
+
+.course-card-edit {
+  width: 27px;
+  height: 27px;
+  color: var(--faint);
+  border-radius: 6px;
+}
+
+.course-card-edit:hover {
+  color: var(--coral);
+  background: var(--surface-2);
+}
+
+.course-card-title {
+  display: block;
+  margin-top: 11px;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.course-card-title:hover {
+  color: var(--coral);
+}
+
+.course-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  min-height: 17px;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 8.5px;
+}
+
+.course-card-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.course-card-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 11px;
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.course-card-slots li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  color: var(--ink-2);
+  font-size: 8.5px;
+}
+
+.course-card-slots li > span {
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.course-card-slots em {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 7.5px;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.course-card-slots small {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 7.5px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.course-card-more {
+  margin-top: 4px;
+  color: var(--faint);
+  font-size: 8px;
+}
+
+.library-empty {
+  display: flex;
+  min-height: 350px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: 18px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 65%, transparent);
+  text-align: center;
+}
+
+.library-empty-mark {
+  display: grid;
+  width: 50px;
+  height: 50px;
+  margin-bottom: 14px;
+  place-items: center;
+  color: var(--coral);
+  border: 1px solid color-mix(in srgb, var(--coral) 26%, var(--line));
+  border-radius: 50%;
+  font-family: var(--display);
+  font-size: 21px;
+}
+
+.library-empty h2 {
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 500;
+}
+
+.library-empty p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.library-empty > .primary-button,
+.library-empty > .secondary-button {
+  margin-top: 18px;
+}
+
+.library-empty--search > svg {
+  margin-bottom: 12px;
+  color: var(--faint);
+}
+
