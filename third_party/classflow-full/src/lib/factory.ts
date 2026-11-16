@@ -259,6 +259,10 @@ export function createBlankSchedule(now = new Date()): ScheduleData {
   return createInitialData(now);
 }
 
+export function getActiveTimetable(data: ScheduleData): Timetable {
+  return data.timetables.find((item) => item.id === data.activeTimetableId) ?? data.timetables[0];
+}
+
 export function cloneTimetable(source: Timetable, name: string): Timetable {
   const timestamp = new Date().toISOString();
   return {

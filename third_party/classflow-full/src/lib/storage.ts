@@ -422,6 +422,8 @@ export function loadPreferences(): Preferences {
         : "light",
     view: "week",
     autoHolidays: true,
+    layout: "grid",
+    showAliases: false,
   };
   try {
     const raw = localStorage.getItem(PREFS_KEY);
@@ -444,6 +446,8 @@ export function loadPreferences(): Preferences {
               : fallback.theme,
       view: viewMigrated ? storedView : "week",
       autoHolidays: bool(parsed.autoHolidays, true),
+      layout: parsed.layout === "list" ? "list" : "grid",
+      showAliases: bool(parsed.showAliases, false),
     };
   } catch {
     return fallback;

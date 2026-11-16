@@ -38,6 +38,8 @@ export interface CourseSlot {
 export interface Course {
   id: string;
   name: string;
+  /** Short display name used when the alias switch is on. */
+  alias?: string;
   teacher: string;
   location: string;
   tone: ToneId;
@@ -136,12 +138,15 @@ export interface LaidOutSession extends Session {
 
 export type Theme = "light" | "dark" | "whale";
 export type ViewMode = "week" | "day";
+export type TimetableLayout = "grid" | "list";
 export type AppPage = "timetable" | "agenda" | "courses" | "profile";
 
 export interface Preferences {
   theme: Theme;
   view: ViewMode;
   autoHolidays: boolean;
+  layout: TimetableLayout;
+  showAliases: boolean;
 }
 
 export interface NextSession {
@@ -161,4 +166,22 @@ export interface WeekStats {
 export interface ImportResult {
   ok: boolean;
   message: string;
+}
+
+/** A parsed import waiting for the user to confirm or resume later. */
+export interface ImportDraft {
+  id: string;
+  fileName: string;
+  createdAt: string;
+  data: ScheduleData;
+  message: string;
+}
+
+/** A user-saved course set that can be applied to any timetable. */
+export interface CourseTemplate {
+  id: string;
+  name: string;
+  createdAt: string;
+  courses: Course[];
+  totalWeeks: number;
 }
