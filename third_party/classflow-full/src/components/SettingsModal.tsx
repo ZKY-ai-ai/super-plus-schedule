@@ -69,6 +69,7 @@ interface SettingsModalProps {
   onSaveTemplate: (name: string) => ImportResult;
   onApplyTemplate: (template: CourseTemplate) => ImportResult;
   onDeleteTemplate: (id: string) => void;
+  importDraftRevision: number;
   onPrint: () => void;
   onClearData: () => void;
   onToggleAutoHolidays: (value: boolean) => void;
@@ -136,6 +137,7 @@ export function SettingsModal({
   onSaveTemplate,
   onApplyTemplate,
   onDeleteTemplate,
+  importDraftRevision,
   onPrint,
   onClearData,
   onToggleAutoHolidays,
@@ -801,6 +803,7 @@ export function SettingsModal({
             {tab === "data" ? (
               <DataSettingsTab
                 activeTimetableName={active.name}
+                draftRevision={importDraftRevision}
                 onExportJson={onExportJson}
                 onExportIcs={onExportIcs}
                 onImportFile={onImportFile}

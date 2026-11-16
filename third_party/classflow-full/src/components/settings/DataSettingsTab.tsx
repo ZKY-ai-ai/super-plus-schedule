@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CalendarRange,
   Database,
@@ -15,6 +15,7 @@ import { loadImportDraft, loadTemplates, MAX_TEMPLATES } from "../../lib/storage
 
 interface DataSettingsTabProps {
   activeTimetableName: string;
+  draftRevision: number;
   onExportJson: () => Promise<ExportResult>;
   onExportIcs: () => Promise<ExportResult & { count: number }>;
   onImportFile: (file: File) => Promise<ImportResult>;
@@ -51,6 +52,7 @@ function formatDraftTime(value: string): string {
 
 export function DataSettingsTab({
   activeTimetableName,
+  draftRevision,
   onExportJson,
   onExportIcs,
   onImportFile,
@@ -68,6 +70,10 @@ export function DataSettingsTab({
   const [templateName, setTemplateName] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const native = isNativeApp();
+
+  useEffect(() => {
+    setDraft(loadImportDraft());
+  }, [draftRevision]);
 
   const handleExportJson = async () => {
     setNotice({ tone: "info", message: "正在整理备份…" });

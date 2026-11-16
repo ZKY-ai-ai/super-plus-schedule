@@ -9,7 +9,7 @@ import {
   Printer,
   Tag,
 } from "lucide-react";
-import type { AppPage, Course, ScheduleEvent, Session } from "./types";
+import type { AppPage, Course, ImportDraft, ScheduleEvent, Session } from "./types";
 import { dateKey } from "./lib/date";
 import { wallpaperStyle } from "./lib/wallpaper";
 import { isNativeApp } from "./lib/nativeFile";
@@ -32,6 +32,7 @@ import type { EventSeed } from "./components/EventEditor";
 import { SettingsModal } from "./components/SettingsModal";
 import { Sidebar } from "./components/Sidebar";
 import { Timetable } from "./components/Timetable";
+import { ImportPreviewDialog } from "./components/ImportPreviewDialog";
 import { SessionOverrideDialog } from "./components/SessionOverrideDialog";
 import { TimetableList } from "./components/TimetableList";
 import { TimetableManager } from "./components/TimetableManager";
@@ -119,6 +120,8 @@ export default function App() {
     setPage("timetable");
   }, []);
   const onSettingsClosed = useCallback(() => setSettingsOpen(false), []);
+  const [importPreview, setImportPreview] = useState<ImportDraft | null>(null);
+  const [draftRevision, setDraftRevision] = useState(0);
 
   const actions = useScheduleActions({
     store,
@@ -127,6 +130,7 @@ export default function App() {
     askConfirm,
     onOpenTimetable,
     onSettingsClosed,
+    onPreviewImport: setImportPreview,
   });
 
   useEffect(() => {
@@ -527,6 +531,28 @@ export default function App() {
         />
       ) : null}
 
+      {importPreview ? (
+        <ImportPreviewDialog
+          draft={importPreview}
+          currentTimetableCount={data.timetables.length}
+          onReplace={() => {
+            actions.replaceWithImport(importPreview);
+            setImportPreview(null);
+          }}
+          onMerge={() => {
+            const result = actions.mergeWithImport(importPreview);
+            notify(result.message, result.ok ? "success" : "error");
+            if (result.ok) setImportPreview(null);
+          }}
+          onKeepDraft={() => {
+            const result = actions.saveDraftForLater(importPreview);
+            notify(result.message, result.ok ? "success" : "info");
+            setDraftRevision((value) => value + 1);
+            setImportPreview(null);
+          }}
+        />
+      ) : null}
+
       {sessionMenu ? (
         <SessionOverrideDialog
           key={sessionMenu.session.id}
@@ -580,6 +606,7 @@ export default function App() {
           onSaveTemplate={actions.saveCurrentAsTemplate}
           onApplyTemplate={actions.applyTemplate}
           onDeleteTemplate={actions.deleteTemplate}
+          importDraftRevision={draftRevision}
           onPrint={printTimetable}
           onClearData={() => void actions.clearAll()}
           onToggleAutoHolidays={setAutoHolidays}

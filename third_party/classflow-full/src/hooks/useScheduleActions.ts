@@ -27,9 +27,9 @@ import {
   createInitialData,
   getActiveTimetable,
   uid,
-} from "../lib/factory";
-import { createTemplateCourses, instantiateTemplate } from "../lib/templates";
+} from "../lib/factory";import { createTemplateCourses, instantiateTemplate } from "../lib/templates";
 import type { TimetableTemplateId } from "../lib/templates";
+import { normalizeCourseNameKey, normalizeTeacherKey } from "../lib/schedule";
 import { downloadScheduleIcs, downloadScheduleJson, readScheduleFile } from "../lib/transfer";
 import {
   MAX_TEMPLATES,
@@ -60,6 +60,7 @@ interface ActionParams {
   askConfirm: AskConfirm;
   onOpenTimetable: () => void;
   onSettingsClosed: () => void;
+  onPreviewImport: (draft: ImportDraft) => void;
 }
 
 export type ScheduleActions = ReturnType<typeof useScheduleActions>;
@@ -71,6 +72,7 @@ export function useScheduleActions({
   askConfirm,
   onOpenTimetable,
   onSettingsClosed,
+  onPreviewImport,
 }: ActionParams) {
   const { data, setData, courses, updateActiveTimetable } = store;
 
@@ -348,32 +350,80 @@ export function useScheduleActions({
     if (!result.data) return { ok: false, message: result.message };
     const next = normalizeSchedule(result.data);
     if (!next) return { ok: false, message: "备份格式无法识别。" };
-    const confirmed = await askConfirm({
-      title: "导入并替换全部课表？",
-      message: `将导入 ${next.timetables.length} 套课表，替换当前的 ${data.timetables.length} 套课表。\n建议先导出现有备份。`,
-      confirmLabel: "导入并替换",
-      tone: "danger",
-    });
-    if (!confirmed) {
-      const saved = saveImportDraft({
-        id: uid("draft"),
-        fileName: file.name,
-        createdAt: new Date().toISOString(),
-        data: next,
-        message: result.message,
-      });
-      return {
-        ok: false,
-        message: saved
-          ? "已取消导入，这份备份已留作草稿，可在「数据与备份」里继续。"
-          : "已取消导入，当前课表未改变；本机空间不足，草稿未能保存。",
-      };
-    }
+    const draft: ImportDraft = {
+      id: uid("draft"),
+      fileName: file.name,
+      createdAt: new Date().toISOString(),
+      data: next,
+      message: result.message,
+    };
+    onPreviewImport(draft);
+    return { ok: true, message: "已读取备份，请选择替换或合并。" };
+  };
+
+  const saveDraftForLater = (draft: ImportDraft): ImportResult => {
+    const saved = saveImportDraft(draft);
+    return {
+      ok: false,
+      message: saved
+        ? "已关闭预览，这份备份已留作草稿，可在「数据与备份」里继续。"
+        : "已关闭预览，当前课表未改变；本机空间不足，草稿未能保存。",
+    };
+  };
+
+  const replaceWithImport = (draft: ImportDraft): ImportResult => {
     clearImportDraft();
-    applyImportedData(next);
+    applyImportedData(draft.data);
     onOpenTimetable();
-    notify(result.message);
-    return { ok: true, message: result.message };
+    notify(draft.message);
+    return { ok: true, message: draft.message };
+  };
+
+  const mergeWithImport = (draft: ImportDraft): ImportResult => {
+    const active = getActiveTimetable(data);
+    const seen = new Set(
+      active.courses.map(
+        (course) => `${normalizeCourseNameKey(course.name)}|${normalizeTeacherKey(course.teacher)}`,
+      ),
+    );
+    const courses: Course[] = [];
+    const events: ScheduleEvent[] = [];
+    for (const timetable of draft.data.timetables) {
+      const incoming = instantiateTemplate(
+        {
+          id: "merge",
+          name: timetable.name,
+          createdAt: draft.createdAt,
+          courses: timetable.courses,
+          totalWeeks: timetable.semester.totalWeeks,
+        },
+        active.semester,
+      );
+      for (const course of incoming) {
+        const key = `${normalizeCourseNameKey(course.name)}|${normalizeTeacherKey(course.teacher)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        courses.push(course);
+      }
+      for (const event of timetable.events) {
+        events.push({ ...event, id: uid("event") });
+      }
+    }
+    if (courses.length === 0 && events.length === 0) {
+      return { ok: false, message: "没有可合并的新课程或日程。" };
+    }
+    updateActiveTimetable((current) => ({
+      ...current,
+      courses: [...current.courses, ...courses],
+      events: [...current.events, ...events],
+    }));
+    clearImportDraft();
+    onOpenTimetable();
+    notify(`已合并 ${courses.length} 门课程、${events.length} 条日程。`);
+    return {
+      ok: true,
+      message: `已把 ${courses.length} 门课程和 ${events.length} 条日程合并进当前课表。`,
+    };
   };
 
   const applyImportDraft = async (draft: ImportDraft): Promise<ImportResult> => {
@@ -386,11 +436,7 @@ export function useScheduleActions({
     if (!confirmed) {
       return { ok: false, message: "已取消，导入草稿仍然保留。" };
     }
-    clearImportDraft();
-    applyImportedData(draft.data);
-    onOpenTimetable();
-    notify(`已导入「${draft.fileName}」。`);
-    return { ok: true, message: `已导入「${draft.fileName}」。` };
+    return replaceWithImport(draft);
   };
 
   const discardImportDraft = () => {
@@ -551,6 +597,9 @@ export function useScheduleActions({
     exportJson,
     exportIcs,
     importFile,
+    saveDraftForLater,
+    replaceWithImport,
+    mergeWithImport,
     applyImportDraft,
     discardImportDraft,
     saveCurrentAsTemplate,
