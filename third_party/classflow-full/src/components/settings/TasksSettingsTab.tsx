@@ -9,6 +9,7 @@ import {
   groupTasks,
   loadTasks,
   makeTask,
+  MAX_TASK_MINUTES,
   parseTasksJson,
   removeSubtask,
   REPEAT_OPTIONS,
@@ -48,6 +49,7 @@ export function TasksSettingsTab({ timetableId, courses }: TasksSettingsTabProps
   const [courseId, setCourseId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [dueTime, setDueTime] = useState("");
+  const [estimate, setEstimate] = useState("");
   const [repeat, setRepeat] = useState<RepeatRule>("none");
   const [importText, setImportText] = useState("");
   const [notice, setNotice] = useState<TaskNotice | null>(null);
@@ -81,10 +83,12 @@ export function TasksSettingsTab({ timetableId, courses }: TasksSettingsTabProps
       dueDate,
       dueTime: dueDate ? dueTime : "",
       repeat: dueDate ? repeat : "none",
+      estimatedMinutes: Math.min(MAX_TASK_MINUTES, Math.max(0, Math.round(Number(estimate) || 0))),
     });
     persist([task, ...tasks], `已添加「${task.title}」。`);
     setTitle("");
     setDueTime("");
+    setEstimate("");
   };
 
   const toggleDone = (id: string) => {
@@ -140,6 +144,7 @@ export function TasksSettingsTab({ timetableId, courses }: TasksSettingsTabProps
             dueTime: task.dueTime,
             note: task.note,
             subtasks: task.subtasks,
+            estimatedMinutes: task.estimatedMinutes,
           })
         : task,
     );
@@ -175,6 +180,9 @@ export function TasksSettingsTab({ timetableId, courses }: TasksSettingsTabProps
               <span className="task-repeat">{repeatLabel(task.repeat)}</span>
             ) : null}
             <span>{describeDue(task)}</span>
+            {task.estimatedMinutes > 0 ? (
+              <span>预计 {task.estimatedMinutes} 分钟</span>
+            ) : null}
             {task.note ? <span className="task-note">{task.note}</span> : null}
           </span>
           {!muted || isOpen ? (
@@ -344,6 +352,20 @@ export function TasksSettingsTab({ timetableId, courses }: TasksSettingsTabProps
           </select>
           <small className="field-hint">勾选完成后自动顺延到下一次。</small>
         </label>
+        <label className="field">
+          <span className="field-label">预计用时</span>
+          <input
+            className="field-input"
+            type="number"
+            min={0}
+            max={MAX_TASK_MINUTES}
+            step={5}
+            value={estimate}
+            onChange={(event) => setEstimate(event.target.value)}
+            placeholder="例如：45"
+          />
+          <small className="field-hint">选填，单位分钟，用来估算 DDL 工作量。</small>
+        </label>
         <div className="task-form-actions">
           <button className="primary-button" type="button" onClick={handleAdd}>
             <Plus size={15} />
@@ -365,7 +387,7 @@ export function TasksSettingsTab({ timetableId, courses }: TasksSettingsTabProps
           placeholder={'[{"title":"实验报告","dueDate":"2026-12-01","dueTime":"23:59"}]'}
         />
         <div className="task-import-foot">
-          <small>支持标题、dueDate、dueTime、courseId、note 字段。</small>
+          <small>支持标题、dueDate、dueTime、courseId、note、estimatedMinutes 字段。</small>
           <button className="secondary-button" type="button" onClick={handleImport}>
             导入
           </button>

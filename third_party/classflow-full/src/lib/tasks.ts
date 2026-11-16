@@ -1,3 +1,12 @@
+/**
+ * Task model and DDL reminders.
+ *
+ * Adapted from MIT-licensed projects (see THIRD_PARTY_NOTICES.md):
+ * - StudyDesk (arun-v-p/StudyDesk): minute-estimate guard and parent-completion
+ *   cascade from src/features/tasks/workload.ts.
+ * - qq-reminder (Spectrum-o/qq-reminder): 72h/24h/3h/1h homework reminder levels
+ *   from plugins/homework/models.py.
+ */
 import { dateKey, dayDiff, parseDateKey, timeToMinutes } from "./date";
 import { uid } from "./factory";
 import type { PlannedReminder, SentLog } from "./reminders";
@@ -34,6 +43,8 @@ export interface Task {
   done: boolean;
   repeat: RepeatRule;
   subtasks: Subtask[];
+  /** Planned effort in whole minutes; 0 means no estimate. */
+  estimatedMinutes: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -58,6 +69,15 @@ const TASKS_KEY = "kexu:tasks:v1";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const BUCKET_ORDER: TaskBucket[] = ["overdue", "today", "tomorrow", "upcoming", "later", "undated"];
+
+/** One year in minutes; guards persisted estimates. Adapted from StudyDesk (MIT). */
+export const MAX_TASK_MINUTES = 525_600;
+
+export function isValidEstimate(value: unknown): value is number {
+  return (
+    typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= MAX_TASK_MINUTES
+  );
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -160,6 +180,7 @@ export function normalizeTasks(raw: unknown): Task[] {
       done: item.done === true,
       repeat: isRepeatRule(item.repeat) && dueDate ? item.repeat : "none",
       subtasks: normalizeSubtasks(item.subtasks),
+      estimatedMinutes: isValidEstimate(item.estimatedMinutes) ? item.estimatedMinutes : 0,
       createdAt: text(item.createdAt, 40) || now,
       updatedAt: text(item.updatedAt, 40) || now,
     });
@@ -175,6 +196,7 @@ export function makeTask(input: {
   note?: string;
   repeat?: RepeatRule;
   subtasks?: Subtask[];
+  estimatedMinutes?: number;
   id?: string;
 }): Task {
   const now = new Date().toISOString();
@@ -189,6 +211,7 @@ export function makeTask(input: {
     done: false,
     repeat: dueDate && input.repeat ? input.repeat : "none",
     subtasks: normalizeSubtasks(input.subtasks ?? []),
+    estimatedMinutes: isValidEstimate(input.estimatedMinutes) ? input.estimatedMinutes : 0,
     createdAt: now,
     updatedAt: now,
   };
@@ -210,7 +233,14 @@ function addMonths(date: Date, months: number): Date {
 export function completeTask(task: Task, now = new Date()): Task {
   const stamp = now.toISOString();
   if (task.repeat === "none" || !task.dueDate) {
-    return { ...task, done: true, updatedAt: stamp };
+    return {
+      ...task,
+      done: true,
+      subtasks: task.subtasks.map((subtask) =>
+        subtask.done ? subtask : { ...subtask, done: true },
+      ),
+      updatedAt: stamp,
+    };
   }
   const today = todayStart(now);
   let next = parseDateKey(task.dueDate);
@@ -364,13 +394,22 @@ interface TaskReminderNode {
   windowMinutes: number;
 }
 
+/** Four escalation levels copied from qq-reminder (MIT): 72h / 24h / 3h / 1h. */
+const HOMEWORK_REMIND_LEVELS = [
+  { id: "72h", hours: 72, lead: "还有不到 3 天", windowMinutes: 36 * 60 },
+  { id: "24h", hours: 24, lead: "还有不到 24 小时", windowMinutes: 12 * 60 },
+  { id: "3h", hours: 3, lead: "还有不到 3 小时", windowMinutes: 120 },
+  { id: "1h", hours: 1, lead: "还有不到 1 小时", windowMinutes: 60 },
+] as const;
+
 function nodesFor(due: Date, hasTime: boolean): TaskReminderNode[] {
   if (hasTime) {
-    return [
-      { id: "24h", lead: "24 小时后截止", target: new Date(due.getTime() - 24 * 60 * 60_000), windowMinutes: 12 * 60 },
-      { id: "3h", lead: "3 小时后截止", target: new Date(due.getTime() - 3 * 60 * 60_000), windowMinutes: 120 },
-      { id: "30m", lead: "30 分钟后截止", target: new Date(due.getTime() - 30 * 60_000), windowMinutes: 30 },
-    ];
+    return HOMEWORK_REMIND_LEVELS.map((level) => ({
+      id: level.id,
+      lead: level.lead,
+      target: new Date(due.getTime() - level.hours * 3_600_000),
+      windowMinutes: level.windowMinutes,
+    }));
   }
   const evening = new Date(due.getFullYear(), due.getMonth(), due.getDate() - 1, 20, 0);
   return [{ id: "1d", lead: "明天截止", target: evening, windowMinutes: 12 * 60 }];
