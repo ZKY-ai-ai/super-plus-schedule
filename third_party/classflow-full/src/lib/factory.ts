@@ -236,13 +236,20 @@ export function makeEvent(input: {
 export function createBlankSemester(
   profile: PeriodProfile,
   now = new Date(),
-  options: { name?: string; startDate?: string; totalWeeks?: number; showWeekends?: boolean } = {},
+  options: {
+    name?: string;
+    startDate?: string;
+    totalWeeks?: number;
+    showWeekends?: boolean;
+    weekStartsOn?: number;
+  } = {},
 ): Semester {
   return {
     name: options.name?.trim() || getTermName(now),
-    startDate: options.startDate || getDefaultStartDate(now),
+    startDate: options.startDate || getDefaultStartDate(now, options.weekStartsOn ?? 1),
     totalWeeks: options.totalWeeks ?? DEFAULT_TOTAL_WEEKS,
     showWeekends: options.showWeekends ?? true,
+    weekStartsOn: options.weekStartsOn ?? 1,
     periods: profile.periods.map((period) => ({ ...period })),
   };
 }
@@ -469,6 +476,7 @@ export function createDemoSchedule(now = new Date()): ScheduleData {
       startDate: dateKey(start),
       totalWeeks,
       showWeekends: true,
+      weekStartsOn: 1,
       periods: period.map((item) => ({ ...item })),
     },
     periodProfileId: profile.id,

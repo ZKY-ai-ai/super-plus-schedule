@@ -24,7 +24,7 @@ import {
   getDefaultStartDate,
   getTermName,
   parseDateKey,
-  startOfWeekMonday,
+  startOfWeek,
   timeToMinutes,
 } from "./date";
 import {
@@ -105,12 +105,14 @@ function normalizeSemester(value: unknown, fallbackPeriods = createPeriods(12)):
   const object = isRecord(value) ? value : {};
   const rawDate = text(object.startDate, 20);
   const parsed = rawDate ? parseDateKey(rawDate) : parseDateKey(getDefaultStartDate());
-  const monday = startOfWeekMonday(parsed);
+  const weekStartsOn = int(object.weekStartsOn, 1, 7, 1);
+  const aligned = startOfWeek(parsed, weekStartsOn);
   return {
     name: text(object.name, 60, getTermName()) || getTermName(),
-    startDate: dateKey(monday),
+    startDate: dateKey(aligned),
     totalWeeks: int(object.totalWeeks, 1, 30, DEFAULT_TOTAL_WEEKS),
     showWeekends: bool(object.showWeekends, true),
+    weekStartsOn,
     periods: object.periods ? normalizePeriods(object.periods) : fallbackPeriods.map((period) => ({ ...period })),
   };
 }
@@ -608,6 +610,7 @@ const TEMPLATE_SEMESTER: Semester = {
   startDate: "2026-01-05",
   totalWeeks: 30,
   showWeekends: true,
+  weekStartsOn: 1,
   periods: Array.from({ length: 14 }, (_, index) => ({
     index: index + 1,
     start: "08:00",

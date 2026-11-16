@@ -8,7 +8,9 @@ import {
   getWeekDates,
   getWeekNumber,
   getWeekdayNumber,
+  orderWeekdays,
   parseDateKey,
+  startOfWeek,
   startOfWeekMonday,
 } from "../lib/date";
 
@@ -47,5 +49,25 @@ describe("date helpers", () => {
 
   it("counts calendar days independent of time", () => {
     expect(dayDiff(parseDateKey("2026-11-09"), parseDateKey("2026-11-12"))).toBe(3);
+  });
+
+  it("supports a configurable week start day", () => {
+    expect(dateKey(startOfWeek(parseDateKey("2026-11-12"), 7))).toBe("2026-11-08");
+    expect(orderWeekdays(7)).toEqual([7, 1, 2, 3, 4, 5, 6]);
+    expect(orderWeekdays(1)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+
+    const dates = getWeekDates("2026-11-08", 1, 7);
+    expect(dateKey(dates[6])).toBe("2026-11-08");
+    expect(dateKey(dates[0])).toBe("2026-11-09");
+    expect(dateKey(dates[5])).toBe("2026-11-14");
+    expect(formatWeekRange(dates)).toBe("11月8日 — 14日");
+
+    expect(dateKey(getDateForSlot("2026-11-08", 1, 7, 7))).toBe("2026-11-08");
+    expect(dateKey(getDateForSlot("2026-11-08", 1, 1, 7))).toBe("2026-11-09");
+    expect(getWeekNumber("2026-11-08", parseDateKey("2026-11-12"), 20, 7)).toBe(1);
+    expect(getTermPosition("2026-11-08", 20, parseDateKey("2026-11-12"), 7)).toMatchObject({
+      week: 1,
+      state: "during",
+    });
   });
 });

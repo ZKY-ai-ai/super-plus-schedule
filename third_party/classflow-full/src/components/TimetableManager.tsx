@@ -11,7 +11,7 @@ import {
 import type { FormEvent } from "react";
 import type { ScheduleData, TimetableCreateInput } from "../types";
 import { MAX_TIMETABLES } from "../lib/factory";
-import { getDefaultStartDate } from "../lib/date";
+import { WEEKDAYS, dateKey, getDefaultStartDate, parseDateKey, startOfWeek } from "../lib/date";
 import { Modal } from "./Modal";
 import { TIMETABLE_TEMPLATES } from "../lib/templates";
 
@@ -37,7 +37,8 @@ export function TimetableManager({
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [semesterName, setSemesterName] = useState("");
-  const [startDate, setStartDate] = useState(getDefaultStartDate());
+  const [startDate, setStartDate] = useState(() => getDefaultStartDate(new Date(), 1));
+  const [weekStartsOn, setWeekStartsOn] = useState(1);
   const [totalWeeks, setTotalWeeks] = useState(20);
   const [showWeekends, setShowWeekends] = useState(true);
   const [profileId, setProfileId] = useState(
@@ -57,7 +58,8 @@ export function TimetableManager({
     setCreating(true);
     setName(`我的课表 ${data.timetables.length + 1}`);
     setSemesterName("");
-    setStartDate(getDefaultStartDate());
+    setStartDate(getDefaultStartDate(new Date(), 1));
+    setWeekStartsOn(1);
     setTotalWeeks(20);
     setShowWeekends(true);
     setProfileId(data.periodProfiles[0]?.id ?? "");
@@ -81,6 +83,7 @@ export function TimetableManager({
       startDate,
       totalWeeks: Math.min(30, Math.max(1, totalWeeks)),
       showWeekends,
+      weekStartsOn,
       periodProfileId: profileId,
       templateId,
     });
@@ -172,13 +175,44 @@ export function TimetableManager({
                 />
               </label>
               <label className="field">
-                <span className="field-label">开学第一周（周一）</span>
+                <span className="field-label">
+                  开学第一周（{WEEKDAYS[weekStartsOn - 1]?.label ?? "周一"}）
+                </span>
                 <input
                   className="field-input"
                   type="date"
                   value={startDate}
-                  onChange={(event) => setStartDate(event.target.value)}
+                  onChange={(event) => {
+                    const raw = event.target.value;
+                    if (!raw) {
+                      setStartDate("");
+                      return;
+                    }
+                    setStartDate(
+                      dateKey(startOfWeek(parseDateKey(raw), weekStartsOn)),
+                    );
+                  }}
                 />
+              </label>
+              <label className="field">
+                <span className="field-label">周起始日</span>
+                <select
+                  className="field-input"
+                  value={weekStartsOn}
+                  onChange={(event) => {
+                    const next = Math.min(7, Math.max(1, Number(event.target.value) || 1));
+                    setWeekStartsOn(next);
+                    if (startDate) {
+                      setStartDate(dateKey(startOfWeek(parseDateKey(startDate), next)));
+                    }
+                  }}
+                >
+                  {WEEKDAYS.map((day) => (
+                    <option key={day.index} value={day.index}>
+                      从{day.label}开始
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="field">
                 <span className="field-label">学期总周数</span>

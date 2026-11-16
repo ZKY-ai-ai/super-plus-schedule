@@ -4,8 +4,10 @@ import {
   dateKey,
   getTermPosition,
   getWeekDates,
+  getWeekEnd,
   getWeekNumber,
   getWeekdayNumber,
+  orderWeekdays,
 } from "../lib/date";
 import { buildSessions, getWeekStats } from "../lib/schedule";
 import { periodsForDate } from "../lib/periods";
@@ -28,31 +30,50 @@ export type WeekView = ReturnType<typeof useWeekView>;
 export function useWeekView({ data, prefs, timetable, now }: WeekViewParams) {
   const semester = timetable.semester;
   const events = timetable.events;
+  const weekStartsOn = semester.weekStartsOn ?? 1;
   const [week, setWeek] = useState(() =>
-    getWeekNumber(semester.startDate, new Date(), semester.totalWeeks),
+    getWeekNumber(semester.startDate, new Date(), semester.totalWeeks, weekStartsOn),
   );
   const [selectedDay, setSelectedDay] = useState(() => getWeekdayNumber(new Date()));
 
   const todayNumber = getWeekdayNumber(now);
-  const termPosition = getTermPosition(semester.startDate, semester.totalWeeks, now);
+  const termPosition = getTermPosition(
+    semester.startDate,
+    semester.totalWeeks,
+    now,
+    weekStartsOn,
+  );
   const currentWeek = termPosition.week;
   const termState = termPosition.state;
   const todayKey = dateKey(now);
 
-  const viewDates = useMemo(() => getWeekDates(semester.startDate, week), [semester.startDate, week]);
+  const viewDates = useMemo(
+    () => getWeekDates(semester.startDate, week, weekStartsOn),
+    [semester.startDate, week, weekStartsOn],
+  );
   const currentDates = useMemo(
-    () => getWeekDates(semester.startDate, currentWeek),
-    [semester.startDate, currentWeek],
+    () => getWeekDates(semester.startDate, currentWeek, weekStartsOn),
+    [semester.startDate, currentWeek, weekStartsOn],
   );
   const calendarOverrides = timetable.calendarOverrides;
-  const viewDays = useMemo(
-    () => getVisibleDays(semester.showWeekends, viewDates, prefs.autoHolidays, calendarOverrides),
-    [semester.showWeekends, viewDates, prefs.autoHolidays, calendarOverrides],
-  );
-  const currentDays = useMemo(
-    () => getVisibleDays(semester.showWeekends, currentDates, prefs.autoHolidays, calendarOverrides),
-    [semester.showWeekends, currentDates, prefs.autoHolidays, calendarOverrides],
-  );
+  const viewDays = useMemo(() => {
+    const order = orderWeekdays(weekStartsOn);
+    return getVisibleDays(
+      semester.showWeekends,
+      viewDates,
+      prefs.autoHolidays,
+      calendarOverrides,
+    ).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  }, [semester.showWeekends, weekStartsOn, viewDates, prefs.autoHolidays, calendarOverrides]);
+  const currentDays = useMemo(() => {
+    const order = orderWeekdays(weekStartsOn);
+    return getVisibleDays(
+      semester.showWeekends,
+      currentDates,
+      prefs.autoHolidays,
+      calendarOverrides,
+    ).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  }, [semester.showWeekends, weekStartsOn, currentDates, prefs.autoHolidays, calendarOverrides]);
   const viewDayStatuses = useMemo(
     () => getDayStatusMap(viewDates, prefs.autoHolidays, calendarOverrides),
     [viewDates, prefs.autoHolidays, calendarOverrides],
@@ -84,8 +105,13 @@ export function useWeekView({ data, prefs, timetable, now }: WeekViewParams) {
     [rawCurrentSessions, currentDates, prefs.autoHolidays, calendarOverrides],
   );
   const viewPeriods = useMemo(
-    () => periodsForDate(timetable, data.periodProfiles, viewDates[viewDates.length - 1] ?? new Date()),
-    [timetable, data.periodProfiles, viewDates],
+    () =>
+      periodsForDate(
+        timetable,
+        data.periodProfiles,
+        getWeekEnd(semester.startDate, week, weekStartsOn),
+      ),
+    [timetable, data.periodProfiles, semester.startDate, week, weekStartsOn],
   );
   const currentPeriods = useMemo(
     () => periodsForDate(timetable, data.periodProfiles, now),
@@ -153,12 +179,21 @@ export function useWeekView({ data, prefs, timetable, now }: WeekViewParams) {
   }, [currentWeek, todayNumber, viewDays]);
 
   const resetToTimetable = useCallback((target: Timetable) => {
-    setWeek(getWeekNumber(target.semester.startDate, new Date(), target.semester.totalWeeks));
+    setWeek(
+      getWeekNumber(
+        target.semester.startDate,
+        new Date(),
+        target.semester.totalWeeks,
+        target.semester.weekStartsOn ?? 1,
+      ),
+    );
     setSelectedDay(Math.min(getWeekdayNumber(new Date()), target.semester.showWeekends ? 7 : 5));
   }, []);
 
   const resetToSemester = useCallback((next: Semester) => {
-    setWeek(getWeekNumber(next.startDate, new Date(), next.totalWeeks));
+    setWeek(
+      getWeekNumber(next.startDate, new Date(), next.totalWeeks, next.weekStartsOn ?? 1),
+    );
     setSelectedDay((current) => Math.min(current, next.showWeekends ? 7 : 5));
   }, []);
 

@@ -71,6 +71,7 @@ export interface Semester {
   startDate: string;
   totalWeeks: number;
   showWeekends: boolean;
+  weekStartsOn: number;
   periods: Period[];
 }
 
@@ -139,6 +140,7 @@ export interface TimetableCreateInput {
   startDate: string;
   totalWeeks: number;
   showWeekends: boolean;
+  weekStartsOn: number;
   periodProfileId: string;
   templateId?: string;
 }

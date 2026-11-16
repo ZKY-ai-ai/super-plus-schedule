@@ -691,6 +691,7 @@ export default function App() {
           currentWeek={view.currentWeek}
           totalWeeks={semester.totalWeeks}
           startDate={semester.startDate}
+          weekStartsOn={semester.weekStartsOn ?? 1}
           onSelect={jumpToWeek}
           onClose={() => setWeekPickerOpen(false)}
         />

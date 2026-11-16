@@ -15,10 +15,21 @@ export function atMidnight(date: Date): Date {
 }
 
 export function startOfWeekMonday(date: Date): Date {
+  return startOfWeek(date, 1);
+}
+
+/** weekStartsOn uses ISO weekday numbers: 1 = Monday … 7 = Sunday. */
+export function startOfWeek(date: Date, weekStartsOn = 1): Date {
   const d = atMidnight(date);
+  const target = ((Math.round(weekStartsOn) - 1) % 7 + 7) % 7;
   const offset = (d.getDay() + 6) % 7;
-  d.setDate(d.getDate() - offset);
+  d.setDate(d.getDate() - ((offset - target + 7) % 7));
   return d;
+}
+
+export function orderWeekdays(weekStartsOn = 1): number[] {
+  const start = ((Math.round(weekStartsOn) - 1) % 7 + 7) % 7;
+  return Array.from({ length: 7 }, (_, index) => ((start + index) % 7) + 1);
 }
 
 export function addDays(date: Date, days: number): Date {
@@ -54,8 +65,13 @@ export function getWeekdayNumber(date: Date): number {
   return ((date.getDay() + 6) % 7) + 1;
 }
 
-export function getWeekNumber(startDate: string, date: Date, totalWeeks: number): number {
-  const start = startOfWeekMonday(parseDateKey(startDate));
+export function getWeekNumber(
+  startDate: string,
+  date: Date,
+  totalWeeks: number,
+  weekStartsOn = 1,
+): number {
+  const start = startOfWeek(parseDateKey(startDate), weekStartsOn);
   const week = Math.floor(dayDiff(start, atMidnight(date)) / 7) + 1;
   return Math.min(Math.max(week, 1), Math.max(totalWeeks, 1));
 }
@@ -69,8 +85,9 @@ export function getTermPosition(
   startDate: string,
   totalWeeks: number,
   date = new Date(),
+  weekStartsOn = 1,
 ): TermPosition {
-  const start = startOfWeekMonday(parseDateKey(startDate));
+  const start = startOfWeek(parseDateKey(startDate), weekStartsOn);
   const diff = dayDiff(start, atMidnight(date));
   if (diff < 0) return { week: 1, state: "before" };
   const week = Math.floor(diff / 7) + 1;
@@ -78,22 +95,37 @@ export function getTermPosition(
   return { week, state: "during" };
 }
 
-export function getWeekStart(startDate: string, week: number): Date {
-  const start = startOfWeekMonday(parseDateKey(startDate));
+export function getWeekStart(startDate: string, week: number, weekStartsOn = 1): Date {
+  const start = startOfWeek(parseDateKey(startDate), weekStartsOn);
   return addDays(start, (week - 1) * 7);
 }
 
-export function getWeekDates(startDate: string, week: number): Date[] {
-  const start = getWeekStart(startDate, week);
-  return Array.from({ length: 7 }, (_, index) => addDays(start, index));
+/**
+ * Returns the seven dates of a week indexed by ISO weekday (index 0 = Monday,
+ * index 6 = Sunday), so callers can keep using `dates[day - 1]`. The week
+ * itself still begins on `weekStartsOn`.
+ */
+export function getWeekDates(startDate: string, week: number, weekStartsOn = 1): Date[] {
+  const anchor = getWeekStart(startDate, week, weekStartsOn);
+  return Array.from({ length: 7 }, (_, index) => {
+    const weekday = index + 1;
+    const offset = (weekday - weekStartsOn + 7) % 7;
+    return addDays(anchor, offset);
+  });
 }
 
 export function getDateForSlot(
   startDate: string,
   week: number,
   weekday: number,
+  weekStartsOn = 1,
 ): Date {
-  return addDays(getWeekStart(startDate, week), weekday - 1);
+  const anchor = getWeekStart(startDate, week, weekStartsOn);
+  return addDays(anchor, (weekday - weekStartsOn + 7) % 7);
+}
+
+export function getWeekEnd(startDate: string, week: number, weekStartsOn = 1): Date {
+  return addDays(getWeekStart(startDate, week, weekStartsOn), 6);
 }
 
 export function formatMonthDay(date: Date): string {
@@ -105,8 +137,9 @@ export function formatShortDate(date: Date): string {
 }
 
 export function formatWeekRange(dates: Date[]): string {
-  const first = dates[0];
-  const last = dates[dates.length - 1];
+  const sorted = [...dates].sort((a, b) => a.getTime() - b.getTime());
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
   if (!first || !last) return "";
   if (first.getMonth() === last.getMonth()) {
     return `${first.getMonth() + 1}月${first.getDate()}日 — ${last.getDate()}日`;
@@ -158,6 +191,6 @@ export function getTermName(date = new Date()): string {
   return `${year - 1}–${year} 秋季学期`;
 }
 
-export function getDefaultStartDate(date = new Date()): string {
-  return dateKey(startOfWeekMonday(date));
+export function getDefaultStartDate(date = new Date(), weekStartsOn = 1): string {
+  return dateKey(startOfWeek(date, weekStartsOn));
 }

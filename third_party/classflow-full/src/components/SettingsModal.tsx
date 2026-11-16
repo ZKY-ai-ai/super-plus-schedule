@@ -38,10 +38,11 @@ import {
   resizePeriods,
 } from "../lib/factory";
 import {
+  WEEKDAYS,
   dateKey,
   formatDateWithWeekday,
   parseDateKey,
-  startOfWeekMonday,
+  startOfWeek,
   timeToMinutes,
 } from "../lib/date";
 import { getUsedMaxPeriod, weeksForSlot } from "../lib/schedule";
@@ -157,6 +158,7 @@ export function SettingsModal({
   const [tab, setTab] = useState<SettingsTab>("term");
   const [draft, setDraft] = useState<Semester>(() => ({
     ...active.semester,
+    weekStartsOn: active.semester.weekStartsOn ?? 1,
     periods: active.semester.periods.map((period) => ({ ...period })),
   }));
   const [profileId, setProfileId] = useState<string | null>(active.periodProfileId);
@@ -507,14 +509,17 @@ export function SettingsModal({
                     />
                   </label>
                   <label className="field">
-                    <span className="field-label">开学第一周（周一）</span>
+                    <span className="field-label">
+                      开学第一周（{WEEKDAYS[(draft.weekStartsOn ?? 1) - 1]?.label ?? "周一"}）
+                    </span>
                     <input
                       className="field-input"
                       type="date"
                       value={draft.startDate}
                       onChange={(event) => {
-                        const normalized = startOfWeekMonday(
+                        const normalized = startOfWeek(
                           parseDateKey(event.target.value || dateKey(new Date())),
+                          draft.weekStartsOn ?? 1,
                         );
                         setDraft((current) => ({
                           ...current,
@@ -523,8 +528,36 @@ export function SettingsModal({
                       }}
                     />
                     <small className="field-hint">
-                      {formatDateWithWeekday(parseDateKey(draft.startDate))} · 已自动对齐周一
+                      {formatDateWithWeekday(parseDateKey(draft.startDate))} · 已自动对齐
+                      {WEEKDAYS[(draft.weekStartsOn ?? 1) - 1]?.label ?? "周一"}
                     </small>
+                  </label>
+                  <label className="field">
+                    <span className="field-label">周起始日</span>
+                    <select
+                      className="field-input"
+                      value={draft.weekStartsOn ?? 1}
+                      onChange={(event) => {
+                        const weekStartsOn = Math.min(
+                          7,
+                          Math.max(1, Number(event.target.value) || 1),
+                        );
+                        setDraft((current) => ({
+                          ...current,
+                          weekStartsOn,
+                          startDate: dateKey(
+                            startOfWeek(parseDateKey(current.startDate), weekStartsOn),
+                          ),
+                        }));
+                      }}
+                    >
+                      {WEEKDAYS.map((day) => (
+                        <option key={day.index} value={day.index}>
+                          从{day.label}开始
+                        </option>
+                      ))}
+                    </select>
+                    <small className="field-hint">课表网格、周次与日期会一起对齐。</small>
                   </label>
                   <label className="field">
                     <span className="field-label">学期总周数</span>

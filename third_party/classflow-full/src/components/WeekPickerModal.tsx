@@ -10,6 +10,7 @@ interface WeekPickerModalProps {
   currentWeek: number;
   totalWeeks: number;
   startDate: string;
+  weekStartsOn: number;
   onSelect: (week: number) => void;
   onClose: () => void;
 }
@@ -19,6 +20,7 @@ export function WeekPickerModal({
   currentWeek,
   totalWeeks,
   startDate,
+  weekStartsOn,
   onSelect,
   onClose,
 }: WeekPickerModalProps) {
@@ -65,7 +67,7 @@ export function WeekPickerModal({
           <div className="week-picker-current-label">
             <span className="micro-label">CURRENT</span>
             <strong>第 {currentWeek} 周</strong>
-            <span>{formatWeekRange(getWeekDates(startDate, currentWeek))}</span>
+            <span>{formatWeekRange(getWeekDates(startDate, currentWeek, weekStartsOn))}</span>
           </div>
           <button
             className="secondary-button"
@@ -91,7 +93,7 @@ export function WeekPickerModal({
               aria-pressed={item === week}
             >
               <strong>{String(item).padStart(2, "0")}</strong>
-              <span>{formatWeekRange(getWeekDates(startDate, item))}</span>
+              <span>{formatWeekRange(getWeekDates(startDate, item, weekStartsOn))}</span>
             </button>
           ))}
         </div>

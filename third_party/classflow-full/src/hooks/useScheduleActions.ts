@@ -18,7 +18,7 @@ import {
   getDefaultStartDate,
   getTermName,
   parseDateKey,
-  startOfWeekMonday,
+  startOfWeek,
 } from "../lib/date";
 import {
   MAX_TIMETABLES,
@@ -317,7 +317,10 @@ export function useScheduleActions({
     const profile =
       data.periodProfiles.find((item) => item.id === input.periodProfileId) ??
       data.periodProfiles[0];
-    const date = startOfWeekMonday(parseDateKey(input.startDate || getDefaultStartDate()));
+    const date = startOfWeek(
+      parseDateKey(input.startDate || getDefaultStartDate(new Date(), input.weekStartsOn)),
+      input.weekStartsOn,
+    );
     const created = createBlankTimetable(
       data.periodProfiles,
       new Date(),
@@ -329,6 +332,7 @@ export function useScheduleActions({
       startDate: dateKey(date),
       totalWeeks: input.totalWeeks,
       showWeekends: input.showWeekends,
+      weekStartsOn: input.weekStartsOn,
       periods: profile.periods.map((period) => ({ ...period })),
     };
     created.periodProfileId = profile.id;

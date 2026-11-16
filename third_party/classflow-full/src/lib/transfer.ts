@@ -113,7 +113,12 @@ export function buildIcs(
     for (const slot of course.slots) {
       for (let week = slot.weekStart; week <= slot.weekEnd; week += 1) {
         if (!isSlotActiveInWeek(slot, week)) continue;
-        const date = getDateForSlot(semester.startDate, week, slot.day);
+        const date = getDateForSlot(
+          semester.startDate,
+          week,
+          slot.day,
+          semester.weekStartsOn ?? 1,
+        );
         const periods = periodsForDate(active, data.periodProfiles, date);
         const periodStart = periods[slot.start - 1];
         const periodEnd = periods[slot.end - 1];

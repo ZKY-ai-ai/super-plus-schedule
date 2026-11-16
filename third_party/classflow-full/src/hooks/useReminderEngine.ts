@@ -39,7 +39,14 @@ export function useReminderEngine({ data, timetable, autoHolidays }: ReminderEng
       if (!settings.enabled) return;
       if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
       const now = new Date();
-      if (getTermPosition(timetable.semester.startDate, timetable.semester.totalWeeks, now).state !== "during") {
+      if (
+        getTermPosition(
+          timetable.semester.startDate,
+          timetable.semester.totalWeeks,
+          now,
+          timetable.semester.weekStartsOn ?? 1,
+        ).state !== "during"
+      ) {
         return;
       }
 
@@ -48,6 +55,7 @@ export function useReminderEngine({ data, timetable, autoHolidays }: ReminderEng
           timetable.semester.startDate,
           date,
           timetable.semester.totalWeeks,
+          timetable.semester.weekStartsOn ?? 1,
         );
         const periods = periodsForDate(timetable, data.periodProfiles, date);
         if (autoHolidays && isHolidayDate(date, timetable.calendarOverrides ?? [])) {

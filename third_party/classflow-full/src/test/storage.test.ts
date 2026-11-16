@@ -98,6 +98,20 @@ describe("v2 schedule normalization", () => {
     expect(normalized?.activeTimetableId).toBe(normalized?.timetables[0].id);
     expect(createInitialData().periodProfiles).toHaveLength(2);
   });
+
+  it("normalizes the week start day and re-aligns the start date", () => {
+    const mondayStart = createDemoSchedule(new Date(2026, 10, 12));
+    mondayStart.timetables[0].semester.startDate = "2026-11-09";
+    mondayStart.timetables[0].semester.weekStartsOn = 7;
+    const normalized = normalizeSchedule({ data: mondayStart });
+    expect(normalized?.timetables[0].semester.weekStartsOn).toBe(7);
+    expect(normalized?.timetables[0].semester.startDate).toBe("2026-11-08");
+
+    mondayStart.timetables[0].semester.weekStartsOn = 9 as number;
+    const clamped = normalizeSchedule({ data: mondayStart });
+    expect(clamped?.timetables[0].semester.weekStartsOn).toBe(7);
+    expect(clamped?.timetables[0].semester.startDate).toBe("2026-11-08");
+  });
 });
 
 describe("import drafts", () => {
