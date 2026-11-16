@@ -8833,3 +8833,31 @@ html[data-theme="whale"] .week-pick.is-selected span {
   gap: 1px;
   margin-top: 1px;
 }
+
+.today-remaining {
+  position: relative;
+  z-index: 1;
+  margin-top: 5px;
+  color: rgba(244, 241, 232, 0.6);
+  font-size: 9px;
+}
+
+.today-remaining strong {
+  color: #f7b8a4;
+  font-size: 11px;
+}
+
+.today-remaining.is-done {
+  color: rgba(244, 241, 232, 0.36);
+}
+
+.today-class.is-finished {
+  opacity: 0.46;
+}
+
+.today-class-state {
+  margin-left: auto;
+  color: rgba(244, 241, 232, 0.34);
+  font-size: 7px;
+  white-space: nowrap;
+}

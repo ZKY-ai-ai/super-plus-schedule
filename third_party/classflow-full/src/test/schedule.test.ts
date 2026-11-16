@@ -16,6 +16,8 @@ import {
   courseDisplayName,
   findSessionConflicts,
   conflictSessionIds,
+  isSessionFinished,
+  remainingSessionCount,
 } from "../lib/schedule";
 import { dateKey, getWeekDates } from "../lib/date";
 import type { Course, CourseSlot, Session } from "../types";
@@ -155,6 +157,16 @@ describe("schedule rules", () => {
     expect(tight).toHaveLength(1);
     expect(tight[0]).toMatchObject({ day: 1, start: 2, end: 2 });
     expect([...conflictSessionIds(tight)].sort()).toEqual(["a", "b"]);
+  });
+
+  it("counts the classes that are still ahead today", () => {
+    const periods = createDemoSchedule(new Date(2026, 10, 12)).timetables[0].semester.periods;
+    const first = session("first", 1, 2);
+    const second = session("second", 3, 4);
+    expect(isSessionFinished(first, periods, new Date(2026, 10, 12, 9, 0))).toBe(false);
+    expect(isSessionFinished(first, periods, new Date(2026, 10, 12, 9, 50))).toBe(true);
+    expect(remainingSessionCount([first, second], periods, new Date(2026, 10, 12, 9, 50))).toBe(1);
+    expect(remainingSessionCount([first, second], periods, new Date(2026, 10, 12, 12, 0))).toBe(0);
   });
 });
 

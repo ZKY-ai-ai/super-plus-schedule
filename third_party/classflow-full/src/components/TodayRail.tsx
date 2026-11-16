@@ -21,7 +21,7 @@ import {
   getWeekdayNumber,
   WEEKDAYS,
 } from "../lib/date";
-import { courseDisplayName, getNextSession, isSessionNow } from "../lib/schedule";
+import { courseDisplayName, getNextSession, isSessionFinished, isSessionNow, remainingSessionCount } from "../lib/schedule";
 
 interface TodayRailProps {
   now: Date;
@@ -83,6 +83,7 @@ export function TodayRail({
 }: TodayRailProps) {
   const todayNumber = getWeekdayNumber(now);
   const todaySessions = sessions.filter((session) => session.day === todayNumber);
+  const remainingCount = remainingSessionCount(todaySessions, periods, now);
   const next = getNextSession(sessions, weekDates, periods, now);
   const maxDayCount = Math.max(1, ...days.map((day) => sessions.filter((s) => s.day === day).length));
   const nextStart = next ? startDate(next.session, next.date, periods) : null;
@@ -103,6 +104,17 @@ export function TodayRail({
           </div>
         </div>
         <p className="today-full-date">{formatDateWithWeekday(now)}</p>
+        {todaySessions.length > 0 ? (
+          <p className={`today-remaining ${remainingCount === 0 ? "is-done" : ""}`}>
+            {remainingCount > 0 ? (
+              <>
+                今天还剩 <strong>{remainingCount}</strong> 节
+              </>
+            ) : (
+              "今天的课已全部上完"
+            )}
+          </p>
+        ) : null}
 
         <div className="today-divider" />
 
@@ -128,10 +140,13 @@ export function TodayRail({
               const start = periods[session.start - 1]?.start ?? "";
               const end = periods[session.end - 1]?.end ?? "";
               const active = isSessionNow(session, periods, now, now);
+              const finished = isSessionFinished(session, periods, now);
               return (
                 <li key={session.id}>
                   <button
-                    className={`today-class ${active ? "is-active" : ""}`}
+                    className={`today-class ${active ? "is-active" : ""} ${
+                      finished ? "is-finished" : ""
+                    }`}
                     type="button"
                     onClick={() => onSelectCourse(session.course)}
                   >
@@ -147,7 +162,11 @@ export function TodayRail({
                       <strong>{courseDisplayName(session.course, showAliases)}</strong>
                       <span>{session.course.location || "地点待定"}</span>
                     </span>
-                    {active ? <span className="live-badge">现在</span> : null}
+                    {active ? (
+                      <span className="live-badge">现在</span>
+                    ) : finished ? (
+                      <span className="today-class-state">已结束</span>
+                    ) : null}
                   </button>
                 </li>
               );

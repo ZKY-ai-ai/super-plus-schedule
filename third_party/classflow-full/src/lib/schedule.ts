@@ -375,6 +375,20 @@ export function isSessionNow(
   return now >= start && now < end;
 }
 
+export function isSessionFinished(session: Session, periods: Period[], now: Date): boolean {
+  const end = periods[session.end - 1]?.end;
+  if (!end) return false;
+  return now.getHours() * 60 + now.getMinutes() >= timeToMinutes(end);
+}
+
+export function remainingSessionCount(
+  sessions: Session[],
+  periods: Period[],
+  now: Date,
+): number {
+  return sessions.filter((session) => !isSessionFinished(session, periods, now)).length;
+}
+
 export function getPeriodNowProgress(
   periods: Period[],
   now: Date,
