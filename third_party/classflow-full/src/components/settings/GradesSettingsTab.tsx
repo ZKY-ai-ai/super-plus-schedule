@@ -61,8 +61,10 @@ export function GradesSettingsTab({ timetableId, courses }: GradesSettingsTabPro
     () => new Map(courses.map((course) => [course.id, course.name])),
     [courses],
   );
-  const entered = records.filter((record) => record.score !== null).length;
-  const failed = records.filter((record) => isFailed(record)).length;
+  const entered = records.filter(
+    (record) => record.score !== null && record.status !== "planned",
+  ).length;
+  const failed = records.filter((record) => isFailed(record) && record.status !== "planned").length;
   const stats = semesterStats(records);
 
   const now = new Date();
@@ -401,6 +403,13 @@ export function GradesSettingsTab({ timetableId, courses }: GradesSettingsTabPro
                 {settings.hideScores ? "" : stats.creditTotal > 0 ? ` / ${stats.creditTotal}` : ""}
               </strong>
             </div>
+            <div className="grade-stat">
+              <span>计划修读</span>
+              <strong>
+                {stats.plannedCount} 门
+                {stats.plannedCredits > 0 ? ` / ${stats.plannedCredits} 学分` : ""}
+              </strong>
+            </div>
           </div>
 
           <label className="field grade-required">
@@ -444,7 +453,11 @@ export function GradesSettingsTab({ timetableId, courses }: GradesSettingsTabPro
             {courses.map((course) => {
               const record = recordMap.get(course.id);
               const score = record?.score ?? null;
-              const failedCourse = !settings.hideScores && record !== undefined && isFailed(record);
+              const failedCourse =
+                !settings.hideScores &&
+                record !== undefined &&
+                record.status !== "planned" &&
+                isFailed(record);
               return (
                 <div className={`grade-row ${failedCourse ? "is-failed" : ""}`} key={course.id}>
                   <span className="grade-name">
