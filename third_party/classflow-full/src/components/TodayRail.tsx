@@ -21,7 +21,14 @@ import {
   getWeekdayNumber,
   WEEKDAYS,
 } from "../lib/date";
-import { courseDisplayName, getNextSession, isSessionFinished, isSessionNow, remainingSessionCount } from "../lib/schedule";
+import {
+  courseDisplayName,
+  getNextSession,
+  isSessionFinished,
+  isSessionNow,
+  remainingSessionCount,
+  remainingSessionsToday,
+} from "../lib/schedule";
 
 interface TodayRailProps {
   now: Date;
@@ -84,6 +91,7 @@ export function TodayRail({
   const todayNumber = getWeekdayNumber(now);
   const todaySessions = sessions.filter((session) => session.day === todayNumber);
   const remainingCount = remainingSessionCount(todaySessions, periods, now);
+  const remainingToday = remainingSessionsToday(todaySessions, periods, now);
   const next = getNextSession(sessions, weekDates, periods, now);
   const maxDayCount = Math.max(1, ...days.map((day) => sessions.filter((s) => s.day === day).length));
   const nextStart = next ? startDate(next.session, next.date, periods) : null;
@@ -250,6 +258,41 @@ export function TodayRail({
             <h3>本周已收尾</h3>
             <p className="next-empty">去喝杯水，或者提前看看下一周。</p>
           </>
+        )}
+      </section>
+
+      <section className="rail-card remaining-card">
+        <div className="rail-card-head">
+          <p className="rail-eyebrow">LEFT TODAY</p>
+          <span className="summary-number">{remainingToday.length} 节</span>
+        </div>
+        {remainingToday.length > 0 ? (
+          <ul className="remaining-list">
+            {remainingToday.map((session) => {
+              const start = periods[session.start - 1]?.start ?? "";
+              const end = periods[session.end - 1]?.end ?? "";
+              const active = isSessionNow(session, periods, now, now);
+              return (
+                <li className={`remaining-item ${active ? "is-active" : ""}`} key={session.id}>
+                  <span className="remaining-time">
+                    {start}
+                    <small>{end}</small>
+                  </span>
+                  <span
+                    className="remaining-dot"
+                    style={{ background: toneColor(session.course.tone) }}
+                  />
+                  <span className="remaining-copy">
+                    <strong>{courseDisplayName(session.course, showAliases)}</strong>
+                    <span>{session.course.location || "地点待定"}</span>
+                  </span>
+                  {active ? <span className="remaining-live">进行中</span> : null}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="remaining-empty">今天的课都上完了</p>
         )}
       </section>
 

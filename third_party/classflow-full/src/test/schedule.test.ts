@@ -18,9 +18,10 @@ import {
   conflictSessionIds,
   isSessionFinished,
   remainingSessionCount,
+  remainingSessionsToday,
 } from "../lib/schedule";
 import { dateKey, getWeekDates } from "../lib/date";
-import type { Course, CourseSlot, Session } from "../types";
+import type { Course, CourseSlot, Period, Session } from "../types";
 
 const slot = (overrides: Partial<CourseSlot> = {}): CourseSlot => ({
   id: "slot-a",
@@ -167,6 +168,46 @@ describe("schedule rules", () => {
     expect(isSessionFinished(first, periods, new Date(2026, 10, 12, 9, 50))).toBe(true);
     expect(remainingSessionCount([first, second], periods, new Date(2026, 10, 12, 9, 50))).toBe(1);
     expect(remainingSessionCount([first, second], periods, new Date(2026, 10, 12, 12, 0))).toBe(0);
+  });
+});
+
+const todayPeriods: Period[] = [
+  { index: 1, start: "08:00", end: "08:50" },
+  { index: 2, start: "09:00", end: "09:50" },
+  { index: 3, start: "10:00", end: "10:50" },
+  { index: 4, start: "11:00", end: "11:50" },
+];
+
+describe("remaining sessions today", () => {
+  const morning = session("morning", 1, 1);
+  const mid = session("mid", 2, 3);
+  const last = session("last", 4, 4);
+
+  it("lists unfinished sessions in start order without mutating the input", () => {
+    const input = [last, morning, mid];
+    const result = remainingSessionsToday(input, todayPeriods, new Date(2026, 10, 12, 9, 0));
+    expect(result.map((item) => item.id)).toEqual(["mid", "last"]);
+    expect(input.map((item) => item.id)).toEqual(["last", "morning", "mid"]);
+  });
+
+  it("keeps the session that is currently in progress", () => {
+    const now = new Date(2026, 10, 12, 9, 30);
+    const result = remainingSessionsToday([morning, mid, last], todayPeriods, now);
+    expect(result.map((item) => item.id)).toEqual(["mid", "last"]);
+  });
+
+  it("returns an empty list once every class has ended", () => {
+    expect(remainingSessionsToday([morning, mid, last], todayPeriods, new Date(2026, 10, 12, 12, 30))).toEqual([]);
+    expect(
+      remainingSessionsToday([morning], todayPeriods, new Date(2026, 10, 12, 8, 50)),
+    ).toEqual([]);
+  });
+
+  it("skips sessions whose period is missing", () => {
+    const ghost = session("ghost", 5, 5);
+    const half = session("half", 1, 5);
+    const result = remainingSessionsToday([ghost, half, mid], todayPeriods, new Date(2026, 10, 12, 9, 0));
+    expect(result.map((item) => item.id)).toEqual(["mid"]);
   });
 });
 
