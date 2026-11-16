@@ -922,7 +922,7 @@ export function buildSystemPrompt(
 
 function stripQuestionWords(value: string): string {
   return value
-    .replace(/我的|请|帮我|找一下|有没有|关于|什么|哪些|相关|笔记|资料|复习/g, " ")
+    .replace(/我的|请|帮我|找一下|有没有|关于|什么|哪些|相关|笔记|资料/g, " ")
     .replace(/[？?！!，,。.]/g, " ")
     .trim();
 }

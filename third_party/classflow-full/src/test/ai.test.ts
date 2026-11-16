@@ -309,8 +309,12 @@ describe("local provider", () => {
       { title: "线代复习", body: "复习特征值与行列式", tags: ["数学"] },
       NOW,
     );
+    const unrelated = createNote(
+      { title: "英语课堂展示", body: "下周准备三分钟展示", tags: ["英语"] },
+      NOW,
+    );
     const denied = await complete(
-      userRequest("帮我找一下复习笔记", [note]),
+      userRequest("帮我找一下复习笔记", [note, unrelated]),
       baseSettings({ permissions: { ...DEFAULT_AI_SETTINGS.permissions, notes: false } }),
       undefined,
       NOW,
@@ -318,12 +322,13 @@ describe("local provider", () => {
     expect(denied.content).not.toContain("线代复习");
 
     const allowed = await complete(
-      userRequest("帮我找一下复习笔记", [note]),
+      userRequest("帮我找一下复习笔记", [note, unrelated]),
       baseSettings({ permissions: { ...DEFAULT_AI_SETTINGS.permissions, notes: true } }),
       undefined,
       NOW,
     );
     expect(allowed.content).toContain("线代复习");
+    expect(allowed.content).not.toContain("英语课堂展示");
   });
 
   it("introduces itself with the configured persona", async () => {
