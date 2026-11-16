@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Course, CourseSlot, Period, Session } from "../types";
+import type { Task } from "../lib/tasks";
 import {
   DEFAULT_REMINDER_SETTINGS,
   describeSentKey,
@@ -54,17 +55,50 @@ const settings = (patch: Partial<ReminderSettings> = {}): ReminderSettings => ({
   ...patch,
 });
 
-function plan(now: Date, patch: Partial<ReminderSettings> = {}, sent = {}) {
+function task(patch: Partial<Task> & { title: string }): Task {
+  const base: Task = {
+    id: "t-1",
+    title: "交报告",
+    courseId: "c-math",
+    dueDate: "2026-11-16",
+    dueTime: "22:00",
+    note: "",
+    done: false,
+    repeat: "none",
+    subtasks: [],
+    createdAt: "",
+    updatedAt: "",
+  };
+  return { ...base, ...patch };
+}
+
+interface PlanTaskOptions {
+  todayTasks?: Task[];
+  tomorrowTasks?: Task[];
+  overdueTasks?: Task[];
+  todaySessions?: Session[];
+  tomorrowSessions?: Session[];
+}
+
+function plan(
+  now: Date,
+  patch: Partial<ReminderSettings> = {},
+  sent = {},
+  options: PlanTaskOptions = {},
+) {
   return planReminders({
     now,
     timetableId: "tt-1",
     todayKey: "2026-11-16",
     tomorrowKey: "2026-11-17",
     settings: settings(patch),
-    todaySessions: [session],
+    todaySessions: options.todaySessions ?? [session],
     todayPeriods: periods,
-    tomorrowSessions: [],
+    tomorrowSessions: options.tomorrowSessions ?? [],
     tomorrowPeriods: periods,
+    todayTasks: options.todayTasks,
+    tomorrowTasks: options.tomorrowTasks,
+    overdueTasks: options.overdueTasks,
     sent,
   });
 }
@@ -126,6 +160,83 @@ describe("daily summaries", () => {
         "summary:today:2026-11-16": "2026-11-16T07:21:00.000Z",
       }),
     ).toHaveLength(0);
+  });
+});
+
+describe("summary tasks", () => {
+  const todaySummary = (planned: ReturnType<typeof plan>) =>
+    planned.find((item) => item.key === "summary:today:2026-11-16");
+
+  it("keeps the class-only body and title when there are no tasks", () => {
+    const today = todaySummary(plan(new Date(2026, 10, 16, 7, 30), { todaySummary: true }));
+    expect(today?.title).toBe("今日课程 · 1 节");
+    expect(today?.body).toBe("08:00–09:40 数据结构 · A101");
+  });
+
+  it("appends today's due tasks with time and course name", () => {
+    const today = todaySummary(
+      plan(new Date(2026, 10, 16, 7, 30), { todaySummary: true }, {}, {
+        todayTasks: [task({ id: "t-1", title: "交报告", dueTime: "22:00" })],
+      }),
+    );
+    expect(today?.title).toBe("今日 · 1 节课 · 1 项作业");
+    expect(today?.body).toBe(
+      "08:00–09:40 数据结构 · A101\n截止 22:00 · 交报告（数据结构）",
+    );
+  });
+
+  it("lists overdue tasks first and counts them in the title", () => {
+    const today = todaySummary(
+      plan(new Date(2026, 10, 16, 7, 30), { todaySummary: true }, {}, {
+        overdueTasks: [
+          task({ id: "t-old", title: "补交实验", dueDate: "2026-11-14", dueTime: "" }),
+        ],
+        todayTasks: [task({ id: "t-new", title: "交报告", dueTime: "09:00" })],
+      }),
+    );
+    expect(today?.title).toBe("今日 · 1 节课 · 2 项作业");
+    expect(today?.body).toContain("已逾期 · 补交实验（数据结构）");
+    expect(today?.body.indexOf("已逾期 · 补交实验")).toBeLessThan(
+      today?.body.indexOf("截止 09:00 · 交报告") ?? -1,
+    );
+  });
+
+  it("caps the task list at five lines and summarises the rest", () => {
+    const many = Array.from({ length: 7 }, (_, index) =>
+      task({ id: `t-${index}`, title: `作业${index + 1}`, dueTime: `0${index + 1}:00` }),
+    );
+    const today = todaySummary(
+      plan(new Date(2026, 10, 16, 7, 30), { todaySummary: true }, {}, { todayTasks: many }),
+    );
+    expect(today?.title).toBe("今日 · 1 节课 · 7 项作业");
+    expect(today?.body.split("\n")).toHaveLength(7);
+    expect(today?.body).toContain("截止 01:00 · 作业1");
+    expect(today?.body).not.toContain("作业6");
+    expect(today?.body).toContain("还有 2 项");
+  });
+
+  it("adds tomorrow's due tasks to the tomorrow summary", () => {
+    const planned = plan(
+      new Date(2026, 10, 16, 21, 30),
+      { tomorrowSummary: true, tomorrowSummaryTime: "21:30" },
+      {},
+      {
+        tomorrowTasks: [
+          task({ id: "t-tomorrow", title: "预习实验", dueDate: "2026-11-17", dueTime: "08:00" }),
+        ],
+      },
+    );
+    const tomorrow = planned.find((item) => item.key === "summary:tomorrow:2026-11-17");
+    expect(tomorrow?.body).toBe("截止 08:00 · 预习实验（数据结构）");
+    expect(tomorrow?.body).not.toContain("明天没有排课");
+  });
+
+  it("keeps the old empty-schedule text when there are no tasks either", () => {
+    const today = todaySummary(
+      plan(new Date(2026, 10, 16, 7, 30), { todaySummary: true }, {}, { todaySessions: [] }),
+    );
+    expect(today?.title).toBe("今日课程 · 0 节");
+    expect(today?.body).toBe("今天没有排课，稍微喘口气。");
   });
 });
 

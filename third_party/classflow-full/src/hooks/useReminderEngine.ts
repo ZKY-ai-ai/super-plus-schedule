@@ -79,16 +79,26 @@ export function useReminderEngine({ data, timetable, autoHolidays }: ReminderEng
       const today = sessionsOn(now);
       const tomorrowDate = addDays(now, 1);
       const tomorrow = sessionsOn(tomorrowDate);
+      const todayKey = dateKey(now);
+      const tomorrowKey = dateKey(tomorrowDate);
+      const tasks = loadTasks(timetable.id);
+      const pendingTasks = tasks.filter((task) => !task.done && task.dueDate);
+      const courseName = (courseId: string | null) =>
+        timetable.courses.find((course) => course.id === courseId)?.name ?? "";
       const planned = planReminders({
         now,
         timetableId: timetable.id,
-        todayKey: dateKey(now),
-        tomorrowKey: dateKey(tomorrowDate),
+        todayKey,
+        tomorrowKey,
         settings,
         todaySessions: today.sessions,
         todayPeriods: today.periods,
         tomorrowSessions: tomorrow.sessions,
         tomorrowPeriods: tomorrow.periods,
+        todayTasks: pendingTasks.filter((task) => task.dueDate === todayKey),
+        tomorrowTasks: pendingTasks.filter((task) => task.dueDate === tomorrowKey),
+        overdueTasks: pendingTasks.filter((task) => task.dueDate < todayKey),
+        courseName,
         sent: sentRef.current,
       });
       if (settings.examReminders) {
@@ -97,8 +107,7 @@ export function useReminderEngine({ data, timetable, autoHolidays }: ReminderEng
             now,
             timetableId: timetable.id,
             exams: loadExams(timetable.id),
-            courseName: (courseId) =>
-              timetable.courses.find((course) => course.id === courseId)?.name ?? "",
+            courseName,
             sent: sentRef.current,
           }),
         );
@@ -108,7 +117,7 @@ export function useReminderEngine({ data, timetable, autoHolidays }: ReminderEng
           ...planTaskReminders({
             now,
             timetableId: timetable.id,
-            tasks: loadTasks(timetable.id),
+            tasks,
             sent: sentRef.current,
           }),
         );
