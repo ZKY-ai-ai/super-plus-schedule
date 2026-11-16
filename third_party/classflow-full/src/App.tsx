@@ -4,6 +4,7 @@ import {
   CalendarDays,
   Image as ImageIcon,
   LayoutGrid,
+  List,
   Plus,
   Printer,
   Tag,
@@ -31,6 +32,7 @@ import type { EventSeed } from "./components/EventEditor";
 import { SettingsModal } from "./components/SettingsModal";
 import { Sidebar } from "./components/Sidebar";
 import { Timetable } from "./components/Timetable";
+import { TimetableList } from "./components/TimetableList";
 import { TimetableManager } from "./components/TimetableManager";
 import { Toast } from "./components/Toast";
 import type { ToastState } from "./components/Toast";
@@ -318,13 +320,23 @@ export default function App() {
                 >
                   <div className="board-toolbar">
                     <div className="board-title">
-                      <LayoutGrid size={15} />
-                      <span>周全网格</span>
+                      {prefs.layout === "list" ? <List size={15} /> : <LayoutGrid size={15} />}
+                      <span>{prefs.layout === "list" ? "周列表" : "周全网格"}</span>
                     </div>
                     <div className="board-toolbar-right">
                       <span className="board-meta">
                         {viewStats.sessionCount} 节 · {viewStats.courseCount} 门
                       </span>
+                      <button
+                        className={`icon-button ${prefs.layout === "list" ? "is-toggled" : ""}`}
+                        type="button"
+                        onClick={() => store.setLayout(prefs.layout === "list" ? "grid" : "list")}
+                        aria-label="切换周课表视图"
+                        aria-pressed={prefs.layout === "list"}
+                        title={prefs.layout === "list" ? "切换到网格视图" : "切换到列表视图"}
+                      >
+                        {prefs.layout === "list" ? <LayoutGrid size={17} /> : <List size={17} />}
+                      </button>
                       <button
                         className={`icon-button ${prefs.showAliases ? "is-toggled" : ""}`}
                         type="button"
@@ -358,24 +370,43 @@ export default function App() {
                     </div>
                   </div>
 
-                  <Timetable
-                    semester={viewSemester}
-                    week={view.week}
-                    currentWeek={view.currentWeek}
-                    dates={viewDates}
-                    days={viewDays}
-                    courses={courses}
-                    sessions={viewSessions}
-                    dayStatuses={view.viewDayStatuses}
-                    calendarSummary={view.calendarSummary}
-                    showAliases={prefs.showAliases}
-                    now={now}
-                    onSelectCourse={openCourseDetail}
-                    onPrevWeek={() => view.goToWeek(view.week - 1)}
-                    onNextWeek={() => view.goToWeek(view.week + 1)}
-                    onAddAt={(day, start) => openEditor({ prefill: { day, start } })}
-                    onAddCourse={() => openEditor()}
-                  />
+                  {prefs.layout === "list" ? (
+                    <TimetableList
+                      semester={viewSemester}
+                      week={view.week}
+                      currentWeek={view.currentWeek}
+                      dates={viewDates}
+                      days={viewDays}
+                      courses={courses}
+                      sessions={viewSessions}
+                      dayStatuses={view.viewDayStatuses}
+                      calendarSummary={view.calendarSummary}
+                      showAliases={prefs.showAliases}
+                      now={now}
+                      onSelectCourse={openCourseDetail}
+                      onAddAt={(day, start) => openEditor({ prefill: { day, start } })}
+                      onAddCourse={() => openEditor()}
+                    />
+                  ) : (
+                    <Timetable
+                      semester={viewSemester}
+                      week={view.week}
+                      currentWeek={view.currentWeek}
+                      dates={viewDates}
+                      days={viewDays}
+                      courses={courses}
+                      sessions={viewSessions}
+                      dayStatuses={view.viewDayStatuses}
+                      calendarSummary={view.calendarSummary}
+                      showAliases={prefs.showAliases}
+                      now={now}
+                      onSelectCourse={openCourseDetail}
+                      onPrevWeek={() => view.goToWeek(view.week - 1)}
+                      onNextWeek={() => view.goToWeek(view.week + 1)}
+                      onAddAt={(day, start) => openEditor({ prefill: { day, start } })}
+                      onAddCourse={() => openEditor()}
+                    />
+                  )}
                 </section>
               </div>
             </>
