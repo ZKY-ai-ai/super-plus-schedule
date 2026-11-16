@@ -1,4 +1,4 @@
-import { CalendarPlus, Menu, Moon, Plus, Settings2, Sun, Waves } from "lucide-react";
+import { CalendarPlus, Command, Menu, Moon, Plus, Settings2, Sun, Waves } from "lucide-react";
 import type { AppPage, Theme } from "../types";
 import { WhaleMascot } from "./WhaleMascot";
 
@@ -16,7 +16,18 @@ interface TopbarProps {
   onManageTimetables: () => void;
   onOpenWeekPicker: () => void;
   onToggleTheme: () => void;
+  onOpenPalette: () => void;
 }
+
+const PAGE_LABELS: Record<AppPage, string> = {
+  timetable: "周课表",
+  agenda: "日程与单日",
+  plan: "空档与规划",
+  notes: "笔记与看板",
+  ai: "AI 助手",
+  courses: "课程库",
+  profile: "我的",
+};
 
 export function Topbar({
   page,
@@ -32,6 +43,7 @@ export function Topbar({
   onManageTimetables,
   onOpenWeekPicker,
   onToggleTheme,
+  onOpenPalette,
 }: TopbarProps) {
   return (
     <header className="topbar">
@@ -55,9 +67,7 @@ export function Topbar({
           {timetableName}
         </button>
         <span className="breadcrumb-slash">/</span>
-        <span>
-          {page === "timetable" ? "周课表" : page === "agenda" ? "日程与单日" : page === "profile" ? "我的" : "课程库"}
-        </span>
+        <span>{PAGE_LABELS[page]}</span>
         {page === "agenda" ? (
           <button
             className="breadcrumb-week"
@@ -76,6 +86,15 @@ export function Topbar({
           <span className="status-dot" aria-hidden="true" />
           {storageOk ? "已保存到本机" : "保存失败"}
         </span>
+        <button
+          className="icon-button"
+          type="button"
+          onClick={onOpenPalette}
+          aria-label="打开命令面板"
+          title="命令面板（Ctrl K）"
+        >
+          <Command size={18} />
+        </button>
         <button
           className="icon-button"
           type="button"

@@ -1,0 +1,930 @@
+/* ==========================================================================
+   丙 · 学习与统计（番茄钟 / 待办 / 热力图 / 复习）
+   ========================================================================== */
+
+.plan-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.plan-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 2px 0;
+}
+
+.plan-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 9px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.plan-tabs button:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-1px);
+}
+
+.plan-tabs button.is-active {
+  border-color: color-mix(in srgb, var(--primary-bg) 42%, var(--line));
+  background: color-mix(in srgb, var(--surface-2) 65%, var(--surface));
+}
+
+.plan-tab-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 9px;
+  color: var(--muted);
+  background: var(--surface-2);
+}
+
+.plan-tabs button.is-active .plan-tab-icon {
+  color: var(--primary-ink);
+  background: var(--primary-bg);
+}
+
+.plan-tab-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.plan-tab-copy strong {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.plan-tab-copy small {
+  font-size: 9px;
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------------- 版块骨架 */
+
+.study-board {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 6px;
+  animation: fade-up 360ms both;
+}
+
+.study-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 2px 6px;
+}
+
+.study-hero h1 {
+  margin: 4px 0 6px;
+  font-family: var(--display);
+  font-size: clamp(28px, 3.6vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.study-level {
+  display: flex;
+  width: min(320px, 100%);
+  flex-direction: column;
+  gap: 7px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.study-level-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.study-level-badge {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--coral-deep);
+}
+
+.study-level-xp {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.study-level-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.study-level-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--coral), var(--amber));
+  transition: width 320ms ease;
+}
+
+.study-level small {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 9.5px;
+}
+
+.planner-stat-icon.is-teal {
+  color: #3d7a70;
+  background: color-mix(in srgb, #3d7a70 14%, var(--surface));
+}
+
+.planner-stat-icon.is-amber {
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
+.planner-stat-icon.is-olive {
+  color: #6b7a45;
+  background: color-mix(in srgb, #6b7a45 14%, var(--surface));
+}
+
+/* ---------------------------------------------------------------- 卡片 */
+
+.study-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.study-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.study-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.study-card-head h2 {
+  margin: 2px 0 0;
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.study-card-tag {
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface-2);
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.study-empty {
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.study-empty-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.6;
+}
+
+/* ---------------------------------------------------------------- 待办 */
+
+.study-sort {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.study-sort button {
+  padding: 4px 9px;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+}
+
+.study-sort button:hover {
+  color: var(--ink-2);
+}
+
+.study-sort button.is-active {
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.task-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-form > input {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.task-form > input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--coral) 45%, var(--line));
+}
+
+.task-form-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-form-meta input,
+.task-form-meta select,
+.log-form select,
+.pomo-subject select {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--field);
+  color: var(--ink-2);
+  font-size: 10.5px;
+}
+
+.task-form-meta .primary-button {
+  min-height: 34px;
+  margin-left: auto;
+  padding: 0 13px;
+  font-size: 10.5px;
+}
+
+.task-form-meta .primary-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 2px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.task-list li:last-child {
+  border-bottom: 0;
+}
+
+.task-check {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--primary-ink);
+  transition:
+    background 150ms ease,
+    border-color 150ms ease;
+}
+
+.task-check:hover {
+  border-color: var(--success);
+}
+
+.task-list li.is-done .task-check {
+  border-color: var(--success);
+  background: var(--success);
+}
+
+.task-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.task-copy strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-list li.is-done .task-copy strong {
+  color: var(--faint);
+  text-decoration: line-through;
+}
+
+.task-copy span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 9.5px;
+}
+
+.task-tier {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 8.5px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.task-tier.is-overdue {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.task-tier.is-today {
+  color: var(--coral-deep);
+  background: var(--coral-soft);
+}
+
+.task-tier.is-tomorrow,
+.task-tier.is-soon {
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
+.task-delete {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 7px;
+  color: var(--faint);
+  transition:
+    color 150ms ease,
+    background 150ms ease;
+}
+
+.task-delete:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.task-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 9.5px;
+}
+
+/* ---------------------------------------------------------------- 番茄钟 */
+
+.study-pomodoro {
+  align-items: stretch;
+}
+
+.pomo-phase {
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: var(--coral-deep);
+  background: var(--coral-soft);
+  font-size: 9.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pomo-phase.is-short,
+.pomo-phase.is-long {
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.pomo-ring {
+  --pomo-progress: 0deg;
+  position: relative;
+  display: grid;
+  width: min(180px, 70%);
+  aspect-ratio: 1;
+  margin: 2px auto;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--coral) var(--pomo-progress),
+    color-mix(in srgb, var(--line) 65%, transparent) 0
+  );
+}
+
+.pomo-ring::before {
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: var(--surface);
+  content: "";
+}
+
+.pomo-ring.is-short,
+.pomo-ring.is-long {
+  background: conic-gradient(
+    var(--success) var(--pomo-progress),
+    color-mix(in srgb, var(--line) 65%, transparent) 0
+  );
+}
+
+.pomo-ring-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.pomo-ring-inner strong {
+  font-family: var(--display);
+  font-size: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.pomo-ring-inner span {
+  color: var(--muted);
+  font-size: 9.5px;
+}
+
+.pomo-subject {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 9.5px;
+}
+
+.pomo-subject select {
+  width: 100%;
+}
+
+.pomo-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pomo-actions .primary-button {
+  flex: 1;
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 11px;
+}
+
+.pomo-actions .small-button {
+  min-height: 36px;
+}
+
+.pomo-hint {
+  margin: auto 0 0;
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.6;
+}
+
+/* ---------------------------------------------------------------- 热力图 */
+
+.heatmap-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.heatmap {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 12px);
+  gap: 3px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.heat-cell {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--surface-2);
+}
+
+.heat-cell.is-pad {
+  visibility: hidden;
+}
+
+.heat-cell.lv-1,
+.heatmap-legend i.lv-1 {
+  background: color-mix(in srgb, var(--success) 26%, var(--surface-2));
+}
+
+.heat-cell.lv-2,
+.heatmap-legend i.lv-2 {
+  background: color-mix(in srgb, var(--success) 48%, var(--surface-2));
+}
+
+.heat-cell.lv-3,
+.heatmap-legend i.lv-3 {
+  background: color-mix(in srgb, var(--success) 72%, var(--surface-2));
+}
+
+.heat-cell.lv-4,
+.heatmap-legend i.lv-4 {
+  background: var(--success);
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--faint);
+  font-size: 8.5px;
+}
+
+.heatmap-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--surface-2);
+}
+
+.progress-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.progress-stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+}
+
+.progress-stats strong {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.progress-stats span {
+  color: var(--muted);
+  font-size: 8.5px;
+}
+
+.completion-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.completion-bar-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 9.5px;
+}
+
+.completion-bar-head strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.completion-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.completion-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--success);
+  transition: width 320ms ease;
+}
+
+/* ---------------------------------------------------------------- 复习 */
+
+.review-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-list li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 2px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.review-list li:last-child {
+  border-bottom: 0;
+}
+
+.review-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.review-name {
+  overflow: hidden;
+  flex: 1;
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-name:hover {
+  color: var(--coral);
+}
+
+.review-when {
+  color: var(--muted);
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
+.review-when.is-due {
+  color: var(--coral-deep);
+  font-weight: 700;
+}
+
+.review-list .small-button {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 9px;
+}
+
+.review-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.review-slots-label {
+  color: var(--faint);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.review-slot-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.review-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 10.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.review-slot small {
+  color: var(--muted);
+  font-size: 8.5px;
+  font-weight: 500;
+}
+
+/* ---------------------------------------------------------------- 学习记录 */
+
+.log-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.log-form .primary-button {
+  min-height: 34px;
+  margin-left: auto;
+  padding: 0 13px;
+  font-size: 10.5px;
+}
+
+.log-minutes {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.log-minutes input {
+  width: 72px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--field);
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.log-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.log-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 2px;
+  border-bottom: 1px dashed var(--line);
+  font-size: 11px;
+}
+
+.log-list li:last-child {
+  border-bottom: 0;
+}
+
+.log-kind {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 8.5px;
+  font-weight: 700;
+}
+
+.log-kind.is-pomodoro {
+  color: var(--coral-deep);
+  background: var(--coral-soft);
+}
+
+.log-kind.is-review {
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.log-list strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-minutes-label {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.log-time {
+  margin-left: auto;
+  color: var(--faint);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------- 响应式 */
+
+@media (max-width: 1080px) {
+  .study-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .plan-tabs {
+    padding-top: 12px;
+  }
+
+  .plan-tabs button {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .plan-tab-copy small {
+    display: none;
+  }
+
+  .study-hero {
+    padding-top: 18px;
+  }
+
+  .study-card {
+    padding: 15px;
+  }
+
+  .study-sort {
+    align-self: flex-end;
+  }
+
+  .task-form-meta .primary-button,
+  .log-form .primary-button {
+    margin-left: 0;
+    flex: 1;
+  }
+
+  .log-form select {
+    flex: 1;
+  }
+
+  .pomo-ring {
+    width: 160px;
+  }
+}
