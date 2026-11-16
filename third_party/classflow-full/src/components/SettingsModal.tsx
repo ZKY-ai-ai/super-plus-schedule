@@ -68,6 +68,7 @@ import {
   type AiSettings,
 } from "../lib/ai";
 import { AiSettingsPanel } from "./ai/AiSettingsPanel";
+import { QqqPlayground } from "./playground/QqqPlayground";
 import { WhaleMascot } from "./WhaleMascot";
 
 type SettingsTab =
@@ -81,7 +82,8 @@ type SettingsTab =
   | "academic"
   | "webdav"
   | "data"
-  | "ai";
+  | "ai"
+  | "playground";
 
 interface SettingsModalProps {
   data: ScheduleData;
@@ -140,6 +142,7 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Database }> = [
   { id: "webdav", label: "WebDAV 备份", icon: Cloud },
   { id: "data", label: "数据与备份", icon: Database },
   { id: "ai", label: "笔记与 AI", icon: Sparkles },
+  { id: "playground", label: "QQQ 游乐场", icon: Waves },
 ];
 
 function isValidMonthDay(value: string): boolean {
@@ -378,7 +381,7 @@ export function SettingsModal({
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    if (tab === "ai") return;
+    if (tab === "ai" || tab === "playground") return;
     const name = draft.name.trim();
     if (!name) {
       setError("学期名称不能为空。");
@@ -464,9 +467,9 @@ export function SettingsModal({
       title="设置"
       onClose={onClose}
       footer={
-tab === "ai" ? (
+tab === "ai" || tab === "playground" ? (
           <>
-            <p className="modal-foot-note">聊天与密钥只保存在本机</p>
+            <p className="modal-foot-note">{tab === "playground" ? "这片水面只保存在本机" : "聊天与密钥只保存在本机"}</p>
             <span className="modal-foot-spacer" />
             <button className="primary-button" type="button" onClick={onClose}>
               完成
@@ -1110,6 +1113,12 @@ tab === "ai" ? (
                   }}
                   onNotify={(message, tone) => setNotice({ tone: tone ?? "success", message })}
                 />
+              </section>
+            ) : null}
+
+            {tab === "playground" ? (
+              <section className="settings-pane" aria-label="QQQ 游乐场">
+                <QqqPlayground />
               </section>
             ) : null}
           </div>
