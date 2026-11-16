@@ -363,6 +363,7 @@ export function QqqPlayground() {
   const waterInput = useRef<WaterInput>({ points: [] });
   const waterDragging = useRef(false);
   const lastWaterAt = useRef(0);
+  const followRef = useRef<{ x: number; y: number } | null>(null);
 
   const [position, setPosition] = useState<DuckPosition>({ x: 50, y: 49 });
   const [tilt, setTilt] = useState(0);
@@ -390,11 +391,34 @@ export function QqqPlayground() {
     if (points.length > 48) points.splice(0, points.length - 48);
   }, []);
 
+  /** 鼠标只要在泳池里，小鸭就直接跟到指针下，不再需要按住拖动。 */
+  const followDuck = useCallback((clientX: number, clientY: number) => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const previous = followRef.current;
+    followRef.current = { x: clientX, y: clientY };
+    if (previous) {
+      setTilt(duckTiltFromDelta(clientX - previous.x, clientY - previous.y));
+    }
+    setPosition(
+      clampDuckPosition(
+        ((clientX - rect.left) / rect.width) * 100,
+        ((clientY - rect.top) / rect.height) * 100,
+      ),
+    );
+    setInteracted(true);
+  }, []);
+
   const handleStagePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     waterDragging.current = true;
-    lastWaterAt.current = 0;
+    lastWaterAt.current = performance.now();
     pushWater(event.clientX, event.clientY, 1);
+    if (event.pointerType !== "touch") {
+      followDuck(event.clientX, event.clientY);
+    }
     const target = event.target as HTMLElement | null;
     if (!target?.closest(".qqq-playground__duck")) {
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -402,11 +426,19 @@ export function QqqPlayground() {
   };
 
   const handleStagePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!waterDragging.current) return;
+    const isTouch = event.pointerType === "touch";
+    if (isTouch && !waterDragging.current) return;
+
     const now = performance.now();
-    if (now - lastWaterAt.current < 55) return;
-    lastWaterAt.current = now;
-    pushWater(event.clientX, event.clientY, 0.85);
+    const throttle = isTouch ? 55 : 90;
+    if (now - lastWaterAt.current >= throttle) {
+      lastWaterAt.current = now;
+      pushWater(event.clientX, event.clientY, isTouch ? 0.85 : 0.7);
+    }
+
+    if (isTouch) return;
+    followDuck(event.clientX, event.clientY);
+    setDragging(true);
   };
 
   const handleStagePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -414,6 +446,12 @@ export function QqqPlayground() {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+  };
+
+  const handleStagePointerLeave = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch") return;
+    followRef.current = null;
+    setDragging(false);
   };
 
   const celebrate = useCallback(() => {
@@ -425,7 +463,6 @@ export function QqqPlayground() {
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
-    event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = {
       pointerId: event.pointerId,
@@ -435,20 +472,25 @@ export function QqqPlayground() {
       startY: event.clientY,
       moved: false,
     };
-    setDragging(true);
+    if (event.pointerType === "touch") {
+      event.preventDefault();
+      setDragging(true);
+    }
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 4) {
+      drag.moved = true;
+    }
+    if (event.pointerType !== "touch") return;
     const stage = stageRef.current;
-    if (!drag || drag.pointerId !== event.pointerId || !stage) return;
+    if (!stage) return;
     const rect = stage.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
     const dx = event.clientX - drag.lastX;
     const dy = event.clientY - drag.lastY;
-    if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 4) {
-      drag.moved = true;
-    }
     drag.lastX = event.clientX;
     drag.lastY = event.clientY;
     const next = clampDuckPosition(
@@ -464,7 +506,9 @@ export function QqqPlayground() {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     dragRef.current = null;
-    setDragging(false);
+    if (event.pointerType === "touch") {
+      setDragging(false);
+    }
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -525,11 +569,12 @@ export function QqqPlayground() {
         ref={stageRef}
         className={`qqq-playground__stage${dragging ? " is-dragging" : ""}`}
         role="group"
-        aria-label="QQQ 游乐场水面。滑过水面会泛起涟漪，小黄鸭可以拖动，点一下让它站直。"
+        aria-label="QQQ 游乐场水面。鼠标进入泳池就能带着小黄鸭游动，点一下让它站直。"
         onPointerDown={handleStagePointerDown}
         onPointerMove={handleStagePointerMove}
         onPointerUp={handleStagePointerUp}
         onPointerCancel={handleStagePointerUp}
+        onPointerLeave={handleStagePointerLeave}
       >
         <WaterCanvas inputRef={waterInput} />
 
@@ -557,7 +602,7 @@ export function QqqPlayground() {
           type="button"
           className={`qqq-playground__duck${dragging ? " is-dragging" : ""}`}
           style={duckStyle}
-          aria-label="小黄鸭：拖动改变位置，按回车或点击让它站直"
+          aria-label="小黄鸭：鼠标进入泳池就会跟着游，点击或按回车让它站直"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={finishDrag}
@@ -570,12 +615,12 @@ export function QqqPlayground() {
         </button>
 
         <p className={`qqq-playground__hint${interacted ? " is-hidden" : ""}`} aria-hidden="true">
-          拖动小鸭 · 划过水面
+          移动鼠标带小鸭游 · 划过水面
         </p>
       </div>
 
       <p className="qqq-playground__caption">
-        一个没有成绩、没有 DDL 的角落。拖一拖鸭子，或者划一划水面。
+        一个没有成绩、没有 DDL 的角落。把鼠标放进泳池，小黄鸭就会跟着你游。
       </p>
     </div>
   );
