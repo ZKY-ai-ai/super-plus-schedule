@@ -56,28 +56,25 @@ function formatCount(value: number): string {
 }
 
 /**
- * 木鱼本体：分层渐变 + 雕刻环 + 云纹 + 月牙口，木纹阴影用静态滤镜一次栅格化，
- * 动画只跑 transform/opacity，不触发重绘。
+ * 木鱼本体：按经典木鱼剪影绘制——圆头在右、尾部收尖在左下，
+ * 月牙口从左侧圆头端扫向右上方。分层渐变 + 内嵌雕刻轮廓，
+ * 木纹阴影用静态滤镜一次栅格化，动画只跑 transform/opacity，不触发重绘。
  */
 function WoodenFishArt({ mouthRef }: { mouthRef: RefObject<SVGGElement | null> }) {
   return (
-    <svg viewBox="0 0 260 210" role="img" aria-hidden="true" focusable="false">
+    <svg viewBox="0 0 448 190" role="img" aria-hidden="true" focusable="false">
       <defs>
-        <radialGradient id="wf-body" cx="0.36" cy="0.28" r="0.98">
+        <radialGradient id="wf-body" cx="0.58" cy="0.3" r="0.9">
           <stop offset="0" stopColor="#ffdfae" />
           <stop offset="0.35" stopColor="#f0b471" />
           <stop offset="0.68" stopColor="#c98d4e" />
           <stop offset="0.88" stopColor="#9a6430" />
           <stop offset="1" stopColor="#6f411c" />
         </radialGradient>
-        <radialGradient id="wf-sheen" cx="0.32" cy="0.16" r="0.5">
+        <radialGradient id="wf-sheen" cx="0.38" cy="0.2" r="0.55">
           <stop offset="0" stopColor="#fff6e2" stopOpacity="0.5" />
           <stop offset="1" stopColor="#fff6e2" stopOpacity="0" />
         </radialGradient>
-        <linearGradient id="wf-tail" x1="18" y1="60" x2="92" y2="150" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#b5763c" />
-          <stop offset="1" stopColor="#6e3b17" />
-        </linearGradient>
         <radialGradient id="wf-eye" cx="0.35" cy="0.3" r="0.9">
           <stop offset="0" stopColor="#5a3216" />
           <stop offset="0.55" stopColor="#2b1508" />
@@ -93,48 +90,60 @@ function WoodenFishArt({ mouthRef }: { mouthRef: RefObject<SVGGElement | null> }
       </defs>
 
       {/* 地面投影 */}
-      <ellipse cx="150" cy="188" rx="78" ry="10" fill="#3a2412" opacity="0.28" filter="url(#wf-blur)" />
+      <ellipse cx="218" cy="168" rx="115" ry="7.5" fill="#3a2412" opacity="0.28" filter="url(#wf-blur)" />
 
-      {/* 尾鳍：双层流线尾，藏在鱼身左后方 */}
-      <g transform="translate(0 14) scale(1.12)">
-        <g className="woodfish__tail">
-          <path
-            d="M82 118C58 112 32 92 18 58c-2-5 2-8 7-6 16 7 34 10 48 22 9 8 15 18 16 28 1 6-2 10-7 16Z"
-            fill="url(#wf-tail)"
-          />
-          <path d="M80 122C62 124 44 118 30 104c14-2 30 0 42 8 4 3 6 6 8 10Z" fill="#8a5226" opacity="0.85" />
-          <path d="M40 66c12 12 24 26 32 40" stroke="#5d3214" strokeWidth="2.4" strokeLinecap="round" opacity="0.45" fill="none" />
-        </g>
+      {/* 鱼身：圆头在右，尾部收尖在左下 */}
+      <path
+        d="M106 148 C124 120 158 78 210 52 C232 41 258 38 282 46 C304 55 320 72 323 92 C326 112 314 130 292 141 C264 156 226 158 190 152 C158 147 128 155 106 148 Z"
+        fill="url(#wf-body)"
+      />
+      <path
+        d="M106 148 C124 120 158 78 210 52 C232 41 258 38 282 46 C304 55 320 72 323 92 C326 112 314 130 292 141 C264 156 226 158 190 152 C158 147 128 155 106 148 Z"
+        fill="url(#wf-sheen)"
+      />
+
+      {/* 内嵌雕刻轮廓：暗线 + 错位亮线做出刻痕立体感 */}
+      <g transform="translate(13.2 5.8) scale(0.94)">
+        <path
+          d="M106 148 C124 120 158 78 210 52 C232 41 258 38 282 46 C304 55 320 72 323 92 C326 112 314 130 292 141 C264 156 226 158 190 152 C158 147 128 155 106 148 Z"
+          fill="none"
+          stroke="#7c451d"
+          strokeWidth="1.6"
+          opacity="0.24"
+        />
+      </g>
+      <g transform="translate(13.2 7.6) scale(0.94)">
+        <path
+          d="M106 148 C124 120 158 78 210 52 C232 41 258 38 282 46 C304 55 320 72 323 92 C326 112 314 130 292 141 C264 156 226 158 190 152 C158 147 128 155 106 148 Z"
+          fill="none"
+          stroke="#f6cf9c"
+          strokeWidth="1"
+          opacity="0.2"
+        />
       </g>
 
-      {/* 鱼身：主体渐变 + 高光 */}
-      <ellipse cx="152" cy="116" rx="92" ry="70" fill="url(#wf-body)" />
-      <ellipse cx="152" cy="116" rx="92" ry="70" fill="url(#wf-sheen)" />
+      {/* 云纹与底部反光 */}
+      <path d="M196 136c16 9 40 11 60 3" stroke="#6e3c18" strokeWidth="2.6" strokeLinecap="round" fill="none" opacity="0.28" />
+      <path d="M206 144c12 5 28 6 42 2" stroke="#f3c78e" strokeWidth="1.6" strokeLinecap="round" fill="none" opacity="0.3" />
+      <path d="M170 146c40 10 86 10 126 -4" stroke="#ffdfae" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.2" />
 
-      {/* 雕刻内环：暗线 + 错位亮线做出刻痕立体感 */}
-      <ellipse cx="152" cy="120" rx="64" ry="46" fill="none" stroke="#7c451d" strokeWidth="1.4" opacity="0.2" />
-      <ellipse cx="152" cy="121.2" rx="64" ry="46" fill="none" stroke="#f6cf9c" strokeWidth="0.9" opacity="0.18" />
-
-      {/* 云纹与木纹 */}
-      <path d="M96 156c14 12 34 18 54 16" stroke="#6e3c18" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.3" />
-      <path d="M108 166c12 6 26 9 40 7" stroke="#f3c78e" strokeWidth="1.8" strokeLinecap="round" fill="none" opacity="0.3" />
-      <path d="M84 152c22 20 58 26 88 12" stroke="#ffdfae" strokeWidth="3.5" strokeLinecap="round" fill="none" opacity="0.22" />
-
-      {/* 月牙口：木鱼标志性开孔，细弧月牙顺着头部弧线走 */}
+      {/* 月牙口：左侧圆头端扫向右上方，细缝微弧，越靠头部越细 */}
       <g className="woodfish__mouth" ref={mouthRef}>
-        <path d="M144 68 Q176 56 208 78 Q176 70 144 68 Z" fill="url(#wf-slit)" />
-        <path d="M150 70 Q178 65.5 204 77" stroke="#612f13" strokeWidth="1.8" strokeLinecap="round" fill="none" opacity="0.6" />
-        <path d="M152 66.5 Q180 59.5 202 74.5" stroke="#ffb765" strokeWidth="1.1" strokeLinecap="round" fill="none" opacity="0.4" />
+        <path
+          d="M158 106 C204 95 252 87 296 86 C297 87.5 297 89 295 89.5 C254 93 210 101 184 112 C172 117 160 114 157.5 106 C156.5 104.5 156.5 105.5 158 106 Z"
+          fill="url(#wf-slit)"
+        />
+        <path d="M166 101 C210 91 254 84 292 83" stroke="#ffb765" strokeWidth="1.1" strokeLinecap="round" fill="none" opacity="0.35" />
       </g>
 
-      {/* 眼睛：双层渐变 + 双高光 */}
+      {/* 眼睛：双层渐变 + 双高光，位于月牙口圆头端上方 */}
       <g className="woodfish__eye">
-        <circle cx="118" cy="98" r="7" fill="url(#wf-eye)" />
-        <circle cx="118" cy="98" r="7" fill="none" stroke="#4a2810" strokeWidth="1.1" opacity="0.7" />
-        <circle cx="115.8" cy="95.5" r="2.2" fill="#fff3d9" opacity="0.95" />
-        <circle cx="121" cy="101" r="1" fill="#ffd98f" opacity="0.5" />
+        <circle cx="196" cy="74" r="6.5" fill="url(#wf-eye)" />
+        <circle cx="196" cy="74" r="6.5" fill="none" stroke="#4a2810" strokeWidth="1" opacity="0.6" />
+        <circle cx="193.8" cy="71.8" r="2" fill="#fff3d9" opacity="0.95" />
+        <circle cx="199" cy="76.6" r="0.9" fill="#ffd98f" opacity="0.5" />
       </g>
-      <path d="M107 89c4-4 9-6 15-5" stroke="#6b3a17" strokeWidth="2.2" strokeLinecap="round" fill="none" opacity="0.42" />
+      <path d="M187 65.5c4-3.5 9-4.5 15-3" stroke="#6b3a17" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.42" />
     </svg>
   );
 }

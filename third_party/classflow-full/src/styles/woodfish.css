@@ -345,7 +345,7 @@ html[data-theme="dark"] .woodfish__mote {
 .woodfish__fish-button {
   position: relative;
   z-index: 2;
-  width: clamp(168px, 46%, 258px);
+  width: clamp(196px, 52%, 296px);
   padding: 0;
   border: 0;
   background: none;
@@ -393,22 +393,6 @@ html[data-theme="dark"] .woodfish__mote {
   width: 100%;
   height: auto;
   overflow: visible;
-}
-
-.woodfish__tail {
-  transform-box: fill-box;
-  transform-origin: 92% 62%;
-  animation: woodfish-tail 3.8s ease-in-out infinite;
-}
-
-@keyframes woodfish-tail {
-  0%,
-  100% {
-    transform: rotate(-3deg);
-  }
-  50% {
-    transform: rotate(4deg);
-  }
 }
 
 .woodfish__eye {
@@ -495,8 +479,8 @@ html[data-theme="dark"] .woodfish__mote {
 
 .woodfish__burst {
   position: absolute;
-  top: 40%;
-  left: 63%;
+  top: 44%;
+  left: 66%;
   z-index: 3;
   width: 0;
   height: 0;
@@ -678,7 +662,6 @@ html[data-theme="dark"] .woodfish__merit {
 
 @media (prefers-reduced-motion: reduce) {
   .woodfish__fish-bob,
-  .woodfish__tail,
   .woodfish__eye,
   .woodfish__aura,
   .woodfish__orbit,
