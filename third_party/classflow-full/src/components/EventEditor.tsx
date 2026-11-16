@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { CalendarPlus, Check, Trash2 } from "lucide-react";
 import type { CSSProperties, FormEvent } from "react";
-import type { ScheduleEvent, ToneId } from "../types";
+import type { EventRepeat, ScheduleEvent, ToneId } from "../types";
 import { COURSE_TONES, toneColor } from "../types";
 import { dateKey, timeToMinutes } from "../lib/date";
 import { makeEvent, uid } from "../lib/factory";
+import type { EventOccurrence } from "../lib/eventRepeat";
+import { repeatLabel } from "../lib/eventRepeat";
 import { Modal } from "./Modal";
 
 export interface EventSeed {
@@ -19,15 +21,27 @@ interface EventEditorProps {
   onDelete?: (event: ScheduleEvent) => void;
 }
 
+const REPEAT_OPTIONS: EventRepeat[] = ["none", "daily", "weekly", "monthly"];
+
+function seriesDateOf(event: ScheduleEvent): string {
+  return "seriesDate" in event && typeof (event as EventOccurrence).seriesDate === "string"
+    ? (event as EventOccurrence).seriesDate
+    : event.date;
+}
+
 export function EventEditor({ seed, onClose, onSave, onDelete }: EventEditorProps) {
   const editing = seed.event;
   const [title, setTitle] = useState(editing?.title ?? "");
-  const [date, setDate] = useState(editing?.date ?? seed.date ?? dateKey(new Date()));
+  const [date, setDate] = useState(
+    editing ? seriesDateOf(editing) : (seed.date ?? dateKey(new Date())),
+  );
   const [allDay, setAllDay] = useState(editing?.allDay ?? false);
   const [start, setStart] = useState(editing?.start ?? "09:00");
   const [end, setEnd] = useState(editing?.end ?? "10:00");
   const [note, setNote] = useState(editing?.note ?? "");
   const [tone, setTone] = useState<ToneId>(editing?.tone ?? "teal");
+  const [repeat, setRepeat] = useState<EventRepeat>(editing?.repeat ?? "none");
+  const [repeatUntil, setRepeatUntil] = useState(editing?.repeatUntil ?? "");
   const [error, setError] = useState("");
 
   const handleSubmit = (event: FormEvent) => {
@@ -44,6 +58,10 @@ export function EventEditor({ seed, onClose, onSave, onDelete }: EventEditorProp
       setError("结束时间需要晚于开始时间。");
       return;
     }
+    if (repeat !== "none" && repeatUntil && repeatUntil < date) {
+      setError("重复结束日期不能早于开始日期。");
+      return;
+    }
     onSave(
       makeEvent({
         id: editing?.id ?? uid("event"),
@@ -54,6 +72,9 @@ export function EventEditor({ seed, onClose, onSave, onDelete }: EventEditorProp
         end,
         note,
         tone,
+        repeat,
+        repeatUntil: repeat === "none" ? "" : repeatUntil,
+        checkIns: editing?.checkIns ?? [],
       }),
     );
   };
@@ -117,6 +138,35 @@ export function EventEditor({ seed, onClose, onSave, onDelete }: EventEditorProp
               onChange={(event) => setDate(event.target.value)}
             />
           </label>
+        </div>
+
+        <div className="form-grid">
+          <label className="field">
+            <span className="field-label">重复</span>
+            <select
+              className="field-input"
+              value={repeat}
+              onChange={(event) => setRepeat(event.target.value as EventRepeat)}
+            >
+              {REPEAT_OPTIONS.map((rule) => (
+                <option key={rule} value={rule}>
+                  {repeatLabel(rule)}
+                </option>
+              ))}
+            </select>
+          </label>
+          {repeat !== "none" ? (
+            <label className="field">
+              <span className="field-label">结束日期 <small>可选</small></span>
+              <input
+                className="field-input"
+                type="date"
+                value={repeatUntil}
+                min={date}
+                onChange={(event) => setRepeatUntil(event.target.value)}
+              />
+            </label>
+          ) : null}
         </div>
 
         <label className="toggle-row toggle-row--compact">

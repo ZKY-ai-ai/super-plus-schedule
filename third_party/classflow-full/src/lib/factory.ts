@@ -1,6 +1,7 @@
 import type {
   Course,
   CourseSlot,
+  EventRepeat,
   Period,
   PeriodProfile,
   ScheduleData,
@@ -208,6 +209,8 @@ export function makeCourse(input: {
   };
 }
 
+const REPEAT_RULES: EventRepeat[] = ["none", "daily", "weekly", "monthly"];
+
 export function makeEvent(input: {
   title: string;
   date: string;
@@ -216,9 +219,15 @@ export function makeEvent(input: {
   end?: string;
   note?: string;
   tone?: ToneId;
+  repeat?: EventRepeat;
+  repeatUntil?: string;
+  checkIns?: string[];
   id?: string;
 }): ScheduleEvent {
   const now = new Date().toISOString();
+  const repeat = REPEAT_RULES.includes(input.repeat as EventRepeat)
+    ? (input.repeat as EventRepeat)
+    : "none";
   return {
     id: input.id ?? uid("event"),
     title: input.title.trim(),
@@ -228,6 +237,9 @@ export function makeEvent(input: {
     end: input.end ?? "10:00",
     note: input.note?.trim() ?? "",
     tone: input.tone ?? "teal",
+    repeat,
+    repeatUntil: repeat === "none" ? "" : (input.repeatUntil ?? "").trim(),
+    checkIns: [...(input.checkIns ?? [])],
     createdAt: now,
     updatedAt: now,
   };

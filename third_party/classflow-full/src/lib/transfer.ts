@@ -195,6 +195,12 @@ export function buildIcs(
     const description = [event.title, event.allDay ? "全天日程" : "日程", event.note]
       .filter(Boolean)
       .join("\n");
+    const repeatRule =
+      event.repeat && event.repeat !== "none"
+        ? `RRULE:FREQ=${event.repeat.toUpperCase()}${
+            event.repeatUntil ? `;UNTIL=${event.repeatUntil.replace(/-/g, "")}T235959Z` : ""
+          }`
+        : "";
     lines.push(
       "BEGIN:VEVENT",
       foldLine(`UID:${event.id}@classflow-event`),
@@ -205,6 +211,7 @@ export function buildIcs(
       event.allDay
         ? `DTEND;VALUE=DATE:${icsDateOnly(new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1))}`
         : foldLine(`DTEND:${icsLocalDate(date, event.end)}`),
+      ...(repeatRule ? [repeatRule] : []),
       foldLine(`SUMMARY:${icsEscape(event.title)}`),
       foldLine(`DESCRIPTION:${icsEscape(description)}`),
       "END:VEVENT",

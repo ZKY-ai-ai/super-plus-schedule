@@ -23,6 +23,9 @@ describe("v2 schedule normalization", () => {
       end: "10:00",
       note: "",
       tone: "teal",
+      repeat: "weekly",
+      repeatUntil: "2026-12-31",
+      checkIns: ["2026-11-13", "not-a-date", "2026-11-13"],
       createdAt: "",
       updatedAt: "",
     });
@@ -30,8 +33,56 @@ describe("v2 schedule normalization", () => {
     const normalized = normalizeSchedule({ data });
     expect(normalized?.timetables).toHaveLength(1);
     expect(normalized?.timetables[0].events[0].title).toBe("交作业");
+    expect(normalized?.timetables[0].events[0].repeat).toBe("weekly");
+    expect(normalized?.timetables[0].events[0].repeatUntil).toBe("2026-12-31");
+    expect(normalized?.timetables[0].events[0].checkIns).toEqual(["2026-11-13"]);
     expect(normalized?.timetables[0].wallpaper.preset).toBe("custom");
     expect(normalized?.periodProfiles).toHaveLength(2);
+  });
+
+  it("fills repeat defaults for legacy events without losing original fields", () => {
+    const data = createDemoSchedule(new Date(2026, 10, 12));
+    data.timetables[0].events.push({
+      id: "legacy-event",
+      title: "旧日程",
+      date: "2026-11-14",
+      allDay: false,
+      start: "12:00",
+      end: "13:00",
+      note: "保留备注",
+      tone: "plum",
+      createdAt: "2026-11-01T00:00:00.000Z",
+      updatedAt: "2026-11-02T00:00:00.000Z",
+    } as never);
+    const normalized = normalizeSchedule({ data });
+    const event = normalized?.timetables[0].events.find((item) => item.id === "legacy-event");
+    expect(event?.note).toBe("保留备注");
+    expect(event?.tone).toBe("plum");
+    expect(event?.repeat).toBe("none");
+    expect(event?.repeatUntil).toBe("");
+    expect(event?.checkIns).toEqual([]);
+    expect(event?.createdAt).toBe("2026-11-01T00:00:00.000Z");
+  });
+
+  it("drops an end date earlier than the event date", () => {
+    const data = createDemoSchedule(new Date(2026, 10, 12));
+    data.timetables[0].events.push({
+      id: "bad-until",
+      title: "错误结束日期",
+      date: "2026-11-14",
+      allDay: false,
+      start: "12:00",
+      end: "13:00",
+      note: "",
+      tone: "teal",
+      repeat: "daily",
+      repeatUntil: "2026-11-01",
+      checkIns: [],
+      createdAt: "",
+      updatedAt: "",
+    });
+    const normalized = normalizeSchedule({ data });
+    expect(normalized?.timetables[0].events[0].repeatUntil).toBe("");
   });
 
   it("migrates a real v1 schedule and discards the old demo", () => {

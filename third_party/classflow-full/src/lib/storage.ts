@@ -4,6 +4,7 @@ import type {
   Course,
   CourseSlot,
   CourseTemplate,
+  EventRepeat,
   ImportDraft,
   Period,
   PeriodProfile,
@@ -49,6 +50,7 @@ export const MAX_TEMPLATES = 12;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PATTERNS: WeekPattern[] = ["all", "odd", "even"];
+const REPEAT_RULES: EventRepeat[] = ["none", "daily", "weekly", "monthly"];
 const TONE_IDS = new Set<ToneId>(COURSE_TONES.map((tone) => tone.id));
 const PRESETS = new Set<WallpaperPreset>(["paper", "sage", "dawn", "dusk", "whale-night"]);
 
@@ -73,6 +75,36 @@ function int(value: unknown, min: number, max: number, fallback: number): number
 
 function normalizePattern(value: unknown): WeekPattern {
   return PATTERNS.includes(value as WeekPattern) ? (value as WeekPattern) : "all";
+}
+
+function isDateKey(value: string): boolean {
+  if (!DATE_RE.test(value)) return false;
+  const parsed = parseDateKey(value);
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    dateKey(parsed) === value
+  );
+}
+
+function normalizeRepeat(value: unknown): EventRepeat {
+  return REPEAT_RULES.includes(value as EventRepeat) ? (value as EventRepeat) : "none";
+}
+
+function normalizeRepeatUntil(value: unknown, date: string, repeat: EventRepeat): string {
+  if (repeat === "none") return "";
+  const raw = text(value, 10);
+  if (!isDateKey(raw) || raw < date) return "";
+  return raw;
+}
+
+function normalizeCheckIns(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  for (const item of value.slice(0, 1000)) {
+    if (typeof item !== "string" || !isDateKey(item)) continue;
+    seen.add(item);
+  }
+  return [...seen].sort();
 }
 
 function normalizePeriods(value: unknown): Period[] {
@@ -202,6 +234,7 @@ function normalizeEvent(value: unknown, index: number): ScheduleEvent | null {
   if (!DATE_RE.test(rawDate) || Number.isNaN(parseDateKey(rawDate).getTime())) return null;
   const now = new Date().toISOString();
   const toneValue = text(value.tone, 20) as ToneId;
+  const repeat = normalizeRepeat(value.repeat);
   let start = typeof value.start === "string" && TIME_RE.test(value.start) ? value.start : "09:00";
   let end = typeof value.end === "string" && TIME_RE.test(value.end) ? value.end : "10:00";
   if (timeToMinutes(end) <= timeToMinutes(start)) {
@@ -218,6 +251,9 @@ function normalizeEvent(value: unknown, index: number): ScheduleEvent | null {
     end,
     note: text(value.note, 500),
     tone: TONE_IDS.has(toneValue) ? toneValue : COURSE_TONES[index % COURSE_TONES.length].id,
+    repeat,
+    repeatUntil: normalizeRepeatUntil(value.repeatUntil, rawDate, repeat),
+    checkIns: normalizeCheckIns(value.checkIns),
     createdAt: text(value.createdAt, 40) || now,
     updatedAt: text(value.updatedAt, 40) || now,
   };

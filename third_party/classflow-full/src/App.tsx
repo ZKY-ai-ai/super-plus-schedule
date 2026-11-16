@@ -55,6 +55,9 @@ import { PlanPage, type PlanTab } from "./components/planner/PlanPage";
 import { NotesWorkspace } from "./components/notes/NotesWorkspace";
 import { AiWorkspace } from "./components/ai/AiWorkspace";
 import { loadGapPreferences, type GapPreferences } from "./lib/gaps";
+import { loadTasks } from "./lib/tasks";
+import { loadExams } from "./lib/exams";
+import { toggleEventCheckIn } from "./lib/eventRepeat";
 
 interface ConfirmState {
   title: string;
@@ -628,6 +631,8 @@ export default function App() {
               todayNumber={view.todayNumber}
               todayEvents={view.todayEvents}
               showAliases={prefs.showAliases}
+              tasks={loadTasks(timetable.id)}
+              exams={loadExams(timetable.id)}
               onPrevWeek={() => view.goToWeek(view.week - 1)}
               onNextWeek={() => view.goToWeek(view.week + 1)}
               onToday={view.goToday}
@@ -636,6 +641,9 @@ export default function App() {
               onAddAt={(day, start) => openEditor({ prefill: { day, start } })}
               onAddEventAt={(date) => openEventEditor({ date: date || dateKey(now) })}
               onSelectEvent={(event) => openEventEditor({ event })}
+              onToggleEventCheckIn={(event, date) =>
+                actions.saveEvent(toggleEventCheckIn({ ...event, date: event.seriesDate }, date))
+              }
             />
           ) : page === "plan" ? (
             <PlanPage
