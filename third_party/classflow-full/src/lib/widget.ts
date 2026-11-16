@@ -72,7 +72,7 @@ export function buildWidgetPayload(
 
     if (position.state === "during") {
       const sessions = filterHolidaySessions(
-        buildSessions(active.courses, position.week),
+        buildSessions(active.courses, position.week, active.overrides),
         weekDates,
         autoHolidays,
       )

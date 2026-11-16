@@ -182,3 +182,48 @@ describe("same-course matching", () => {
     expect(findMergeCourse([base], "大学英语", "王老师")?.id).toBe(base.id);
   });
 });
+
+describe("session overrides", () => {
+  const data = createDemoSchedule(new Date(2026, 10, 12));
+  const timetable = data.timetables[0];
+  const base = buildSessions(timetable.courses, 10);
+  const target = base[0];
+  const override = (
+    patch: Partial<import("../types").SessionOverride>,
+  ): import("../types").SessionOverride => ({
+    id: `override-${Math.random().toString(36).slice(2, 8)}`,
+    action: "cancel",
+    courseId: target.course.id,
+    slotId: target.slot.id,
+    week: 10,
+    createdAt: "",
+    ...patch,
+  });
+
+  it("cancels a single occurrence without touching other weeks", () => {
+    const sessions = buildSessions(timetable.courses, 10, [override({ action: "cancel" })]);
+    expect(sessions.some((item) => item.id === target.id)).toBe(false);
+    expect(sessions).toHaveLength(base.length - 1);
+    const otherWeek = buildSessions(timetable.courses, 10 - 1, [override({ action: "cancel" })]);
+    expect(otherWeek).toHaveLength(buildSessions(timetable.courses, 9).length);
+  });
+
+  it("moves a single occurrence to another day and period", () => {
+    const sessions = buildSessions(timetable.courses, 10, [
+      override({ action: "move", toDay: 6, toStart: 11, toEnd: 12 }),
+    ]);
+    const moved = sessions.find((item) => item.id === target.id);
+    expect(moved?.day).toBe(6);
+    expect(moved?.start).toBe(11);
+    expect(moved?.end).toBe(12);
+    expect(sessions).toHaveLength(base.length);
+  });
+
+  it("hides a course from the override week onward and restores earlier weeks", () => {
+    const hide = override({ action: "hide", week: 10, slotId: "" });
+    const weekTen = buildSessions(timetable.courses, 10, [hide]);
+    expect(weekTen.some((item) => item.course.id === target.course.id)).toBe(false);
+    const weekNine = buildSessions(timetable.courses, 9, [hide]);
+    expect(weekNine.some((item) => item.course.id === target.course.id)).toBe(true);
+  });
+});

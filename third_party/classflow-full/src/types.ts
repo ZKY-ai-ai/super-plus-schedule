@@ -35,6 +35,23 @@ export interface CourseSlot {
   weeks?: number[];
 }
 
+export type SessionOverrideAction = "cancel" | "move" | "hide";
+
+/** A change that applies to one occurrence instead of the whole course rule. */
+export interface SessionOverride {
+  id: string;
+  action: SessionOverrideAction;
+  courseId: string;
+  /** Empty for "hide" overrides, which cover every slot of the course. */
+  slotId: string;
+  /** The original teaching week the override applies to (hide: from-week). */
+  week: number;
+  toDay?: number;
+  toStart?: number;
+  toEnd?: number;
+  createdAt: string;
+}
+
 export interface Course {
   id: string;
   name: string;
@@ -99,6 +116,7 @@ export interface Timetable {
   periodRules: PeriodRule[];
   courses: Course[];
   events: ScheduleEvent[];
+  overrides: SessionOverride[];
   wallpaper: Wallpaper;
   createdAt: string;
   updatedAt: string;

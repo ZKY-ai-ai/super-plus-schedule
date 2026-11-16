@@ -267,6 +267,7 @@ export function createBlankTimetable(
     ],
     courses: [],
     events: [],
+    overrides: [],
     wallpaper: createDefaultWallpaper(),
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -295,6 +296,18 @@ export function getActiveTimetable(data: ScheduleData): Timetable {
 
 export function cloneTimetable(source: Timetable, name: string): Timetable {
   const timestamp = new Date().toISOString();
+  const courseIdMap = new Map<string, string>();
+  const slotIdMap = new Map<string, string>();
+  const courses = source.courses.map((course) => {
+    const id = uid("course");
+    courseIdMap.set(course.id, id);
+    const slots = course.slots.map((slot) => {
+      const slotId = uid("slot");
+      slotIdMap.set(`${course.id}:${slot.id}`, slotId);
+      return { ...slot, id: slotId };
+    });
+    return { ...course, id, slots, createdAt: course.createdAt, updatedAt: timestamp };
+  });
   return {
     ...source,
     id: uid("timetable"),
@@ -308,18 +321,21 @@ export function cloneTimetable(source: Timetable, name: string): Timetable {
       ...source.semester,
       periods: source.semester.periods.map((period) => ({ ...period })),
     },
-    courses: source.courses.map((course) => ({
-      ...course,
-      id: uid("course"),
-      slots: course.slots.map((slot) => ({ ...slot, id: uid("slot") })),
-      createdAt: course.createdAt,
-      updatedAt: timestamp,
-    })),
+    courses,
     events: source.events.map((event) => ({
       ...event,
       id: uid("event"),
       createdAt: event.createdAt,
       updatedAt: timestamp,
+    })),
+    overrides: (source.overrides ?? []).map((override) => ({
+      ...override,
+      id: uid("override"),
+      courseId: courseIdMap.get(override.courseId) ?? override.courseId,
+      slotId: override.slotId
+        ? slotIdMap.get(`${override.courseId}:${override.slotId}`) ?? override.slotId
+        : "",
+      createdAt: timestamp,
     })),
     wallpaper: cloneWallpaper(source.wallpaper),
     createdAt: timestamp,
@@ -454,6 +470,7 @@ export function createDemoSchedule(now = new Date()): ScheduleData {
     periodRules: [{ id: "demo-rule", from: dateKey(start).slice(5), profileId: profile.id }],
     courses,
     events: [],
+    overrides: [],
     wallpaper: createDefaultWallpaper(),
     createdAt: timestamp,
     updatedAt: timestamp,

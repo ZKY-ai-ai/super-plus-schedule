@@ -10,6 +10,7 @@ import type {
   ScheduleData,
   ScheduleEvent,
   Semester,
+  SessionOverride,
   Timetable,
   ToneId,
   Wallpaper,
@@ -258,6 +259,39 @@ function normalizeProfiles(value: unknown): PeriodProfile[] {
   return profiles;
 }
 
+function normalizeOverrides(value: unknown): SessionOverride[] {
+  if (!Array.isArray(value)) return [];
+  const overrides: SessionOverride[] = [];
+  const ids = new Set<string>();
+  value.slice(0, 500).forEach((item, index) => {
+    if (!isRecord(item)) return;
+    const action = item.action;
+    if (action !== "cancel" && action !== "move" && action !== "hide") return;
+    const courseId = text(item.courseId, 80);
+    if (!courseId) return;
+    const id = text(item.id, 80) || uid(`override-${index + 1}`);
+    if (ids.has(id)) return;
+    ids.add(id);
+    const slotId = action === "hide" ? "" : text(item.slotId, 80);
+    if (action !== "hide" && !slotId) return;
+    const override: SessionOverride = {
+      id,
+      action,
+      courseId,
+      slotId,
+      week: int(item.week, 1, 30, 1),
+      createdAt: text(item.createdAt, 40) || new Date().toISOString(),
+    };
+    if (action === "move") {
+      override.toDay = int(item.toDay, 1, 7, 1);
+      override.toStart = int(item.toStart, 1, 14, 1);
+      override.toEnd = int(item.toEnd, override.toStart, 14, override.toStart);
+    }
+    overrides.push(override);
+  });
+  return overrides;
+}
+
 function normalizeTimetable(
   value: unknown,
   profiles: PeriodProfile[],
@@ -303,6 +337,7 @@ function normalizeTimetable(
     ),
     courses,
     events,
+    overrides: normalizeOverrides(value.overrides),
     wallpaper: normalizeWallpaper(value.wallpaper),
     createdAt: text(value.createdAt, 40) || now,
     updatedAt: text(value.updatedAt, 40) || now,
@@ -340,6 +375,7 @@ function normalizeLegacyTimetable(candidate: Record<string, unknown>): Timetable
     periodRules: normalizePeriodRules([], profiles, semester.startDate, standard?.id ?? profiles[0].id),
     courses,
     events: [],
+    overrides: [],
     wallpaper: createDefaultWallpaper(),
     createdAt: now,
     updatedAt: now,

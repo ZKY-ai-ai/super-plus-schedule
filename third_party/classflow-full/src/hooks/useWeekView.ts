@@ -61,12 +61,12 @@ export function useWeekView({ data, prefs, timetable, now }: WeekViewParams) {
     [currentDates, prefs.autoHolidays],
   );
   const rawViewSessions = useMemo(
-    () => buildSessions(timetable.courses, week),
-    [timetable.courses, week],
+    () => buildSessions(timetable.courses, week, timetable.overrides),
+    [timetable.courses, timetable.overrides, week],
   );
   const rawCurrentSessions = useMemo(
-    () => buildSessions(timetable.courses, currentWeek),
-    [timetable.courses, currentWeek],
+    () => buildSessions(timetable.courses, currentWeek, timetable.overrides),
+    [timetable.courses, timetable.overrides, currentWeek],
   );
   const viewSessions = useMemo(
     () => filterHolidaySessions(rawViewSessions, viewDates, prefs.autoHolidays),

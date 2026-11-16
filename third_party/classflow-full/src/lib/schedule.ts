@@ -5,6 +5,7 @@ import type {
   NextSession,
   Period,
   Session,
+  SessionOverride,
   WeekPattern,
   WeekStats,
 } from "../types";
@@ -120,19 +121,33 @@ export function isSlotActiveInWeek(slot: CourseSlot, week: number): boolean {
   return true;
 }
 
-export function buildSessions(courses: Course[], week: number): Session[] {
+export function buildSessions(
+  courses: Course[],
+  week: number,
+  overrides: SessionOverride[] = [],
+): Session[] {
+  const hidden = new Set(
+    overrides
+      .filter((override) => override.action === "hide" && week >= override.week)
+      .map((override) => override.courseId),
+  );
+  const byOccurrence = new Map<string, SessionOverride>();
+  for (const override of overrides) {
+    if (override.action === "hide") continue;
+    byOccurrence.set(`${override.courseId}:${override.slotId}:${override.week}`, override);
+  }
   const sessions: Session[] = [];
   for (const course of courses) {
+    if (hidden.has(course.id)) continue;
     for (const slot of course.slots) {
       if (!isSlotActiveInWeek(slot, week)) continue;
-      sessions.push({
-        id: `${course.id}:${slot.id}:${week}`,
-        course,
-        slot,
-        day: slot.day,
-        start: slot.start,
-        end: slot.end,
-      });
+      const override = byOccurrence.get(`${course.id}:${slot.id}:${week}`);
+      if (override?.action === "cancel") continue;
+      const moved = override?.action === "move";
+      const day = moved && override?.toDay ? Math.min(7, Math.max(1, override.toDay)) : slot.day;
+      const start = moved && override?.toStart ? Math.min(14, Math.max(1, override.toStart)) : slot.start;
+      const end = moved && override?.toEnd ? Math.max(start, Math.min(14, override.toEnd)) : slot.end;
+      sessions.push({ id: `${course.id}:${slot.id}:${week}`, course, slot, day, start, end });
     }
   }
   return sessions.sort((a, b) => a.day - b.day || a.start - b.start || a.end - b.end);
