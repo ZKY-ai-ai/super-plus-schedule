@@ -404,6 +404,29 @@ export function remainingSessionCount(
   return sessions.filter((session) => !isSessionFinished(session, periods, now)).length;
 }
 
+/**
+ * Today's sessions that have not finished yet, earliest period first.
+ * Sessions without a matching period are skipped.
+ */
+export function remainingSessionsToday(
+  sessions: Session[],
+  periods: Period[],
+  now: Date,
+): Session[] {
+  return sessions
+    .filter((session) => {
+      const startPeriod = periods[session.start - 1];
+      const endPeriod = periods[session.end - 1];
+      if (!startPeriod || !endPeriod) return false;
+      return !isSessionFinished(session, periods, now);
+    })
+    .sort(
+      (a, b) =>
+        timeToMinutes(periods[a.start - 1].start) - timeToMinutes(periods[b.start - 1].start) ||
+        a.end - b.end,
+    );
+}
+
 export function getPeriodNowProgress(
   periods: Period[],
   now: Date,
