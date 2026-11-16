@@ -97,6 +97,14 @@ export function isWorkdayDate(date: Date | string): boolean {
 }
 
 /**
+ * A day that can carry classes: anything except an official holiday, including
+ * make-up workdays that fall on a weekend.
+ */
+export function isClassDay(date: Date | string): boolean {
+  return !isHolidayDate(date);
+}
+
+/**
  * Hide classes on official holidays. Make-up workdays stay visible and keep
  * their badge; they do not automatically borrow another weekday's timetable,
  * because that mapping is set by each school and is not part of the national

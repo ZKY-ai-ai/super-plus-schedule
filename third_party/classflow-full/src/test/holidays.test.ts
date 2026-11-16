@@ -3,6 +3,7 @@ import {
   filterHolidaySessions,
   getCalendarInfo,
   getVisibleDays,
+  isClassDay,
 } from "../lib/holidays";
 import { getWeekDates } from "../lib/date";
 import type { Session } from "../types";
@@ -55,5 +56,11 @@ describe("Chinese holiday calendar", () => {
     const workdayWeek = getWeekDates("2026-09-07", 2);
     expect(getVisibleDays(false, workdayWeek, true)).toEqual([1, 2, 3, 4, 5, 7]);
     expect(getVisibleDays(false, workdayWeek, false)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it("marks holidays as non-class days but keeps make-up workdays", () => {
+    expect(isClassDay("2026-10-01")).toBe(false);
+    expect(isClassDay("2026-09-20")).toBe(true);
+    expect(isClassDay("2026-11-12")).toBe(true);
   });
 });
