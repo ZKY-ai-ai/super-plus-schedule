@@ -1,5 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type {
+  CSSProperties,
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+} from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import {
   loadWoodfish,
@@ -22,6 +26,51 @@ interface MeritFloat {
   label: string;
 }
 
+interface Spark {
+  id: number;
+  dx: number;
+  dy: number;
+  size: number;
+  delay: number;
+  tone: number;
+}
+
+/** 用敲击序号做种子，保证同一次敲击的火星在重渲染时不跳变。 */
+function makeSparks(seed: number): Spark[] {
+  const sparks: Spark[] = [];
+  for (let i = 0; i < 9; i++) {
+    const angle = (i / 9) * Math.PI * 2 + (((seed * 37 + i * 13) % 10) / 10) * 0.7;
+    const distance = 52 + ((seed * 53 + i * 29) % 48);
+    sparks.push({
+      id: i,
+      dx: Math.cos(angle) * distance,
+      dy: Math.sin(angle) * distance * 0.82 - 16,
+      size: 3 + ((seed * 17 + i * 7) % 4),
+      delay: i * 13,
+      tone: i % 3,
+    });
+  }
+  return sparks;
+}
+
+function speedMood(speed: number): { label: string; tone: string } {
+  if (speed < 0.5) return { label: "入定", tone: "calm" };
+  if (speed < 2.5) return { label: "匀速", tone: "steady" };
+  if (speed < 5) return { label: "疾风", tone: "fast" };
+  return { label: "狂敲", tone: "wild" };
+}
+
+const MOTES = [
+  { left: 12, top: 78, delay: 0, duration: 9, size: 3 },
+  { left: 24, top: 88, delay: 2.4, duration: 11, size: 2 },
+  { left: 38, top: 82, delay: 5.1, duration: 8, size: 3 },
+  { left: 55, top: 90, delay: 1.2, duration: 12, size: 2 },
+  { left: 68, top: 80, delay: 4.3, duration: 9.5, size: 3 },
+  { left: 80, top: 86, delay: 6.6, duration: 10, size: 2 },
+  { left: 90, top: 76, delay: 3.2, duration: 8.5, size: 3 },
+  { left: 46, top: 94, delay: 7.8, duration: 13, size: 2 },
+];
+
 function formatCount(value: number): string {
   return value.toLocaleString("zh-CN");
 }
@@ -31,20 +80,20 @@ function WoodenFishArt() {
     <svg viewBox="0 0 240 200" role="img" aria-hidden="true" focusable="false">
       <defs>
         <linearGradient id="woodfish-body" x1="56" y1="58" x2="198" y2="168" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#d99a5c" />
-          <stop offset="0.52" stopColor="#b2743a" />
-          <stop offset="1" stopColor="#7f471f" />
+          <stop offset="0" stopColor="#e2a768" />
+          <stop offset="0.5" stopColor="#b2743a" />
+          <stop offset="1" stopColor="#7c441d" />
         </linearGradient>
-        <linearGradient id="woodfish-tail" x1="24" y1="54" x2="92" y2="142" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#a96a34" />
+        <linearGradient id="woodfish-tail" x1="20" y1="50" x2="96" y2="146" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#b5763c" />
           <stop offset="1" stopColor="#6e3b17" />
         </linearGradient>
-        <radialGradient id="woodfish-gloss" cx="0.33" cy="0.2" r="0.68">
-          <stop offset="0" stopColor="#ffe4bd" stopOpacity="0.72" />
-          <stop offset="1" stopColor="#ffe4bd" stopOpacity="0" />
+        <radialGradient id="woodfish-gloss" cx="0.33" cy="0.18" r="0.7">
+          <stop offset="0" stopColor="#ffe9c4" stopOpacity="0.8" />
+          <stop offset="1" stopColor="#ffe9c4" stopOpacity="0" />
         </radialGradient>
-        <radialGradient id="woodfish-slit" cx="0.5" cy="0.35" r="0.75">
-          <stop offset="0" stopColor="#2a1408" />
+        <radialGradient id="woodfish-slit" cx="0.5" cy="0.3" r="0.8">
+          <stop offset="0" stopColor="#241106" />
           <stop offset="1" stopColor="#432312" />
         </radialGradient>
         <filter id="woodfish-shadow" x="-50%" y="-120%" width="200%" height="340%">
@@ -52,28 +101,42 @@ function WoodenFishArt() {
         </filter>
       </defs>
 
-      <ellipse cx="128" cy="178" rx="70" ry="10" fill="#3a2412" opacity="0.3" filter="url(#woodfish-shadow)" />
+      <ellipse cx="128" cy="176" rx="66" ry="9" fill="#3a2412" opacity="0.3" filter="url(#woodfish-shadow)" />
 
-      <path
-        d="M78 116C56 106 34 84 24 52c23 7 44 20 58 40 5 7 7 15 5 24-3 6-6 8-9 0Z"
-        fill="url(#woodfish-tail)"
-      />
-      <path d="M43 67c11 12 21 24 29 38" stroke="#5d3214" strokeWidth="2.5" strokeLinecap="round" opacity="0.45" fill="none" />
+      <g className="woodfish__tail">
+        <path
+          d="M82 118C58 112 32 92 18 58c-2-5 2-8 7-6 16 7 34 10 48 22 9 8 15 18 16 28 1 6-2 10-7 16Z"
+          fill="url(#woodfish-tail)"
+        />
+        <path
+          d="M80 122C62 124 44 118 30 104c14-2 30 0 42 8 4 3 6 6 8 10Z"
+          fill="#8a5226"
+          opacity="0.85"
+        />
+        <path d="M40 66c12 12 24 26 32 40" stroke="#5d3214" strokeWidth="2.4" strokeLinecap="round" opacity="0.45" fill="none" />
+      </g>
 
       <ellipse cx="128" cy="112" rx="70" ry="54" fill="url(#woodfish-body)" />
       <ellipse cx="128" cy="112" rx="70" ry="54" fill="url(#woodfish-gloss)" />
-      <path d="M66 139c16 18 43 27 69 23" stroke="#6b3a17" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.34" />
-      <path d="M79 127c12 10 28 15 43 14" stroke="#f3c78e" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.3" />
 
-      <path
-        d="M120 74c24-6 50-2 68 9 2 1 2 3 0 4-19 5-43 1-60-8-4-2-7-3-8-5Z"
-        fill="url(#woodfish-slit)"
-      />
-      <path d="M131 79c18-2 37 1 49 7" stroke="#612f13" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.55" />
+      <path d="M64 138c16 19 44 28 71 24" stroke="#6b3a17" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.34" />
+      <path d="M78 126c12 10 28 15 44 14" stroke="#f3c78e" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.3" />
+      <path d="M92 150c16 8 36 10 53 5" stroke="#f0c088" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.22" />
+      <path d="M70 96c6-14 18-24 32-28" stroke="#8a5226" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.35" />
 
-      <circle cx="108" cy="98" r="5.2" fill="#2b1508" />
-      <circle cx="109.7" cy="96.3" r="1.7" fill="#ffe9c9" opacity="0.9" />
-      <path d="M91 148c16 8 36 10 53 5" stroke="#f0c088" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.22" />
+      <g className="woodfish__mouth">
+        <path
+          d="M120 74c24-6 50-2 68 9 2 1 2 3 0 4-19 5-43 1-60-8-4-2-7-3-8-5Z"
+          fill="url(#woodfish-slit)"
+        />
+        <path d="M131 79c18-2 37 1 49 7" stroke="#612f13" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.55" />
+      </g>
+
+      <g className="woodfish__eye">
+        <circle cx="106" cy="98" r="5.4" fill="#2b1508" />
+        <circle cx="107.8" cy="96.2" r="1.8" fill="#ffe9c9" opacity="0.92" />
+      </g>
+      <path d="M96 90c4-4 10-6 16-5" stroke="#6b3a17" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.4" />
     </svg>
   );
 }
@@ -82,8 +145,8 @@ function MalletArt() {
   return (
     <svg viewBox="0 0 120 120" role="img" aria-hidden="true" focusable="false">
       <defs>
-        <linearGradient id="woodfish-mallet-head" x1="16" y1="78" x2="62" y2="112" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#d8a163" />
+        <linearGradient id="woodfish-mallet-head" x1="14" y1="74" x2="66" y2="112" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#dca76a" />
           <stop offset="1" stopColor="#8f5626" />
         </linearGradient>
       </defs>
@@ -93,6 +156,24 @@ function MalletArt() {
         <rect x="14" y="74" width="52" height="36" rx="18" fill="url(#woodfish-mallet-head)" stroke="#6f3c18" strokeWidth="1.6" />
         <path d="M25 84h30M25 100h30" stroke="#f2cd9b" strokeWidth="2.2" strokeLinecap="round" opacity="0.32" />
       </g>
+    </svg>
+  );
+}
+
+function AuraRing() {
+  return (
+    <svg className="woodfish__aura" viewBox="0 0 320 320" aria-hidden="true" focusable="false">
+      <defs>
+        <path
+          id="woodfish-aura-path"
+          d="M160 160 m -126 0 a 126 126 0 1 1 252 0 a 126 126 0 1 1 -252 0"
+        />
+      </defs>
+      <text className="woodfish__aura-text">
+        <textPath href="#woodfish-aura-path" startOffset="0">
+          功德 +1 · 烦恼 -1 · 心平气和 · 今日顺遂 · 功德 +1 · 烦恼 -1 · 心平气和 · 今日顺遂 ·
+        </textPath>
+      </text>
     </svg>
   );
 }
@@ -107,6 +188,10 @@ export function Woodfish() {
   const meritId = useRef(0);
   const [interacted, setInteracted] = useState(false);
   const audioRef = useRef<AudioContext | null>(null);
+
+  const sparks = useMemo(() => makeSparks(strikes), [strikes]);
+  const energy = Math.min(1, speed / 8);
+  const mood = speedMood(speed);
 
   const playKnock = useCallback(() => {
     try {
@@ -166,12 +251,14 @@ export function Woodfish() {
     setStrikes((value) => value + 1);
     setInteracted(true);
     const id = ++meritId.current;
+    // 四条横向泳道轮转，连点时飘字错开落点，避免叠成一团看不清。
+    const lane = id % 4;
     setMerits((current) => [
-      ...current.slice(-7),
+      ...current.slice(-5),
       {
         id,
-        x: 44 + Math.random() * 16,
-        y: 30 + Math.random() * 10,
+        x: [32, 45, 58, 71][lane] + Math.random() * 4,
+        y: 28 + Math.random() * 5,
         label: MERIT_LABELS[id % MERIT_LABELS.length],
       },
     ]);
@@ -223,9 +310,14 @@ export function Woodfish() {
   }, []);
 
   const meterWidth = Math.min(100, (speed / METER_FULL_SPEED) * 100);
+  const rootStyle = {
+    "--wf-energy": energy.toFixed(3),
+    "--wf-spin": `${(16 - energy * 11).toFixed(2)}s`,
+    "--wf-bob": `${(3.4 - energy * 1.7).toFixed(2)}s`,
+  } as CSSProperties;
 
   return (
-    <div className="woodfish">
+    <div className="woodfish" style={rootStyle}>
       <header className="woodfish__head">
         <h3>敲木鱼</h3>
         <p>功德 +1 · 烦恼 -1</p>
@@ -241,7 +333,10 @@ export function Woodfish() {
           <strong className="woodfish__stat-value">{formatCount(stats.dayCount)}</strong>
         </div>
         <div className="woodfish__stat woodfish__stat--speed">
-          <span className="woodfish__stat-label">点击速度</span>
+          <span className="woodfish__stat-label">
+            点击速度
+            <span className={`woodfish__mood is-${mood.tone}`}>{mood.label}</span>
+          </span>
           <strong className="woodfish__stat-value">
             {speed.toFixed(1)}
             <small>次/秒</small>
@@ -254,7 +349,38 @@ export function Woodfish() {
 
       <div className="woodfish__stage">
         <span className="woodfish__glow" aria-hidden="true" />
-        {strikes > 0 ? <span key={`ring-${strikes}`} className="woodfish__ring" aria-hidden="true" /> : null}
+        <AuraRing />
+        <span className="woodfish__orbit" aria-hidden="true" />
+
+        <span className="woodfish__smoke woodfish__smoke--a" aria-hidden="true" />
+        <span className="woodfish__smoke woodfish__smoke--b" aria-hidden="true" />
+        <span className="woodfish__smoke woodfish__smoke--c" aria-hidden="true" />
+
+        <span className="woodfish__motes" aria-hidden="true">
+          {MOTES.map((mote, index) => (
+            <span
+              key={index}
+              className="woodfish__mote"
+              style={
+                {
+                  left: `${mote.left}%`,
+                  top: `${mote.top}%`,
+                  width: mote.size,
+                  height: mote.size,
+                  animationDelay: `${mote.delay}s`,
+                  animationDuration: `${mote.duration}s`,
+                } as CSSProperties
+              }
+            />
+          ))}
+        </span>
+
+        {strikes > 0 ? (
+          <span key={`rings-${strikes}`} className="woodfish__rings" aria-hidden="true">
+            <span className="woodfish__ring" />
+            <span className="woodfish__ring woodfish__ring--late" />
+          </span>
+        ) : null}
 
         <button
           type="button"
@@ -263,8 +389,10 @@ export function Woodfish() {
           onPointerDown={handlePointerDown}
           onClick={handleClick}
         >
-          <span key={`fish-${strikes}`} className={`woodfish__fish${strikes > 0 ? " is-struck" : ""}`}>
-            <WoodenFishArt />
+          <span className="woodfish__fish-bob">
+            <span key={`fish-${strikes}`} className={`woodfish__fish${strikes > 0 ? " is-struck" : ""}`}>
+              <WoodenFishArt />
+            </span>
           </span>
         </button>
 
@@ -275,6 +403,27 @@ export function Woodfish() {
         >
           <MalletArt />
         </span>
+
+        {strikes > 0 ? (
+          <span key={`burst-${strikes}`} className="woodfish__burst" aria-hidden="true">
+            <span className="woodfish__flash" />
+            {sparks.map((spark) => (
+              <span
+                key={spark.id}
+                className={`woodfish__spark is-tone-${spark.tone}`}
+                style={
+                  {
+                    "--dx": `${spark.dx}px`,
+                    "--dy": `${spark.dy}px`,
+                    width: spark.size,
+                    height: spark.size,
+                    animationDelay: `${spark.delay}ms`,
+                  } as CSSProperties
+                }
+              />
+            ))}
+          </span>
+        ) : null}
 
         <div className="woodfish__merits" aria-hidden="true">
           {merits.map((merit) => (

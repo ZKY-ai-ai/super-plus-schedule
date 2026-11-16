@@ -1,5 +1,6 @@
 /* --------------------------------------------------------------------------
    敲木鱼（设置页彩蛋）
+   --wf-energy 由实时手速驱动：光晕、功德轮、浮沉节奏都跟着手速变。
    -------------------------------------------------------------------------- */
 
 .woodfish {
@@ -50,6 +51,10 @@
 }
 
 .woodfish__stat-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
   color: var(--muted);
   font-size: 9px;
   letter-spacing: 0.12em;
@@ -77,6 +82,36 @@
   font-size: 22px;
 }
 
+.woodfish__mood {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  transition:
+    color 200ms ease,
+    background 200ms ease;
+}
+
+.woodfish__mood.is-calm {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--line) 60%, transparent);
+}
+
+.woodfish__mood.is-steady {
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.woodfish__mood.is-fast {
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
+.woodfish__mood.is-wild {
+  color: var(--coral-deep);
+  background: var(--coral-soft);
+}
+
 .woodfish__meter {
   display: block;
   height: 3px;
@@ -101,7 +136,7 @@
   display: grid;
   place-items: center;
   width: 100%;
-  min-height: 330px;
+  min-height: 340px;
   isolation: isolate;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -143,19 +178,170 @@ html[data-theme="dark"] .woodfish__stage::before {
   );
 }
 
+/* 光晕：手速越快越亮越大 */
+
 .woodfish__glow {
   position: absolute;
-  width: 330px;
-  height: 330px;
+  z-index: 0;
+  width: 340px;
+  height: 340px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 205, 133, 0.45), transparent 62%);
-  transform: translateY(14px);
+  background: radial-gradient(circle, rgba(255, 205, 133, 0.5), transparent 62%);
+  opacity: calc(0.4 + var(--wf-energy, 0) * 0.55);
+  transform: translateY(14px) scale(calc(1 + var(--wf-energy, 0) * 0.14));
+  transition:
+    opacity 260ms ease,
+    transform 260ms ease;
   pointer-events: none;
 }
 
 html[data-theme="dark"] .woodfish__glow {
-  background: radial-gradient(circle, rgba(221, 164, 92, 0.2), transparent 62%);
+  background: radial-gradient(circle, rgba(221, 164, 92, 0.26), transparent 62%);
 }
+
+/* 功德轮：绕鱼旋转的经文环，转速随手速加快 */
+
+.woodfish__aura {
+  position: absolute;
+  z-index: 1;
+  width: min(78%, 340px);
+  height: auto;
+  color: #a4682c;
+  opacity: calc(0.2 + var(--wf-energy, 0) * 0.5);
+  animation: woodfish-spin var(--wf-spin, 16s) linear infinite;
+  transition: opacity 260ms ease;
+  pointer-events: none;
+}
+
+html[data-theme="dark"] .woodfish__aura {
+  color: #e0b071;
+}
+
+.woodfish__aura-text {
+  fill: currentColor;
+  font-family: var(--display);
+  font-size: 13px;
+  letter-spacing: 5px;
+}
+
+.woodfish__orbit {
+  position: absolute;
+  z-index: 1;
+  width: min(64%, 280px);
+  aspect-ratio: 1;
+  border: 1px dashed color-mix(in srgb, #a4682c 55%, transparent);
+  border-radius: 50%;
+  opacity: calc(0.25 + var(--wf-energy, 0) * 0.45);
+  animation: woodfish-spin-rev calc(var(--wf-spin, 16s) * 1.6) linear infinite;
+  pointer-events: none;
+}
+
+html[data-theme="dark"] .woodfish__orbit {
+  border-color: color-mix(in srgb, #e0b071 45%, transparent);
+}
+
+@keyframes woodfish-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes woodfish-spin-rev {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+/* 香雾与浮尘：让舞台一直"活着" */
+
+.woodfish__smoke {
+  position: absolute;
+  z-index: 1;
+  bottom: -30px;
+  width: 54px;
+  height: 190px;
+  border-radius: 50% 50% 40% 40%;
+  background: linear-gradient(to top, transparent, rgba(214, 178, 128, 0.34) 40%, transparent);
+  filter: blur(13px);
+  opacity: 0;
+  animation: woodfish-smoke 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.woodfish__smoke--a {
+  left: 30%;
+}
+
+.woodfish__smoke--b {
+  left: 48%;
+  animation-delay: 2.6s;
+  animation-duration: 9.5s;
+}
+
+.woodfish__smoke--c {
+  left: 64%;
+  animation-delay: 5.2s;
+  animation-duration: 7.2s;
+}
+
+html[data-theme="dark"] .woodfish__smoke {
+  background: linear-gradient(to top, transparent, rgba(224, 176, 113, 0.2) 40%, transparent);
+}
+
+@keyframes woodfish-smoke {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scaleX(0.8) rotate(-3deg);
+  }
+  30% {
+    opacity: 0.7;
+  }
+  70% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-190px) scaleX(1.35) rotate(4deg);
+  }
+}
+
+.woodfish__motes {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.woodfish__mote {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(214, 164, 96, 0.75);
+  opacity: 0;
+  animation: woodfish-mote 10s linear infinite;
+}
+
+html[data-theme="dark"] .woodfish__mote {
+  background: rgba(232, 190, 128, 0.6);
+}
+
+@keyframes woodfish-mote {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  15% {
+    opacity: 0.7;
+  }
+  80% {
+    opacity: 0.25;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-150px);
+  }
+}
+
+/* 木鱼本体：待机浮沉 + 敲击挤压回弹 */
 
 .woodfish__fish-button {
   position: relative;
@@ -176,6 +362,21 @@ html[data-theme="dark"] .woodfish__glow {
   outline-offset: 6px;
 }
 
+.woodfish__fish-bob {
+  display: block;
+  animation: woodfish-bob var(--wf-bob, 3.4s) ease-in-out infinite;
+}
+
+@keyframes woodfish-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1.2deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(1.2deg);
+  }
+}
+
 .woodfish__fish {
   display: block;
   transform-origin: 50% 86%;
@@ -186,26 +387,89 @@ html[data-theme="dark"] .woodfish__glow {
   display: block;
   width: 100%;
   height: auto;
+  overflow: visible;
 }
 
 .woodfish__fish.is-struck {
-  animation: woodfish-squash 240ms cubic-bezier(0.22, 0.9, 0.32, 1.2);
+  animation: woodfish-squash 300ms cubic-bezier(0.22, 0.9, 0.32, 1.25);
 }
 
 @keyframes woodfish-squash {
   0% {
-    transform: scale(1, 1);
+    transform: scale(1, 1) rotate(0deg);
   }
-  35% {
-    transform: scale(1.035, 0.94) translateY(4px);
+  28% {
+    transform: scale(1.07, 0.88) rotate(-2.4deg) translateY(6px);
   }
-  70% {
-    transform: scale(0.985, 1.02);
+  56% {
+    transform: scale(0.95, 1.07) rotate(1.8deg) translateY(-4px);
+  }
+  78% {
+    transform: scale(1.02, 0.98) rotate(-0.6deg);
   }
   100% {
-    transform: scale(1, 1);
+    transform: scale(1, 1) rotate(0deg);
   }
 }
+
+.woodfish__tail {
+  transform-box: fill-box;
+  transform-origin: 92% 62%;
+  animation: woodfish-tail 3.8s ease-in-out infinite;
+}
+
+@keyframes woodfish-tail {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+
+.woodfish__eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: woodfish-blink 5.4s ease-in-out infinite;
+}
+
+@keyframes woodfish-blink {
+  0%,
+  90%,
+  100% {
+    transform: scaleY(1);
+  }
+  94% {
+    transform: scaleY(0.12);
+  }
+  97% {
+    transform: scaleY(1);
+  }
+}
+
+.woodfish__mouth {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.woodfish__fish.is-struck .woodfish__mouth {
+  animation: woodfish-mouth 280ms ease-out;
+}
+
+@keyframes woodfish-mouth {
+  0% {
+    transform: scaleY(1);
+  }
+  35% {
+    transform: scaleY(1.45);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+/* 木槌：先蓄力再挥落，带一道挥击残影 */
 
 .woodfish__mallet {
   position: absolute;
@@ -213,7 +477,7 @@ html[data-theme="dark"] .woodfish__glow {
   right: 21%;
   z-index: 3;
   width: clamp(76px, 24%, 116px);
-  transform: rotate(-14deg);
+  transform: rotate(-16deg);
   transform-origin: 76% 20%;
   filter: drop-shadow(0 8px 14px rgba(70, 40, 12, 0.18));
   pointer-events: none;
@@ -226,51 +490,169 @@ html[data-theme="dark"] .woodfish__glow {
 }
 
 .woodfish__mallet.is-striking {
-  animation: woodfish-strike 230ms cubic-bezier(0.25, 0.9, 0.35, 1.15);
+  animation: woodfish-strike 300ms cubic-bezier(0.3, 0.8, 0.35, 1.1);
+}
+
+.woodfish__mallet.is-striking::after {
+  position: absolute;
+  inset: 18% 30% 30% 8%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 70%, rgba(255, 224, 178, 0.5), transparent 65%);
+  content: "";
+  opacity: 0;
+  animation: woodfish-trail 300ms ease-out;
 }
 
 @keyframes woodfish-strike {
   0% {
-    transform: rotate(-14deg);
+    transform: rotate(-16deg);
   }
-  38% {
-    transform: rotate(18deg);
+  26% {
+    transform: rotate(-30deg);
+  }
+  52% {
+    transform: rotate(22deg);
+  }
+  74% {
+    transform: rotate(4deg);
   }
   100% {
-    transform: rotate(-14deg);
+    transform: rotate(-16deg);
   }
+}
+
+@keyframes woodfish-trail {
+  0%,
+  30% {
+    opacity: 0;
+    transform: rotate(-24deg) scale(0.7);
+  }
+  52% {
+    opacity: 0.9;
+    transform: rotate(10deg) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(18deg) scale(1.25);
+  }
+}
+
+/* 冲击：双层声波 + 接触点闪光 + 飞溅火星 */
+
+.woodfish__rings {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .woodfish__ring {
   position: absolute;
-  z-index: 1;
-  top: 50%;
+  top: 52%;
   left: 50%;
   width: 250px;
   height: 250px;
-  border: 2px solid rgba(214, 158, 88, 0.7);
+  border: 2px solid rgba(214, 158, 88, 0.75);
   border-radius: 50%;
   opacity: 0;
   transform: translate(-50%, -50%) scale(0.45);
-  animation: woodfish-ring 640ms cubic-bezier(0.16, 0.7, 0.3, 1) forwards;
-  pointer-events: none;
+  animation: woodfish-ring 680ms cubic-bezier(0.16, 0.7, 0.3, 1) forwards;
+}
+
+.woodfish__ring--late {
+  border-color: rgba(255, 224, 178, 0.6);
+  animation-delay: 90ms;
+  animation-duration: 760ms;
 }
 
 @keyframes woodfish-ring {
   0% {
-    opacity: 0.85;
+    opacity: 0.9;
     transform: translate(-50%, -50%) scale(0.45);
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(1.25);
+    transform: translate(-50%, -50%) scale(1.3);
   }
 }
+
+.woodfish__burst {
+  position: absolute;
+  top: 40%;
+  left: 63%;
+  z-index: 3;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.woodfish__flash {
+  position: absolute;
+  top: -24px;
+  left: -24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 246, 220, 0.98), rgba(255, 196, 110, 0.55) 42%, transparent 68%);
+  opacity: 0;
+  animation: woodfish-flash 240ms ease-out;
+}
+
+@keyframes woodfish-flash {
+  0% {
+    opacity: 0.95;
+    transform: scale(0.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+.woodfish__spark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  opacity: 0;
+  animation: woodfish-spark 620ms cubic-bezier(0.15, 0.6, 0.3, 1) forwards;
+}
+
+.woodfish__spark.is-tone-0 {
+  background: #ffd98f;
+  box-shadow: 0 0 8px rgba(255, 205, 133, 0.8);
+}
+
+.woodfish__spark.is-tone-1 {
+  background: #f0a35c;
+  box-shadow: 0 0 6px rgba(240, 163, 92, 0.7);
+}
+
+.woodfish__spark.is-tone-2 {
+  background: #fff3d6;
+  box-shadow: 0 0 6px rgba(255, 243, 214, 0.7);
+}
+
+@keyframes woodfish-spark {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  70% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx, 40px), var(--dy, -40px)) scale(0.2);
+  }
+}
+
+/* 功德飘字 */
 
 .woodfish__merits {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 4;
   overflow: hidden;
   pointer-events: none;
 }
@@ -279,31 +661,32 @@ html[data-theme="dark"] .woodfish__glow {
   position: absolute;
   color: #8a4a17;
   font-family: var(--display);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.06em;
   white-space: nowrap;
   text-shadow: 0 1px 8px rgba(255, 240, 214, 0.85);
   transform: translate(-50%, 0);
-  animation: woodfish-rise 1100ms ease-out forwards;
+  animation: woodfish-rise 820ms cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
 }
 
 html[data-theme="dark"] .woodfish__merit {
-  color: #f1c07c;
+  color: #f5c98a;
   text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55);
 }
 
 @keyframes woodfish-rise {
   0% {
     opacity: 0;
-    transform: translate(-50%, 6px) scale(0.9);
+    transform: translate(-50%, 8px) scale(0.85);
   }
-  18% {
+  16% {
     opacity: 1;
+    transform: translate(-50%, -6px) scale(1.06);
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, -46px) scale(1.02);
+    transform: translate(-50%, -64px) scale(1);
   }
 }
 
@@ -311,7 +694,7 @@ html[data-theme="dark"] .woodfish__merit {
   position: absolute;
   right: 14px;
   bottom: 12px;
-  z-index: 3;
+  z-index: 4;
   color: color-mix(in srgb, var(--ink) 52%, transparent);
   font-size: 9px;
   letter-spacing: 0.16em;
@@ -398,8 +781,16 @@ html[data-theme="dark"] .woodfish__merit {
   }
 
   .woodfish__stage {
-    min-height: 280px;
+    min-height: 290px;
     border-radius: 14px;
+  }
+
+  .woodfish__aura {
+    width: min(88%, 250px);
+  }
+
+  .woodfish__orbit {
+    width: min(64%, 230px);
   }
 
   .woodfish__caption {
@@ -408,17 +799,35 @@ html[data-theme="dark"] .woodfish__merit {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .woodfish__fish.is-struck,
-  .woodfish__mallet.is-striking,
-  .woodfish__ring {
+  .woodfish__fish-bob,
+  .woodfish__tail,
+  .woodfish__eye,
+  .woodfish__aura,
+  .woodfish__orbit,
+  .woodfish__smoke,
+  .woodfish__mote {
     animation: none;
   }
 
-  .woodfish__merit {
-    animation-duration: 600ms;
+  .woodfish__smoke,
+  .woodfish__mote {
+    opacity: 0;
   }
 
-  .woodfish__meter span {
+  .woodfish__fish.is-struck,
+  .woodfish__mallet.is-striking,
+  .woodfish__ring,
+  .woodfish__flash {
+    animation: none;
+  }
+
+  .woodfish__spark,
+  .woodfish__merit {
+    animation-duration: 420ms;
+  }
+
+  .woodfish__meter span,
+  .woodfish__glow {
     transition: none;
   }
 }
