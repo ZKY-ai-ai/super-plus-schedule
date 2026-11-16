@@ -1,18 +1,14 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
   ArrowUpRight,
   CalendarDays,
-  CalendarRange,
   Check,
   Clock,
   Pencil,
   Plus,
   X,
   Database,
-  Download,
-  Printer,
   Trash2,
-  Upload,
   Waves,
 } from "lucide-react";
 import type { FormEvent } from "react";
@@ -26,6 +22,7 @@ import type {
   Theme,
 } from "../types";
 import { Modal } from "./Modal";
+import { DataSettingsTab } from "./settings/DataSettingsTab";
 import {
   MAX_PERIODS,
   MIN_PERIODS,
@@ -39,7 +36,7 @@ import {
   timeToMinutes,
 } from "../lib/date";
 import { getUsedMaxPeriod, weeksForSlot } from "../lib/schedule";
-import { isNativeApp, type ExportResult } from "../lib/nativeFile";
+import type { ExportResult } from "../lib/nativeFile";
 import { WhaleMascot } from "./WhaleMascot";
 
 type SettingsTab = "term" | "periods" | "data";
@@ -75,13 +72,6 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Database }> = [
   { id: "periods", label: "作息时间", icon: Clock },
   { id: "data", label: "数据与备份", icon: Database },
 ];
-
-function deliveryMessage(delivery: ExportResult["delivery"], filename: string): string {
-  if (delivery === "shared") return "已生成文件，请在系统分享面板里保存到文件或网盘。";
-  if (delivery === "saved") return `已保存到系统文档：${filename}`;
-  return `已导出 ${filename}`;
-}
-
 
 function isValidMonthDay(value: string): boolean {
   if (!/^\d{2}-\d{2}$/.test(value)) return false;
@@ -157,8 +147,6 @@ export function SettingsModal({
   const [profileName, setProfileName] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const native = isNativeApp();
   const currentProfile = data.periodProfiles.find((profile) => profile.id === profileId);
   const maxPeriodForProfile = (id: string): number => {
     const related = data.timetables.filter((timetable) => timetable.periodProfileId === id);
@@ -334,49 +322,6 @@ export function SettingsModal({
       profilesForSave,
       sortedPeriodRules,
     );
-  };
-
-  const handleExportJson = async () => {
-    setNotice({ tone: "info", message: "正在整理备份…" });
-    try {
-      const result = await onExportJson();
-      setNotice({
-        tone: "success",
-        message: deliveryMessage(result.delivery, result.filename),
-      });
-    } catch (error) {
-      setNotice({
-        tone: "error",
-        message: error instanceof Error ? error.message : "导出失败，请稍后再试。",
-      });
-    }
-  };
-
-  const handleExportIcs = async () => {
-    setNotice({ tone: "info", message: "正在生成日历…" });
-    try {
-      const result = await onExportIcs();
-      setNotice({
-        tone: "success",
-        message: `${deliveryMessage(result.delivery, result.filename)}　共 ${result.count} 个日程。`,
-      });
-    } catch (error) {
-      setNotice({
-        tone: "error",
-        message: error instanceof Error ? error.message : "导出失败，请稍后再试。",
-      });
-    }
-  };
-
-  const handleImport = async (file: File | undefined) => {
-    if (!file) return;
-    setNotice({ tone: "info", message: "正在读取备份…" });
-    const result = await onImportFile(file);
-    setNotice({
-      tone: result.ok ? "success" : result.message.includes("取消") ? "info" : "error",
-      message: result.message,
-    });
-    if (fileRef.current) fileRef.current.value = "";
   };
 
   return (
@@ -808,103 +753,13 @@ export function SettingsModal({
             ) : null}
 
             {tab === "data" ? (
-              <section className="settings-pane">
-                <div className="settings-pane-head">
-                  <p className="eyebrow">YOUR DATA</p>
-                  <h3>数据与备份</h3>
-                  <p>课表保存在本机。换设备前，记得先导出一份备份。</p>
-                </div>
-
-                <div className="data-grid">
-                  <button
-                    className="data-card"
-                    type="button"
-                    onClick={() => { void handleExportJson(); }}
-                  >
-                    <span className="data-card-icon">
-                      <Download size={18} />
-                    </span>
-                    <span>
-                      <strong>导出全部课表备份</strong>
-                      <small>JSON · 包含所有课表、课程、日程与作息</small>
-                    </span>
-                  </button>
-                  <button
-                    className="data-card"
-                    type="button"
-                    onClick={() => { void handleExportIcs(); }}
-                  >
-                    <span className="data-card-icon">
-                      <CalendarRange size={18} />
-                    </span>
-                    <span>
-                      <strong>导出当前课表日历</strong>
-                      <small>ICS · 只导出当前课表的课程和日程</small>
-                    </span>
-                  </button>
-                  <button
-                    className="data-card"
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                  >
-                    <span className="data-card-icon">
-                      <Upload size={18} />
-                    </span>
-                    <span>
-                      <strong>导入备份</strong>
-                      <small>选择由课序导出的 JSON 文件</small>
-                    </span>
-                  </button>
-                  {!native ? (
-                    <button className="data-card" type="button" onClick={onPrint}>
-                      <span className="data-card-icon">
-                        <Printer size={18} />
-                      </span>
-                      <span>
-                        <strong>打印当前课表</strong>
-                        <small>也可以选择「另存为 PDF」</small>
-                      </span>
-                    </button>
-                  ) : null}
-                </div>
-                <input
-                  ref={fileRef}
-                  id="import-file"
-                  type="file"
-                  accept=".json,application/json"
-                  aria-label="选择课表备份文件"
-                  hidden
-                  onChange={(event) => {
-                    void handleImport(event.target.files?.[0]);
-                  }}
-                />
-
-                <div className="storage-box">
-                  <div>
-                    <span className="storage-icon">
-                      <Database size={16} />
-                    </span>
-                    <div>
-                      <strong>本地优先</strong>
-                      <p>没有账号，没有服务器，没有同步。你的课表不会离开这台设备。</p>
-                    </div>
-                  </div>
-                  <span className="storage-pill">LOCAL ONLY</span>
-                </div>
-
-                <div className="danger-zone">
-                  <div>
-                    <h4>重新开始</h4>
-                    <p>清空所有课表、课程、日程与壁纸，建议先导出备份。</p>
-                  </div>
-                  <div className="danger-actions">
-                    <button className="danger-ghost-button" type="button" onClick={onClearData}>
-                      <Trash2 size={14} />
-                      清空全部数据
-                    </button>
-                  </div>
-                </div>
-              </section>
+              <DataSettingsTab
+                onExportJson={onExportJson}
+                onExportIcs={onExportIcs}
+                onImportFile={onImportFile}
+                onPrint={onPrint}
+                onClearData={onClearData}
+              />
             ) : null}
           </div>
         </div>
