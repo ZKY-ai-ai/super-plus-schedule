@@ -383,10 +383,13 @@ export function WebDavSettingsPanel({
         </p>
       ) : null}
 
-      <form
+      <div
         className="webdav-form"
-        onSubmit={(event) => {
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+          if ((event.target as HTMLElement).tagName !== "INPUT") return;
           event.preventDefault();
+          event.stopPropagation();
           handleSave();
         }}
       >
@@ -466,7 +469,12 @@ export function WebDavSettingsPanel({
         </div>
 
         <div className="webdav-form-actions">
-          <button className="secondary-button" type="submit" disabled={disabled}>
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={disabled}
+            onClick={handleSave}
+          >
             {busy === "save" ? <Spinner /> : null}
             保存配置
           </button>
@@ -482,7 +490,7 @@ export function WebDavSettingsPanel({
             {busy === "test" ? "正在连接…" : "测试连接"}
           </button>
         </div>
-      </form>
+      </div>
 
       <div className="webdav-auto">
         <label className="webdav-switch">
