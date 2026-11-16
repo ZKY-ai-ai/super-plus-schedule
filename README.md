@@ -32,4 +32,4 @@
 
 ## 许可
 
-见 `LICENSE` 文件。
+本仓库以[木兰宽松许可证 第2版（MulanPSL-2.0）](LICENSE) 开源，中英文条款同法律效力，条款原文见 [LICENSE](LICENSE)。
