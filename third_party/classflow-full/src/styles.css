@@ -9254,6 +9254,10 @@ html[data-theme="whale"] .week-pick.is-selected span {
   background: var(--surface-2);
 }
 
+.reminder-lead {
+  margin-top: 16px;
+}
+
 .reminder-time-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

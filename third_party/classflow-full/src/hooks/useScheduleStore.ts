@@ -4,6 +4,7 @@ import { dateKey } from "../lib/date";
 import { getActiveTimetable } from "../lib/factory";
 import { loadPreferences, loadSchedule, savePreferences, saveSchedule } from "../lib/storage";
 import { syncAndroidWidget } from "../lib/widget";
+import { useReminderEngine } from "./useReminderEngine";
 
 export type ScheduleStore = ReturnType<typeof useScheduleStore>;
 
@@ -13,6 +14,7 @@ export function useScheduleStore(now: Date) {
   const [storageOk, setStorageOk] = useState(true);
   const timetable = getActiveTimetable(data);
   const todayKey = dateKey(now);
+  useReminderEngine({ data, timetable, autoHolidays: prefs.autoHolidays });
 
   const updateActiveTimetable = useCallback((updater: (current: Timetable) => Timetable) => {
     setData((current) => {

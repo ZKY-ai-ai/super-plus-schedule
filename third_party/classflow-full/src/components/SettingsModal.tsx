@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ArrowUpRight,
+  Bell,
   CalendarDays,
   Check,
   ClipboardList,
@@ -29,6 +30,7 @@ import { Modal } from "./Modal";
 import { DataSettingsTab } from "./settings/DataSettingsTab";
 import { PeriodGenerator } from "./settings/PeriodGenerator";
 import { GradesSettingsTab } from "./settings/GradesSettingsTab";
+import { RemindersSettingsTab } from "./settings/RemindersSettingsTab";
 import { TasksSettingsTab } from "./settings/TasksSettingsTab";
 import {
   MAX_PERIODS,
@@ -46,7 +48,7 @@ import { getUsedMaxPeriod, weeksForSlot } from "../lib/schedule";
 import type { ExportResult } from "../lib/nativeFile";
 import { WhaleMascot } from "./WhaleMascot";
 
-type SettingsTab = "term" | "periods" | "tasks" | "grades" | "data";
+type SettingsTab = "term" | "periods" | "tasks" | "grades" | "reminders" | "data";
 
 interface SettingsModalProps {
   data: ScheduleData;
@@ -84,6 +86,7 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Database }> = [
   { id: "periods", label: "作息时间", icon: Clock },
   { id: "tasks", label: "作业与任务", icon: ClipboardList },
   { id: "grades", label: "考试与成绩", icon: GraduationCap },
+  { id: "reminders", label: "上课提醒", icon: Bell },
   { id: "data", label: "数据与备份", icon: Database },
 ];
 
@@ -789,6 +792,10 @@ export function SettingsModal({
 
             {tab === "grades" ? (
               <GradesSettingsTab timetableId={active.id} courses={active.courses} />
+            ) : null}
+
+            {tab === "reminders" ? (
+              <RemindersSettingsTab />
             ) : null}
 
             {tab === "data" ? (
