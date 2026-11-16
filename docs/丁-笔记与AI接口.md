@@ -9,11 +9,12 @@
 |---|---|
 | 笔记、章节、链接 | `src/lib/notes.ts` |
 | AI 查询、聊天、授权、人格 | `src/lib/ai.ts` |
-| 笔记/AI 页面 | `src/components/notes/` |
-| 笔记/AI 样式 | `src/styles/notes.css` |
+| 笔记/AI 页面 | `src/components/notes/`、`src/components/ai/` |
+| 笔记/AI 样式 | `src/styles/notes.css`、`src/styles/ai.css` |
+| 设置页笔记/AI tab | `src/components/SettingsModal.tsx` 中的 `ai` tab |
 | 测试基建与 CI | `src/test/helpers.ts`、`.github/workflows/ci.yml` |
 
-不修改 `src/types.ts` 的数据 schema、`src/lib/schedule.ts` 等甲的文件。页面接入只做路由级改动，不新增数据耦合。
+不修改 `src/types.ts` 的数据 schema、`src/lib/schedule.ts` 等甲的文件。页面接入只做路由级改动（`AppPage` 增加 `notes`/`ai` 两个字面量），不新增数据耦合。
 
 ## 二、笔记模块 `lib/notes.ts`
 
@@ -56,7 +57,7 @@ interface NotesData {
 
 ```ts
 normalizeNotes(raw: unknown): NotesData
-loadNotes(storage?: StorageLike): NotesData
+loadNotes(storage?: StorageLike, now?: Date): NotesData
 saveNotes(data: NotesData, storage?: StorageLike): boolean
 
 createNote(input: NoteInput, now?: Date): Note
@@ -65,13 +66,22 @@ upsertNote(data: NotesData, note: Note): NotesData
 deleteNote(data: NotesData, id: string): NotesData
 togglePin(data: NotesData, id: string): NotesData
 
-searchNotes(notes: Note[], query: string, options?: { limit?: number }): NoteSearchHit[]
+searchNotes(notes: Note[], query: string, options?: {
+  limit?: number;
+  courseId?: string | null;
+  courseNameById?: Record<string, string>;
+}): NoteSearchHit[]
 allTags(notes: Note[]): Array<{ tag: string; count: number }>
 
-createChapter(input: { title: string; courseId?: string | null }, now?: Date): NoteChapter
+createChapter(input: {
+  id?: string;
+  title?: string;
+  courseId?: string | null;
+  order?: number;
+}, now?: Date): NoteChapter
 upsertChapter(data: NotesData, chapter: NoteChapter): NotesData
 deleteChapter(data: NotesData, id: string): NotesData  // 章节内笔记回到未归档
-groupNotesByChapter(notes: Note[], chapters: NoteChapter[]): ChapterGroup[]
+groupNotesByChapter(notes: Note[], chapters: NoteChapter[], options?: { courseId?: string | null }): ChapterGroup[]
 moveNoteToChapter(data: NotesData, noteId: string, chapterId: string | null): NotesData
 ```
 
@@ -135,6 +145,7 @@ interface AiSession {
 }
 
 buildAiScheduleSnapshot(input: {
+  courses: Course[];
   semester: Semester;
   week: number;
   now: Date;
@@ -147,15 +158,17 @@ buildAiScheduleSnapshot(input: {
 
 ```ts
 type ScheduleIntent =
-  | "today" | "tomorrow" | "weekday" | "next" | "course" | "count" | "unknown";
+  | "today" | "tomorrow" | "weekday" | "next" | "remaining"
+  | "course" | "count" | "week" | "unknown";
 
 answerScheduleQuestion(
   question: string,
   snapshot: AiScheduleSnapshot,
+  now?: Date,
 ): { text: string; intent: ScheduleIntent; sessions: AiSession[] }
 ```
 
-覆盖说法：今天/今日/现在、明天/明日、周三/礼拜三/下周三、第 N 周、下一节/接下来、某门课/某老师、在哪/几点/几节/几门课。
+覆盖说法：今天/今日/现在、明天/明日、周三/礼拜三/下周三、第 N 周（支持中文数字）、下一节/接下来、今天还剩几节、某门课/某老师、在哪/几点/几节/几门课。课程名支持简称（如「高数」匹配「高等数学 A（上）」）。
 「考试」相关查询在乙的 `Exam` 模型接入前返回占位说明，不伪造数据。
 
 ### 3.3 聊天与人格（F117）
@@ -181,12 +194,28 @@ complete(request: {
   system?: string;
   snapshot?: AiScheduleSnapshot;
   notes?: Note[];
-}, settings: AiSettings, fetchImpl?: typeof fetch): Promise<{ content: string; provider: string }>
+}, settings?: AiSettings, fetchImpl?: FetchLike, now?: Date): Promise<{
+  content: string;
+  provider: "local" | "openai-compatible";
+  error?: string;
+}>
+
+loadAiSettings(storage?: StorageLike): AiSettings
+saveAiSettings(settings: AiSettings, storage?: StorageLike): boolean
+normalizeAiSettings(raw: unknown): AiSettings
+
+loadChat(storage?: StorageLike, now?: Date): AiChatData
+saveChat(data: AiChatData, storage?: StorageLike): boolean
+appendChat(data: AiChatData, message: AiChatMessage, now?: Date): AiChatData
+createChatMessage(role, content, now?): AiChatMessage
+
+aiComplete(prompt: string, context?, settings?): Promise<string>
 ```
 
-- `local`：不联网，用 `answerScheduleQuestion` + 人格文案作答，保证无密钥可用。
+- `local`：不联网，用 `answerScheduleQuestion`、笔记检索与人格文案作答，保证无密钥可用。
 - `openai-compatible`：`POST {baseUrl}/chat/completions`，兼容 OpenAI 协议；密钥只存本机，设置页明确提示。
-- 请求失败返回可读错误，不抛出网络细节；UI 保留用户消息。
+- 请求失败返回可读错误与 `error` 字段，不抛出网络细节；UI 保留用户消息。
+- `aiComplete` 是不抛错的便捷入口，供甲（F114 识课）与丙（F116 选课建议）直接调用。
 
 存储键：`kexu:ai:settings:v1`、`kexu:ai:chat:v1`。加载时做白名单归一化，非法 provider/权限回落到安全默认值。
 
@@ -211,7 +240,14 @@ buildAiContext(sources: {
 describePermissions(permissions: AiPermissions): Array<{ key; label; enabled; hint }>
 ```
 
-`buildAiContext` 只在对应开关开启时拼接数据；关闭时既不发送也不在预览中出现。设置页提供「本次会发送什么」的真实预览。
+`buildAiContext` 只在对应开关开启时拼接数据；关闭时既不发送也不在预览中出现。`notes` 开启时分享正文，`noteTags` 开启时只分享标题与标签。设置页提供逐项开关与说明，默认只开课表。
+
+### 3.5 页面与调用方式
+
+- `components/notes/NotesWorkspace.tsx`：笔记列表、章节看板、链接导入、全文搜索。
+- `components/ai/AiWorkspace.tsx`：对话、人格与授权、下一节/今日概览；内部按当前周构建快照并调用 `complete`。
+- `components/SettingsModal.tsx` 的「笔记与 AI」tab：复用 `AiSettingsPanel`，与工作台共享同一份 `kexu:ai:settings:v1`。
+- 路由：`AppPage` 增加 `notes`、`ai`，由 `App.tsx` 按页面渲染，不新增课表数据耦合。
 
 ## 四、跨泳道约定
 
@@ -236,5 +272,5 @@ pnpm build
 
 - 笔记：归一化容错、标签清洗、分词搜索、置顶排序、章节移动、存储往返。
 - 链接：URL 提取与非法协议拒绝、CORS 失败降级、Markdown 分享。
-- AI：今日/明日/周几/下一节/某课/计数意图、跨周边界、授权裁剪、OpenAI 兼容请求体与错误分支使用注入的 fake fetch。
+- AI：今日/明日/周几/下周/第 N 周/下一节/剩余/某课/计数意图、跨周边界、课程简称、授权裁剪、设置与聊天容错、OpenAI 兼容请求体与错误分支使用注入的 fake fetch。
 - 所有用例不依赖真实网络与系统时间。
