@@ -1,0 +1,138 @@
+// Ported from Course_Planner (https://github.com/Sira-pel/Course_Planner),
+// Apache-2.0. Local change: storage key namespaced to kexu.
+import type { DayOfWeek } from '../types/schedule';
+import { DAYS_LIST } from '../types/schedule';
+
+/**
+ * Generator preferences live under their own storage key so the schedule
+ * store shape stays unchanged.
+ */
+export const GENERATOR_PREFS_KEY = 'kexu:planner:generator:v1';
+
+export type GapLimit = 30 | 60 | 120;
+
+export interface StoredGeneratorPrefs {
+  mode: 'courses' | 'credits';
+  courseCount: number;
+  creditTarget: number;
+  gapsEnabled: boolean;
+  gapLimit: GapLimit;
+  lunchEnabled: boolean;
+  lunchStart: string;
+  lunchEnd: string;
+  lunchMinutes: number;
+  daysOff: DayOfWeek[];
+  dailyCapEnabled: boolean;
+  dailyCourseCap: number;
+  classHoursEnabled: boolean;
+  classStart: string | null;
+  classEnd: string | null;
+}
+
+export const DEFAULT_GENERATOR_PREFS: StoredGeneratorPrefs = {
+  mode: 'courses',
+  courseCount: 5,
+  creditTarget: 15,
+  gapsEnabled: true,
+  gapLimit: 60,
+  lunchEnabled: true,
+  lunchStart: '11:30',
+  lunchEnd: '13:30',
+  lunchMinutes: 45,
+  daysOff: [],
+  dailyCapEnabled: false,
+  dailyCourseCap: 3,
+  classHoursEnabled: false,
+  classStart: '10:00',
+  classEnd: '15:00',
+};
+
+const DAY_IDS = new Set<string>(DAYS_LIST.map((day) => day.id));
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function isGapLimit(value: unknown): value is GapLimit {
+  return value === 30 || value === 60 || value === 120;
+}
+
+function clock(value: unknown, fallback: string): string {
+  return typeof value === 'string' && HHMM.test(value) ? value : fallback;
+}
+
+function optionalClock(value: unknown): string | null {
+  if (value == null || value === '') return null;
+  return typeof value === 'string' && HHMM.test(value) ? value : null;
+}
+
+export const LUNCH_MINUTE_MIN = 15;
+export const LUNCH_MINUTE_MAX = 90;
+export const LUNCH_MINUTE_STEP = 15;
+export const DAILY_COURSE_MIN = 1;
+export const DAILY_COURSE_MAX = 6;
+export const MAX_CANDIDATES = 15;
+
+function snapLunchMinutes(value: unknown): number {
+  const snapped = clampInt(value, LUNCH_MINUTE_MIN, LUNCH_MINUTE_MAX, DEFAULT_GENERATOR_PREFS.lunchMinutes);
+  const steps = Math.round((snapped - LUNCH_MINUTE_MIN) / LUNCH_MINUTE_STEP);
+  return LUNCH_MINUTE_MIN + steps * LUNCH_MINUTE_STEP;
+}
+
+function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+export function sanitizeGeneratorPrefs(raw: unknown): StoredGeneratorPrefs {
+  const record = typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+    ? raw as Partial<StoredGeneratorPrefs>
+    : {};
+  const daysOff = Array.isArray(record.daysOff)
+    ? record.daysOff.filter((day): day is DayOfWeek => typeof day === 'string' && DAY_IDS.has(day))
+    : [];
+
+  return {
+    mode: record.mode === 'credits' ? 'credits' : 'courses',
+    courseCount: clampInt(record.courseCount, 2, MAX_CANDIDATES, DEFAULT_GENERATOR_PREFS.courseCount),
+    creditTarget: clampInt(record.creditTarget, 1, 40, DEFAULT_GENERATOR_PREFS.creditTarget),
+    gapsEnabled: typeof record.gapsEnabled === 'boolean' ? record.gapsEnabled : DEFAULT_GENERATOR_PREFS.gapsEnabled,
+    gapLimit: isGapLimit(record.gapLimit) ? record.gapLimit : DEFAULT_GENERATOR_PREFS.gapLimit,
+    lunchEnabled: typeof record.lunchEnabled === 'boolean' ? record.lunchEnabled : DEFAULT_GENERATOR_PREFS.lunchEnabled,
+    lunchStart: clock(record.lunchStart, DEFAULT_GENERATOR_PREFS.lunchStart),
+    lunchEnd: clock(record.lunchEnd, DEFAULT_GENERATOR_PREFS.lunchEnd),
+    lunchMinutes: snapLunchMinutes(record.lunchMinutes),
+    daysOff: [...new Set(daysOff)],
+    dailyCapEnabled: typeof record.dailyCapEnabled === 'boolean'
+      ? record.dailyCapEnabled
+      : DEFAULT_GENERATOR_PREFS.dailyCapEnabled,
+    dailyCourseCap: clampInt(
+      record.dailyCourseCap,
+      DAILY_COURSE_MIN,
+      DAILY_COURSE_MAX,
+      DEFAULT_GENERATOR_PREFS.dailyCourseCap,
+    ),
+    classHoursEnabled: typeof record.classHoursEnabled === 'boolean'
+      ? record.classHoursEnabled
+      : optionalClock(record.classStart) != null || optionalClock(record.classEnd) != null,
+    classStart: clock(record.classStart, DEFAULT_GENERATOR_PREFS.classStart ?? '10:00'),
+    classEnd: clock(record.classEnd, DEFAULT_GENERATOR_PREFS.classEnd ?? '15:00'),
+  };
+}
+
+export function loadGeneratorPrefs(): StoredGeneratorPrefs {
+  try {
+    if (typeof localStorage === 'undefined') return { ...DEFAULT_GENERATOR_PREFS };
+    const raw = localStorage.getItem(GENERATOR_PREFS_KEY);
+    if (!raw) return { ...DEFAULT_GENERATOR_PREFS };
+    return sanitizeGeneratorPrefs(JSON.parse(raw));
+  } catch {
+    return { ...DEFAULT_GENERATOR_PREFS };
+  }
+}
+
+export function saveGeneratorPrefs(prefs: StoredGeneratorPrefs): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(GENERATOR_PREFS_KEY, JSON.stringify(sanitizeGeneratorPrefs(prefs)));
+  } catch {
+    // Preference persistence is optional. The generator still runs in memory.
+  }
+}
