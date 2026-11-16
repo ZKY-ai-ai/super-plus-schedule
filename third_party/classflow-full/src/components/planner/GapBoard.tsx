@@ -1,12 +1,18 @@
 import { useMemo, useState } from "react";
 import {
+  Accessibility,
   ArrowRight,
+  Building2,
   Clock3,
   Coffee,
+  DoorOpen,
   Footprints,
   MapPin,
+  Plus,
+  Route,
   Settings2,
   Sparkles,
+  Trash2,
   Utensils,
 } from "lucide-react";
 import type { Course, Period, Session } from "../../types";
@@ -20,8 +26,18 @@ import {
   knownBuildings,
   latestDeparture,
   saveGapPreferences,
+  walkKey,
   type GapPreferences,
 } from "../../lib/gaps";
+import {
+  createRoom,
+  loadRooms,
+  periodAt,
+  roomAvailability,
+  roomBuildings,
+  saveRooms,
+  type CampusRoom,
+} from "../../lib/campus";
 import {
   formatDuration,
   formatLongDate,
@@ -69,6 +85,14 @@ export function GapBoard({
   const [destination, setDestination] = useState("图书馆");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const [rooms, setRooms] = useState<CampusRoom[]>(() => loadRooms());
+  const [roomBuilding, setRoomBuilding] = useState("全部");
+  const [roomPeriod, setRoomPeriod] = useState(() => periodAt(periods, nowMinutes));
+  const [roomFormOpen, setRoomFormOpen] = useState(false);
+  const [roomDraft, setRoomDraft] = useState({ name: "", building: "", seats: "40", note: "" });
+  const [routeOpen, setRouteOpen] = useState(false);
+  const [routeDraft, setRouteDraft] = useState({ from: "", to: "", minutes: "6" });
+  const [aliasDraft, setAliasDraft] = useState({ alias: "", building: "" });
 
   const daySessions = useMemo(
     () =>
@@ -101,10 +125,79 @@ export function GapBoard({
         )
       : daySessions[0];
 
+  const availability = useMemo(
+    () =>
+      roomAvailability(
+        rooms,
+        sessions,
+        periods,
+        selectedDay,
+        Math.min(Math.max(1, roomPeriod), Math.max(1, periods.length)),
+        roomBuilding === "全部" ? undefined : roomBuilding,
+      ),
+    [rooms, sessions, periods, selectedDay, roomPeriod, roomBuilding],
+  );
+  const buildings = useMemo(
+    () => [...new Set([...roomBuildings(rooms), ...knownBuildings().map((item) => item.name)])],
+    [rooms],
+  );
+
   const patchPreferences = (patch: Partial<GapPreferences>) => {
     const next = { ...preferences, ...patch };
     onChangePreferences(next);
     saveGapPreferences(next);
+  };
+
+  const updateRooms = (next: CampusRoom[]) => {
+    setRooms(next);
+    saveRooms(next);
+  };
+
+  const addRoom = () => {
+    const room = createRoom({
+      name: roomDraft.name.trim() || "101",
+      building: roomDraft.building.trim() || buildings[0] || "教一",
+      seats: Number(roomDraft.seats) || 40,
+      note: roomDraft.note,
+    });
+    updateRooms([...rooms, room]);
+    setRoomDraft({ name: "", building: "", seats: "40", note: "" });
+    setRoomFormOpen(false);
+  };
+
+  const removeRoom = (id: string) => {
+    updateRooms(rooms.filter((room) => room.id !== id));
+  };
+
+  const addWalkEdge = () => {
+    const from = routeDraft.from.trim();
+    const to = routeDraft.to.trim();
+    if (!from || !to || from === to) return;
+    const minutes = Math.min(60, Math.max(1, Math.round(Number(routeDraft.minutes) || 6)));
+    patchPreferences({
+      customWalks: { ...preferences.customWalks, [walkKey(from, to)]: minutes },
+    });
+    setRouteDraft({ from: "", to: "", minutes: "6" });
+  };
+
+  const removeWalkEdge = (key: string) => {
+    const next = { ...preferences.customWalks };
+    delete next[key];
+    patchPreferences({ customWalks: next });
+  };
+
+  const addAlias = () => {
+    const alias = aliasDraft.alias.trim();
+    const building = aliasDraft.building.trim();
+    if (!alias || !building) return;
+    patchPreferences({ aliases: { ...preferences.aliases, [alias]: building } });
+    setAliasDraft({ alias: "", building: "" });
+  };
+
+  const removeAlias = (alias: string) => {
+    const next = { ...preferences.aliases };
+    delete next[alias];
+    patchPreferences({ aliases: next });
   };
 
   return (
@@ -242,6 +335,12 @@ export function GapBoard({
                             <Footprints size={12} />
                             步行 {gap.walkMinutes} 分钟{gap.walkKnown ? "" : "（估算）"}
                           </span>
+                          {preferences.accessMode ? (
+                            <span className="gap-access">
+                              <Accessibility size={12} />
+                              无障碍 +{preferences.accessibleExtra} 分钟
+                            </span>
+                          ) : null}
                           <span>缓冲 {gap.bufferMinutes} 分钟</span>
                           <span className="gap-usable">可用 {gap.usableMinutes} 分钟</span>
                           <span>
@@ -303,6 +402,130 @@ export function GapBoard({
                 );
               })}
             </div>
+          </section>
+
+          <section className="planner-card room-card">
+            <div className="planner-card-head">
+              <div>
+                <p className="eyebrow">EMPTY ROOMS</p>
+                <h2>空教室</h2>
+              </div>
+              <DoorOpen size={17} />
+            </div>
+            <div className="room-controls">
+              <select
+                value={roomBuilding}
+                onChange={(event) => setRoomBuilding(event.target.value)}
+                aria-label="选择楼栋"
+              >
+                <option value="全部">全部楼栋</option>
+                {roomBuildings(rooms).map((building) => (
+                  <option key={building} value={building}>
+                    {building}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={roomPeriod}
+                onChange={(event) => setRoomPeriod(Number(event.target.value))}
+                aria-label="选择节次"
+              >
+                {periods.map((period, index) => (
+                  <option key={index} value={index + 1}>
+                    第 {index + 1} 节 · {period.start}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="small-button"
+                type="button"
+                onClick={() => setRoomFormOpen((open) => !open)}
+              >
+                <Plus size={13} />
+                录入教室
+              </button>
+            </div>
+
+            <div className="room-summary">
+              <div>
+                <strong>
+                  {availability.freeRooms}/{availability.totalRooms}
+                </strong>
+                <span>空教室</span>
+              </div>
+              <div>
+                <strong>{availability.freeSeats}</strong>
+                <span>空座</span>
+              </div>
+              <div>
+                <strong>{Math.round(availability.emptyRate * 100)}%</strong>
+                <span>空座率</span>
+              </div>
+              <p>按第 {selectedDay} 天当前周课表推算，未录入地点的课程不会占用教室。</p>
+            </div>
+
+            {roomFormOpen ? (
+              <div className="room-form">
+                <input
+                  value={roomDraft.building}
+                  onChange={(event) => setRoomDraft((draft) => ({ ...draft, building: event.target.value }))}
+                  placeholder="楼栋，如 教一"
+                  maxLength={20}
+                  aria-label="教室楼栋"
+                  list="gap-buildings"
+                />
+                <input
+                  value={roomDraft.name}
+                  onChange={(event) => setRoomDraft((draft) => ({ ...draft, name: event.target.value }))}
+                  placeholder="教室号，如 101"
+                  maxLength={20}
+                  aria-label="教室号"
+                />
+                <input
+                  type="number"
+                  min={1}
+                  max={999}
+                  value={roomDraft.seats}
+                  onChange={(event) => setRoomDraft((draft) => ({ ...draft, seats: event.target.value }))}
+                  aria-label="座位数"
+                />
+                <button className="primary-button" type="button" onClick={addRoom}>
+                  添加
+                </button>
+              </div>
+            ) : null}
+
+            {availability.rooms.length === 0 ? (
+              <p className="planner-empty-text">这个楼栋还没有录入教室，先添加几间常用的。</p>
+            ) : (
+              <ul className="room-list">
+                {availability.rooms.map((state) => (
+                  <li className={state.free ? "is-free" : "is-used"} key={state.room.id}>
+                    <span className="room-state">{state.free ? "空闲" : "占用"}</span>
+                    <div className="room-copy">
+                      <strong>
+                        {state.room.building} {state.room.name}
+                        {state.room.note ? <em>{state.room.note}</em> : null}
+                      </strong>
+                      <span>{state.room.seats} 座 · 第 {roomPeriod} 节</span>
+                    </div>
+                    <span className="room-occupant">
+                      {state.free
+                        ? "可自习"
+                        : state.occupiedBy.map((session) => session.course.name).join("、")}
+                    </span>
+                    <button
+                      className="room-delete"
+                      type="button"
+                      onClick={() => removeRoom(state.room.id)}
+                      aria-label={`删除教室 ${state.room.building} ${state.room.name}`}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         </div>
 
@@ -466,7 +689,148 @@ export function GapBoard({
                 <p className="gap-settings-note">
                   内置 {knownBuildings().length} 个楼栋坐标，未知楼栋默认 6 分钟。
                   {preferences.walkSpeed === DEFAULT_GAP_PREFERENCES.walkSpeed ? "" : " 步行速度已自定义。"}
+                  {Object.keys(preferences.customWalks).length > 0
+                    ? ` 已录入 ${Object.keys(preferences.customWalks).length} 条自定义路线。`
+                    : ""}
+                  {Object.keys(preferences.aliases).length > 0
+                    ? ` 已配置 ${Object.keys(preferences.aliases).length} 个楼栋别名。`
+                    : ""}
+                  {preferences.accessMode ? " 无障碍路线已开启。" : ""}
                 </p>
+              </div>
+            ) : null}
+          </section>
+
+          <section className={`planner-card route-card ${preferences.accessMode ? "is-access" : ""}`}>
+            <div className="planner-card-head">
+              <div>
+                <p className="eyebrow">CAMPUS ROUTES</p>
+                <h2>路网与无障碍</h2>
+              </div>
+              {preferences.accessMode ? <Accessibility size={17} /> : <Route size={17} />}
+            </div>
+            <datalist id="gap-buildings">
+              {buildings.map((building) => (
+                <option key={building} value={building} />
+              ))}
+            </datalist>
+            <label className="route-toggle">
+              <span>
+                <Accessibility size={14} />
+                无障碍路线
+              </span>
+              <input
+                type="checkbox"
+                checked={preferences.accessMode}
+                onChange={(event) => patchPreferences({ accessMode: event.target.checked })}
+              />
+            </label>
+            <p className="route-note">
+              开启后每段跨楼步行额外增加时间，优先电梯、缓坡与无障碍出入口；同一楼栋内不增加。
+            </p>
+            <label className="route-extra">
+              <span>额外预留</span>
+              <input
+                type="number"
+                min={0}
+                max={30}
+                value={preferences.accessibleExtra}
+                onChange={(event) =>
+                  patchPreferences({ accessibleExtra: Math.max(0, Number(event.target.value) || 0) })
+                }
+              />
+              <em>分钟</em>
+            </label>
+            <button
+              className="route-expand"
+              type="button"
+              onClick={() => setRouteOpen((open) => !open)}
+              aria-expanded={routeOpen}
+            >
+              <Building2 size={13} />
+              {routeOpen ? "收起路网设置" : "编辑自定义路网"}
+              <small>
+                {Object.keys(preferences.customWalks).length} 条路线 ·{" "}
+                {Object.keys(preferences.aliases).length} 个别名
+              </small>
+            </button>
+            {routeOpen ? (
+              <div className="route-body">
+                <div className="route-form">
+                  <input
+                    value={routeDraft.from}
+                    onChange={(event) => setRouteDraft((draft) => ({ ...draft, from: event.target.value }))}
+                    placeholder="从"
+                    maxLength={20}
+                    aria-label="路线起点楼栋"
+                    list="gap-buildings"
+                  />
+                  <span>→</span>
+                  <input
+                    value={routeDraft.to}
+                    onChange={(event) => setRouteDraft((draft) => ({ ...draft, to: event.target.value }))}
+                    placeholder="到"
+                    maxLength={20}
+                    aria-label="路线终点楼栋"
+                    list="gap-buildings"
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={routeDraft.minutes}
+                    onChange={(event) => setRouteDraft((draft) => ({ ...draft, minutes: event.target.value }))}
+                    aria-label="步行分钟"
+                  />
+                  <button className="small-button" type="button" onClick={addWalkEdge} aria-label="添加路线">
+                    <Plus size={12} />
+                  </button>
+                </div>
+                <div className="route-chips">
+                  {Object.entries(preferences.customWalks).length === 0 ? (
+                    <span className="route-empty">还没有自定义路线，内置楼栋按坐标估算。</span>
+                  ) : (
+                    Object.entries(preferences.customWalks).map(([key, minutes]) => (
+                      <span className="route-chip" key={key}>
+                        {key.split("|").join(" ↔ ")} · {minutes} 分钟
+                        <button type="button" onClick={() => removeWalkEdge(key)} aria-label={`删除路线 ${key}`}>
+                          ×
+                        </button>
+                      </span>
+                    ))
+                  )}
+                </div>
+                <div className="route-form route-alias-form">
+                  <input
+                    value={aliasDraft.alias}
+                    onChange={(event) => setAliasDraft((draft) => ({ ...draft, alias: event.target.value }))}
+                    placeholder="别名，如 一教"
+                    maxLength={20}
+                    aria-label="楼栋别名"
+                  />
+                  <span>→</span>
+                  <input
+                    value={aliasDraft.building}
+                    onChange={(event) => setAliasDraft((draft) => ({ ...draft, building: event.target.value }))}
+                    placeholder="标准楼栋"
+                    maxLength={20}
+                    aria-label="标准楼栋名"
+                    list="gap-buildings"
+                  />
+                  <button className="small-button" type="button" onClick={addAlias} aria-label="添加楼栋别名">
+                    <Plus size={12} />
+                  </button>
+                </div>
+                <div className="route-chips">
+                  {Object.entries(preferences.aliases).map(([alias, building]) => (
+                    <span className="route-chip is-alias" key={alias}>
+                      「{alias}」→ {building}
+                      <button type="button" onClick={() => removeAlias(alias)} aria-label={`删除别名 ${alias}`}>
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
               </div>
             ) : null}
           </section>

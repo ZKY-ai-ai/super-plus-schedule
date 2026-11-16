@@ -742,3 +742,370 @@
     display: none;
   }
 }
+
+/* ---------------------------------------------------- 丙 · 空教室与路网 */
+
+.room-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.room-controls select {
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--ink-2);
+  font-size: 10.5px;
+}
+
+.room-controls .small-button {
+  margin-left: auto;
+  min-height: 30px;
+}
+
+.room-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+}
+
+.room-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.room-summary strong {
+  font-family: var(--display);
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.room-summary span {
+  color: var(--muted);
+  font-size: 9.5px;
+}
+
+.room-summary p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.5;
+}
+
+.room-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.room-form input {
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--ink);
+  font-size: 10.5px;
+}
+
+.room-form input[type="number"] {
+  width: 70px;
+  text-align: center;
+}
+
+.room-form .primary-button {
+  min-height: 30px;
+  margin-left: auto;
+}
+
+.room-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.room-list li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.room-list li.is-free {
+  border-color: color-mix(in srgb, var(--success) 28%, var(--line));
+}
+
+.room-state {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.room-list li.is-free .room-state {
+  background: color-mix(in srgb, var(--success) 16%, var(--surface));
+  color: var(--success);
+}
+
+.room-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.room-copy strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-copy strong em {
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 8.5px;
+  font-style: normal;
+  font-weight: 400;
+}
+
+.room-copy span {
+  color: var(--muted);
+  font-size: 9.5px;
+}
+
+.room-occupant {
+  overflow: hidden;
+  max-width: 42%;
+  color: var(--ink-2);
+  font-size: 9.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-list li.is-free .room-occupant {
+  color: var(--success);
+}
+
+.room-delete {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+}
+
+.room-delete:hover {
+  border-color: var(--line);
+  color: var(--coral);
+}
+
+.gap-access {
+  color: var(--primary-ink);
+}
+
+.route-card.is-access {
+  border-color: color-mix(in srgb, var(--primary-bg) 55%, var(--line));
+}
+
+.route-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: 10.5px;
+}
+
+.route-toggle > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.route-toggle input {
+  accent-color: var(--coral);
+}
+
+.route-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.55;
+}
+
+.route-extra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: 10px;
+}
+
+.route-extra > span {
+  flex: 1;
+}
+
+.route-extra input {
+  width: 62px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--field);
+  font-size: 10px;
+  text-align: center;
+}
+
+.route-extra em {
+  color: var(--muted);
+  font-size: 8.5px;
+  font-style: normal;
+}
+
+.route-expand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 10px;
+  text-align: left;
+}
+
+.route-expand small {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 8.5px;
+}
+
+.route-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+.route-form {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.route-form input {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--ink);
+  font-size: 10px;
+}
+
+.route-form input[type="number"] {
+  width: 52px;
+  flex: none;
+  text-align: center;
+}
+
+.route-form > span {
+  flex: none;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.route-form .small-button {
+  flex: none;
+  min-height: 28px;
+  padding: 0 8px;
+}
+
+.route-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.route-empty {
+  color: var(--muted);
+  font-size: 9.5px;
+}
+
+.route-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 9px;
+}
+
+.route-chip.is-alias {
+  border-style: dashed;
+}
+
+.route-chip button {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  padding: 0;
+}
+
+.route-chip button:hover {
+  color: var(--coral);
+}
+
+@media (max-width: 760px) {
+  .room-controls .small-button {
+    margin-left: 0;
+  }
+
+  .room-occupant {
+    display: none;
+  }
+}

@@ -11,6 +11,14 @@ export interface GapPreferences {
   lunchStart: string;
   lunchEnd: string;
   lunchMinutes: number;
+  /** 优先选择无障碍路线：少走楼梯，但多留一点时间。 */
+  accessMode: boolean;
+  /** 无障碍路线额外增加的分钟数。 */
+  accessibleExtra: number;
+  /** 楼栋别名表，例如「一教」→「教一」。 */
+  aliases: Record<string, string>;
+  /** 自定义步行路网，键为「A|B」（按字母排序），值为分钟。 */
+  customWalks: Record<string, number>;
 }
 
 export const DEFAULT_GAP_PREFERENCES: GapPreferences = {
@@ -20,6 +28,10 @@ export const DEFAULT_GAP_PREFERENCES: GapPreferences = {
   lunchStart: "11:30",
   lunchEnd: "13:30",
   lunchMinutes: 40,
+  accessMode: false,
+  accessibleExtra: 4,
+  aliases: {},
+  customWalks: {},
 };
 
 export const GAP_PREFS_KEY = "kexu:planner:gaps:v1";
@@ -64,7 +76,45 @@ export function normalizeGapPreferences(raw: unknown): GapPreferences {
     lunchStart,
     lunchEnd,
     lunchMinutes: number(object.lunchMinutes, 10, 180, DEFAULT_GAP_PREFERENCES.lunchMinutes),
+    accessMode: object.accessMode === true,
+    accessibleExtra: number(object.accessibleExtra, 0, 30, DEFAULT_GAP_PREFERENCES.accessibleExtra),
+    aliases: stringRecord(object.aliases, 40, 20),
+    customWalks: walkRecord(object.customWalks),
   };
+}
+
+function stringRecord(value: unknown, maxEntries: number, maxLength: number): Record<string, string> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+  const record: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof raw !== "string") continue;
+    const name = key.trim();
+    const alias = raw.trim();
+    if (!name || !alias || name.length > maxLength || alias.length > maxLength) continue;
+    record[name] = alias;
+    if (Object.keys(record).length >= maxEntries) break;
+  }
+  return record;
+}
+
+function walkRecord(value: unknown): Record<string, number> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+  const record: Record<string, number> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    const parts = key.split("|").map((part) => part.trim()).filter(Boolean);
+    if (parts.length !== 2) continue;
+    const parsed = typeof raw === "number" ? raw : Number(raw);
+    if (!Number.isFinite(parsed)) continue;
+    const minutes = Math.min(60, Math.max(1, Math.round(parsed)));
+    record[walkKey(parts[0], parts[1])] = minutes;
+    if (Object.keys(record).length >= 60) break;
+  }
+  return record;
+}
+
+/** 自定义路网的无向键：两端楼栋按字符排序，保证 A→B 与 B→A 共用一条边。 */
+export function walkKey(from: string, to: string): string {
+  return [from, to].sort().join("|");
 }
 
 /*
@@ -115,37 +165,70 @@ export interface WalkEstimate {
   from: string;
   to: string;
   known: boolean;
+  /** 结果来源：同楼、自定义路网、分区估算、未知楼栋或未填地点。 */
+  source: "same" | "custom" | "zone" | "unknown" | "blank";
+  /** 是否叠加了无障碍路线的额外时间。 */
+  accessible: boolean;
+}
+
+/** 把用户配置的楼栋别名归一成标准楼栋名。 */
+export function resolveBuilding(name: string, aliases: Record<string, string> = {}): string {
+  const building = extractBuilding(name);
+  const direct = aliases[building];
+  if (direct) return direct;
+  const lower = building.toLowerCase();
+  const hit = Object.entries(aliases).find(([alias]) => alias.toLowerCase() === lower);
+  return hit ? hit[1] : building;
 }
 
 /**
  * 跨线接口：估算两个地点之间的步行分钟数。
- * 同一楼栋为 0；任一侧为空按 5 分钟；未知楼栋按 6 分钟。
+ * 同一楼栋为 0；自定义路网优先；未知楼栋按 6 分钟；任一地点为空按 5 分钟。
  */
-export function walkMinutes(from: string, to: string): number {
-  return estimateWalk(from, to).minutes;
+export function walkMinutes(
+  from: string,
+  to: string,
+  preferences: Partial<GapPreferences> = {},
+): number {
+  return estimateWalk(from, to, preferences).minutes;
 }
 
-export function estimateWalk(from: string, to: string): WalkEstimate {
-  const fromBuilding = extractBuilding(from);
-  const toBuilding = extractBuilding(to);
+export function estimateWalk(
+  from: string,
+  to: string,
+  preferences: Partial<GapPreferences> = {},
+): WalkEstimate {
+  const aliases = preferences.aliases ?? {};
+  const fromBuilding = resolveBuilding(from, aliases);
+  const toBuilding = resolveBuilding(to, aliases);
+  const accessible = preferences.accessMode === true && fromBuilding !== toBuilding;
+  const extra = accessible
+    ? Math.max(0, Math.round(preferences.accessibleExtra ?? DEFAULT_GAP_PREFERENCES.accessibleExtra))
+    : 0;
+  const finish = (
+    base: number,
+    source: WalkEstimate["source"],
+    known: boolean,
+  ): WalkEstimate => ({ minutes: base + extra, from: fromBuilding, to: toBuilding, known, source, accessible });
+
   if (fromBuilding && toBuilding && fromBuilding === toBuilding) {
-    return { minutes: 0, from: fromBuilding, to: toBuilding, known: true };
+    return { minutes: 0, from: fromBuilding, to: toBuilding, known: true, source: "same", accessible: false };
+  }
+  if (!fromBuilding || !toBuilding) {
+    return finish(BLANK_WALK_MINUTES, "blank", false);
+  }
+  const custom = preferences.customWalks?.[walkKey(fromBuilding, toBuilding)];
+  if (typeof custom === "number") {
+    return finish(Math.max(1, Math.round(custom)), "custom", true);
   }
   const start = BUILDING_ZONES[fromBuilding];
   const end = BUILDING_ZONES[toBuilding];
   if (start && end) {
     const distance = Math.abs(start[0] - end[0]) + Math.abs(start[1] - end[1]);
-    return {
-      minutes: Math.max(1, Math.round(distance * 1.3)),
-      from: fromBuilding,
-      to: toBuilding,
-      known: true,
-    };
+    const pace = (preferences.walkSpeed ?? DEFAULT_GAP_PREFERENCES.walkSpeed) / 75;
+    return finish(Math.max(1, Math.round((distance * 1.3) / pace)), "zone", true);
   }
-  if (!fromBuilding || !toBuilding) {
-    return { minutes: BLANK_WALK_MINUTES, from: fromBuilding, to: toBuilding, known: false };
-  }
-  return { minutes: UNKNOWN_WALK_MINUTES, from: fromBuilding, to: toBuilding, known: false };
+  return finish(UNKNOWN_WALK_MINUTES, "unknown", false);
 }
 
 /** 可配置楼栋表，后续接入真实路网时由这里扩展。 */
@@ -258,7 +341,7 @@ export function findDayGaps(
     const start = sessionEndMinutes(from, periods);
     const end = sessionStartMinutes(to, periods);
     if (end <= start) continue;
-    const walk = estimateWalk(from.course.location, to.course.location);
+    const walk = estimateWalk(from.course.location, to.course.location, preferences);
     const minutes = end - start;
     const usableMinutes = Math.max(
       0,
@@ -327,7 +410,7 @@ export function latestDeparture(
   preferences: GapPreferences = DEFAULT_GAP_PREFERENCES,
   nowMinutes?: number,
 ): LatestDeparture {
-  const walk = estimateWalk(fromLocation, next.course.location);
+  const walk = estimateWalk(fromLocation, next.course.location, preferences);
   const start = sessionStartMinutes(next, periods);
   const leaveBy = Math.max(0, start - walk.minutes - preferences.bufferMinutes);
   return {
@@ -359,8 +442,8 @@ export function checkRoundTrip(
   preferences: GapPreferences = DEFAULT_GAP_PREFERENCES,
   minStayMinutes = 5,
 ): RoundTripCheck {
-  const outbound = estimateWalk(fromLocation, toLocation).minutes;
-  const inbound = estimateWalk(toLocation, fromLocation).minutes;
+  const outbound = estimateWalk(fromLocation, toLocation, preferences).minutes;
+  const inbound = estimateWalk(toLocation, fromLocation, preferences).minutes;
   const maxStay = usableMinutes - outbound - inbound - preferences.bufferMinutes;
   const total = Math.max(0, maxStay) + outbound + inbound + preferences.bufferMinutes;
   if (maxStay >= minStayMinutes) {
