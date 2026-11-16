@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   CalendarDays,
@@ -43,6 +43,11 @@ import { Topbar } from "./components/Topbar";
 import { WallpaperModal } from "./components/WallpaperModal";
 import { WeekHero } from "./components/WeekHero";
 import { WeekPickerModal } from "./components/WeekPickerModal";
+import { CommandPalette, type CommandItem } from "./components/CommandPalette";
+import { PlanPage, type PlanTab } from "./components/planner/PlanPage";
+import { NotesWorkspace } from "./components/notes/NotesWorkspace";
+import { AiWorkspace } from "./components/ai/AiWorkspace";
+import { loadGapPreferences, type GapPreferences } from "./lib/gaps";
 
 interface ConfirmState {
   title: string;
@@ -73,6 +78,8 @@ export default function App() {
 
   const [page, setPage] = useState<AppPage>("timetable");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [planTab, setPlanTab] = useState<PlanTab>("gaps");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [timetablesOpen, setTimetablesOpen] = useState(false);
   const [wallpaperOpen, setWallpaperOpen] = useState(false);
@@ -86,9 +93,30 @@ export default function App() {
   const [toast, setToast] = useState<ToastState | null>(null);
   const toastId = useRef(0);
   const confirmResolve = useRef<((value: boolean) => void) | null>(null);
+  const [gapPrefs, setGapPrefs] = useState<GapPreferences>(() => loadGapPreferences());
 
   const { timetable, semester, courses, prefs, data } = store;
-  const { viewDates, viewDays, viewSessions, viewStats, viewSemester } = view;
+  const {
+    week,
+    selectedDay,
+    setWeek,
+    setSelectedDay,
+    todayNumber,
+    currentWeek,
+    viewDates,
+    viewDays,
+    viewSessions,
+    viewPeriods,
+    currentSessions,
+    currentPeriods,
+    viewStats,
+    viewSemester,
+  } = view;
+  const events = timetable.events;
+  const currentSemester = useMemo(
+    () => ({ ...semester, periods: view.currentPeriods }),
+    [semester, view.currentPeriods],
+  );
   const detailCourse = detailId ? courses.find((course) => course.id === detailId) ?? null : null;
   const nativeApp = isNativeApp();
 
@@ -210,6 +238,11 @@ export default function App() {
 
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen((current) => !current);
+        return;
+      }
       if (event.key === "Escape" && sidebarOpen) {
         setSidebarOpen(false);
         return;
@@ -250,6 +283,93 @@ export default function App() {
     store.setAutoHolidays(value);
     notify(value ? "已开启节假日与调休识别。" : "已关闭节假日识别。");
   };
+
+  const paletteCommands: CommandItem[] = [
+    { id: "go-timetable", group: "导航", label: "周课表", run: () => navigate("timetable") },
+    { id: "go-agenda", group: "导航", label: "日程与单日", run: () => navigate("agenda") },
+    {
+      id: "go-gaps",
+      group: "导航",
+      label: "空档与规划",
+      hint: "找空档、算步行",
+      run: () => {
+        setPlanTab("gaps");
+        navigate("plan");
+      },
+    },
+    {
+      id: "go-study",
+      group: "导航",
+      label: "学习与统计",
+      hint: "番茄钟、待办、热力图",
+      run: () => {
+        setPlanTab("study");
+        navigate("plan");
+      },
+    },
+    {
+      id: "go-select",
+      group: "导航",
+      label: "选课规划",
+      hint: "课程池与多方案",
+      run: () => {
+        setPlanTab("select");
+        navigate("plan");
+      },
+    },
+    {
+      id: "go-notes",
+      group: "导航",
+      label: "笔记与看板",
+      hint: "笔记、章节、链接导入",
+      run: () => navigate("notes"),
+    },
+    {
+      id: "go-ai",
+      group: "导航",
+      label: "AI 助手",
+      hint: "对话、查课、授权",
+      run: () => navigate("ai"),
+    },
+    { id: "go-courses", group: "导航", label: "课程库", run: () => navigate("courses") },
+    { id: "go-profile", group: "导航", label: "我的", run: () => navigate("profile") },
+    {
+      id: "act-new-course",
+      group: "操作",
+      label: "新建课程",
+      shortcut: "N",
+      run: () => openEditor(),
+    },
+    {
+      id: "act-new-event",
+      group: "操作",
+      label: "添加日程",
+      shortcut: "E",
+      run: () => openEventEditor({ date: dateKey(viewDates[selectedDay - 1] ?? now) }),
+    },
+    {
+      id: "act-today",
+      group: "操作",
+      label: "回到今天",
+      shortcut: "T",
+      run: () => {
+        setWeek(currentWeek);
+        setSelectedDay(viewDays.includes(todayNumber) ? todayNumber : viewDays[0] ?? 1);
+        navigate("timetable");
+      },
+    },
+    { id: "act-theme", group: "操作", label: "切换主题", run: store.toggleTheme },
+    { id: "act-settings", group: "操作", label: "打开设置", run: () => setSettingsOpen(true) },
+    { id: "act-timetables", group: "操作", label: "管理课表", run: () => setTimetablesOpen(true) },
+    { id: "act-print", group: "操作", label: "打印课表", run: printTimetable },
+    ...courses.map((course) => ({
+      id: `course-${course.id}`,
+      group: "课程",
+      label: course.name,
+      hint: [course.teacher, course.location].filter(Boolean).join(" · "),
+      run: () => openCourseDetail(course),
+    })),
+  ];
 
   return (
     <div className="app-shell">
@@ -302,6 +422,7 @@ export default function App() {
           onManageTimetables={() => setTimetablesOpen(true)}
           onOpenWeekPicker={() => setWeekPickerOpen(true)}
           onToggleTheme={store.toggleTheme}
+          onOpenPalette={() => setPaletteOpen(true)}
         />
 
         <main className="main">
@@ -451,6 +572,34 @@ export default function App() {
               onAddAt={(day, start) => openEditor({ prefill: { day, start } })}
               onAddEventAt={(date) => openEventEditor({ date: date || dateKey(now) })}
               onSelectEvent={(event) => openEventEditor({ event })}
+            />
+          ) : page === "plan" ? (
+            <PlanPage
+              tab={planTab}
+              onChangeTab={setPlanTab}
+              now={now}
+              week={week}
+              term={semester.name}
+              dates={viewDates}
+              periods={viewPeriods}
+              sessions={viewSessions}
+              todaySessions={currentSessions}
+              todayPeriods={currentPeriods}
+              courses={courses}
+              events={events}
+              preferences={gapPrefs}
+              onChangePreferences={setGapPrefs}
+              onSelectCourse={openCourseDetail}
+              onAddCourse={() => openEditor()}
+            />
+          ) : page === "notes" ? (
+            <NotesWorkspace courses={courses} onNotify={notify} />
+          ) : page === "ai" ? (
+            <AiWorkspace
+              courses={courses}
+              semester={currentSemester}
+              now={now}
+              onNotify={notify}
             />
           ) : page === "profile" ? (
             <ProfilePage
@@ -675,6 +824,12 @@ export default function App() {
       ) : null}
 
       <Toast toast={toast} onClose={closeToast} />
+
+      <CommandPalette
+        open={paletteOpen}
+        commands={paletteCommands}
+        onClose={() => setPaletteOpen(false)}
+      />
 
       {page === "timetable" ? <DesktopPet /> : null}
 

@@ -1,4 +1,4 @@
-import { BookOpen, CalendarDays, LayoutGrid, UserRound } from "lucide-react";
+import { BookOpen, CalendarDays, Compass, LayoutGrid, UserRound } from "lucide-react";
 import type { AppPage } from "../types";
 
 interface MobileTabBarProps {
@@ -9,6 +9,7 @@ interface MobileTabBarProps {
 const TABS = [
   { page: "timetable" as const, label: "课表", icon: LayoutGrid },
   { page: "agenda" as const, label: "日程", icon: CalendarDays },
+  { page: "plan" as const, label: "规划", icon: Compass },
   { page: "courses" as const, label: "课程", icon: BookOpen },
   { page: "profile" as const, label: "我的", icon: UserRound },
 ];

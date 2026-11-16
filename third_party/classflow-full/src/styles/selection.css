@@ -1,0 +1,659 @@
+/* ==========================================================================
+   丙 · 选课规划
+   ========================================================================== */
+
+.select-board {
+  --select-required: #dd6749;
+  --select-elective: #4f7f9a;
+  --select-general: #c99a4b;
+  --select-pe: #5f8a63;
+  --select-lab: #8a6fa8;
+  --select-other: #7b857d;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 6px;
+  animation: fade-up 360ms both;
+}
+
+.select-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 2px 4px;
+}
+
+.select-hero h1 {
+  margin: 4px 0 6px;
+  font-family: var(--display);
+  font-size: clamp(28px, 3.6vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.select-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.auto-credits {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 8.5px;
+  letter-spacing: 0.04em;
+}
+
+.auto-credits input {
+  width: 76px;
+  height: 31px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.select-hero-actions .primary-button {
+  min-height: 31px;
+  padding: 0 12px;
+  font-size: 10.5px;
+}
+
+.select-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 13px;
+  border: 1px solid color-mix(in srgb, var(--success) 30%, var(--line));
+  border-radius: 11px;
+  background: var(--success-soft);
+  color: var(--ink-2);
+  font-size: 10.5px;
+}
+
+.select-notice button {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--muted);
+}
+
+.select-notice button:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.select-plan-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.select-plan-row > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 10.5px;
+  font-weight: 600;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease;
+}
+
+.select-plan-row > button small {
+  color: var(--faint);
+  font-size: 8.5px;
+  font-weight: 500;
+}
+
+.select-plan-row > button:hover {
+  border-color: var(--line-strong);
+}
+
+.select-plan-row > button.is-active {
+  border-color: transparent;
+  background: var(--primary-bg);
+  color: var(--primary-ink);
+}
+
+.select-plan-row > button.is-active small {
+  color: color-mix(in srgb, var(--primary-ink) 60%, transparent);
+}
+
+.select-plan-row > button.select-plan-new {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.select-plan-row > button.select-plan-delete {
+  padding: 6px 8px;
+  color: var(--faint);
+}
+
+.select-plan-row > button.select-plan-delete:hover {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+}
+
+.select-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.select-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.select-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ---------------------------------------------------------------- 课程池 */
+
+.select-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.select-search {
+  display: inline-flex;
+  min-width: 170px;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--field);
+  color: var(--faint);
+}
+
+.select-search input {
+  width: 100%;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.select-search input:focus {
+  outline: none;
+}
+
+.select-filters > select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--field);
+  color: var(--ink-2);
+  font-size: 10px;
+}
+
+.select-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 9.5px;
+}
+
+.select-check input {
+  accent-color: var(--coral);
+}
+
+.select-pool-list,
+.select-current-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.select-pool-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 2px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.select-pool-list li:last-child,
+.select-current-list li:last-child {
+  border-bottom: 0;
+}
+
+.select-pool-list li.is-picked {
+  opacity: 0.62;
+}
+
+.select-cat {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 8.5px;
+  font-weight: 700;
+}
+
+.select-cat.is-required {
+  color: var(--select-required);
+  background: color-mix(in srgb, var(--select-required) 13%, var(--surface));
+}
+
+.select-cat.is-elective {
+  color: var(--select-elective);
+  background: color-mix(in srgb, var(--select-elective) 13%, var(--surface));
+}
+
+.select-cat.is-general {
+  color: var(--select-general);
+  background: color-mix(in srgb, var(--select-general) 14%, var(--surface));
+}
+
+.select-cat.is-pe {
+  color: var(--select-pe);
+  background: color-mix(in srgb, var(--select-pe) 13%, var(--surface));
+}
+
+.select-cat.is-lab {
+  color: var(--select-lab);
+  background: color-mix(in srgb, var(--select-lab) 13%, var(--surface));
+}
+
+.select-row-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.select-row-copy strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-row-copy span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-row-copy em {
+  color: var(--coral-deep);
+  font-size: 8.5px;
+  font-style: normal;
+}
+
+.select-credits {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.select-picked-tag {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--faint);
+  font-size: 8.5px;
+  font-weight: 700;
+}
+
+.select-pool-list .small-button {
+  min-height: 27px;
+  padding: 0 9px;
+  font-size: 9px;
+}
+
+/* ---------------------------------------------------------------- 当前方案 */
+
+.select-current-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 2px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.select-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.select-current-list .select-row-copy span {
+  white-space: normal;
+  line-height: 1.4;
+}
+
+.grad-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.grad-title {
+  color: var(--faint);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.grad-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.grad-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.grad-head strong {
+  color: var(--ink-2);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.grad-track {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.grad-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--success);
+  transition: width 320ms ease;
+}
+
+/* ---------------------------------------------------------------- 压力 */
+
+.pressure-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.pressure-badge.is-steady {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.pressure-badge.is-heavy {
+  background: var(--coral-soft);
+  color: var(--coral-deep);
+}
+
+.pressure-badge.is-extreme {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.pressure-meter {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.pressure-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--success);
+  transition: width 320ms ease;
+}
+
+.pressure-meter.is-steady span {
+  background: var(--amber);
+}
+
+.pressure-meter.is-heavy span {
+  background: var(--coral);
+}
+
+.pressure-meter.is-extreme span {
+  background: var(--danger);
+}
+
+.pressure-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.55;
+}
+
+.pressure-exams {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.pressure-exams span {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 8.5px;
+  font-weight: 600;
+}
+
+.pressure-exams span.is-clash {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.select-alts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.alt-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.alt-block > strong {
+  color: var(--ink);
+  font-size: 10.5px;
+}
+
+.alt-option {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  text-align: left;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease;
+}
+
+.alt-option:hover {
+  border-color: color-mix(in srgb, var(--coral) 35%, var(--line));
+  background: var(--surface);
+}
+
+.alt-option span {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.alt-option small {
+  overflow: hidden;
+  flex: 1;
+  color: var(--muted);
+  font-size: 8.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alt-option svg {
+  flex-shrink: 0;
+  color: var(--faint);
+}
+
+/* ---------------------------------------------------------------- 手动添加 */
+
+.select-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  padding: 11px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.select-form-name {
+  grid-column: span 2;
+}
+
+.select-form > input,
+.select-form label input,
+.select-form label select {
+  width: 100%;
+  height: 31px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 10.5px;
+}
+
+.select-form label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 8.5px;
+}
+
+.select-range {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.select-range select {
+  width: 100%;
+  padding: 0 4px !important;
+}
+
+.select-form .primary-button {
+  grid-column: span 4;
+  min-height: 32px;
+  font-size: 10.5px;
+}
+
+@media (max-width: 1080px) {
+  .select-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .select-side {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+@media (max-width: 760px) {
+  .select-hero {
+    padding-top: 16px;
+  }
+
+  .select-hero-actions {
+    width: 100%;
+  }
+
+  .select-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .select-side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .select-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .select-form-name,
+  .select-form .primary-button {
+    grid-column: span 2;
+  }
+
+  .select-filters > select {
+    flex: 1;
+  }
+
+  .select-search {
+    flex-basis: 100%;
+  }
+}

@@ -1,10 +1,13 @@
 import {
   BookOpen,
   CalendarDays,
+  Compass,
   Layers,
   LayoutGrid,
   Moon,
+  NotebookPen,
   Settings2,
+  Sparkles,
   Sun,
   UserRound,
   Waves,
@@ -117,6 +120,33 @@ export function Sidebar({
           <CalendarDays size={17} strokeWidth={1.8} />
           <span>日程与单日</span>
           <span className="nav-count">{agendaCount}</span>
+        </button>
+        <button
+          className={`nav-item ${page === "plan" ? "is-active" : ""}`}
+          type="button"
+          onClick={() => onNavigate("plan")}
+          aria-current={page === "plan" ? "page" : undefined}
+        >
+          <Compass size={17} strokeWidth={1.8} />
+          <span>空档与规划</span>
+        </button>
+        <button
+          className={`nav-item ${page === "notes" ? "is-active" : ""}`}
+          type="button"
+          onClick={() => onNavigate("notes")}
+          aria-current={page === "notes" ? "page" : undefined}
+        >
+          <NotebookPen size={17} strokeWidth={1.8} />
+          <span>笔记与看板</span>
+        </button>
+        <button
+          className={`nav-item ${page === "ai" ? "is-active" : ""}`}
+          type="button"
+          onClick={() => onNavigate("ai")}
+          aria-current={page === "ai" ? "page" : undefined}
+        >
+          <Sparkles size={17} strokeWidth={1.8} />
+          <span>AI 助手</span>
         </button>
         <button
           className={`nav-item ${page === "profile" ? "is-active" : ""}`}
