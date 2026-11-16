@@ -443,3 +443,6 @@
   font-size: 8.5px;
 }
 
+.grades-pane .grade-stats {
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+}

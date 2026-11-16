@@ -1,4 +1,4 @@
-export type CourseStatus = "normal" | "retake" | "exempt" | "audit";
+export type CourseStatus = "normal" | "retake" | "exempt" | "audit" | "planned";
 
 export interface CourseStatusMeta {
   id: CourseStatus;
@@ -10,6 +10,7 @@ export const COURSE_STATUSES: CourseStatusMeta[] = [
   { id: "retake", label: "重修" },
   { id: "exempt", label: "免修" },
   { id: "audit", label: "旁听" },
+  { id: "planned", label: "计划修读" },
 ];
 
 export interface GradeRecord {
@@ -40,6 +41,10 @@ export interface SemesterStats {
   weightedAverage: number | null;
   /** Credit-weighted grade point on a 4.0 scale, null when nothing is entered. */
   gpa: number | null;
+  /** Number of courses marked as planned. */
+  plannedCount: number;
+  /** Credits behind planned courses; missing credits count as 0. */
+  plannedCredits: number;
 }
 
 const GRADES_KEY = "kexu:grades:v1";
@@ -74,7 +79,13 @@ export function normalizeGrades(raw: unknown): GradeRecord[] {
     const courseId = typeof item.courseId === "string" ? item.courseId.trim().slice(0, 80) : "";
     if (!courseId || seen.has(courseId)) continue;
     seen.add(courseId);
-    const parsed = typeof item.score === "number" ? item.score : Number(item.score);
+    const rawScore = item.score;
+    const parsed =
+      rawScore === null || rawScore === "" || typeof rawScore === "undefined"
+        ? NaN
+        : typeof rawScore === "number"
+          ? rawScore
+          : Number(rawScore);
     const score = Number.isFinite(parsed) ? Math.min(100, Math.max(0, Math.round(parsed * 10) / 10)) : null;
     records.push({
       courseId,
@@ -169,7 +180,10 @@ export function gpaForScore(score: number): number {
 }
 
 export function semesterStats(records: GradeRecord[]): SemesterStats {
-  const scored = records.filter((record) => record.score !== null);
+  const planned = records.filter((record) => record.status === "planned");
+  const scored = records.filter(
+    (record) => record.score !== null && record.status !== "planned",
+  );
   let weightSum = 0;
   let scoreSum = 0;
   let pointSum = 0;
@@ -194,6 +208,9 @@ export function semesterStats(records: GradeRecord[]): SemesterStats {
     earnedCredits: Math.round(earnedCredits * 10) / 10,
     weightedAverage: weightSum > 0 ? Math.round((scoreSum / weightSum) * 10) / 10 : null,
     gpa: weightSum > 0 ? Math.round((pointSum / weightSum) * 100) / 100 : null,
+    plannedCount: planned.length,
+    plannedCredits:
+      Math.round(planned.reduce((sum, record) => sum + (record.credits ?? 0), 0) * 10) / 10,
   };
 }
 

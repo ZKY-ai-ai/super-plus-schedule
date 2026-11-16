@@ -74,6 +74,18 @@ describe("failure marking and privacy mask", () => {
   it("labels course statuses", () => {
     expect(courseStatusLabel("normal")).toBe("正常修读");
     expect(courseStatusLabel("exempt")).toBe("免修");
+    expect(courseStatusLabel("planned")).toBe("计划修读");
+  });
+
+  it("keeps planned status through legacy normalization", () => {
+    const [planned, unknown] = normalizeGrades([
+      { courseId: "p1", score: null, credits: 2, status: "planned" },
+      { courseId: "p2", score: 90, status: "archived" },
+    ]);
+    expect(planned.status).toBe("planned");
+    expect(planned.credits).toBe(2);
+    expect(planned.score).toBeNull();
+    expect(unknown.status).toBe("normal");
   });
 });
 
@@ -129,5 +141,46 @@ describe("GPA and semester statistics", () => {
     const stats = semesterStats([record({ score: null })]);
     expect(stats.weightedAverage).toBeNull();
     expect(stats.gpa).toBeNull();
+    expect(stats.plannedCount).toBe(0);
+    expect(stats.plannedCredits).toBe(0);
+  });
+});
+
+describe("planned courses", () => {
+  it("counts planned courses and credits separately", () => {
+    const stats = semesterStats([
+      record({ courseId: "a", score: null, credits: 4, status: "planned" }),
+      record({ courseId: "b", score: null, credits: 2.5, status: "planned" }),
+    ]);
+    expect(stats.plannedCount).toBe(2);
+    expect(stats.plannedCredits).toBe(6.5);
+    expect(stats.enteredCount).toBe(0);
+    expect(stats.earnedCredits).toBe(0);
+    expect(stats.weightedAverage).toBeNull();
+    expect(stats.gpa).toBeNull();
+  });
+
+  it("treats planned courses with scores as planned, never as earned", () => {
+    const stats = semesterStats([
+      record({ courseId: "a", score: 95, credits: 4, status: "planned" }),
+      record({ courseId: "b", score: 80, credits: 3 }),
+    ]);
+    expect(stats.plannedCount).toBe(1);
+    expect(stats.plannedCredits).toBe(4);
+    expect(stats.enteredCount).toBe(1);
+    expect(stats.passedCount).toBe(1);
+    expect(stats.earnedCredits).toBe(3);
+    expect(stats.creditTotal).toBe(3);
+    expect(stats.weightedAverage).toBe(80);
+    expect(stats.gpa).toBe(3);
+  });
+
+  it("counts planned courses without credits as zero credits", () => {
+    const stats = semesterStats([
+      record({ courseId: "a", score: null, credits: null, status: "planned" }),
+      record({ courseId: "b", score: null, credits: null, status: "planned" }),
+    ]);
+    expect(stats.plannedCount).toBe(2);
+    expect(stats.plannedCredits).toBe(0);
   });
 });
