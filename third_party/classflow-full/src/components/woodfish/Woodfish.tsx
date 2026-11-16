@@ -56,40 +56,79 @@ function formatCount(value: number): string {
 }
 
 /**
- * 木鱼本体：参考 clockhub 在线木鱼的扁平剪影风格——纯色鱼身、
- * 月牙口是左端圆厚、向右上收细直抵头部边缘的切口，不加眼睛鳞纹等附加细节。
- * 仅保留极轻的渐变与地面投影；动画只跑 transform/opacity，不触发重绘。
+ * 木鱼本体：参考 tapwoodenfish 的 3D 木雕风格——奶油色木头质感、
+ * 年轮纹理、宽厚带洞腔深度的月牙切口，无眼睛等附加元素。
+ * 纹理与阴影全部静态栅格化，动画只跑 transform/opacity，不触发重绘。
  */
 function WoodenFishArt({ mouthRef }: { mouthRef: RefObject<SVGGElement | null> }) {
+  const BODY_PATH =
+    "M17 272 C34 196 80 92 158 38 C190 17 226 8 262 16 C320 28 388 78 424 140 C444 176 444 214 428 248 C404 292 348 320 292 332 C240 342 176 338 130 314 C96 296 40 288 17 272 Z";
+
   return (
-    <svg viewBox="0 0 448 190" role="img" aria-hidden="true" focusable="false">
+    <svg viewBox="0 0 448 350" role="img" aria-hidden="true" focusable="false">
       <defs>
-        <radialGradient id="wf-body" cx="0.42" cy="0.3" r="0.85">
-          <stop offset="0" stopColor="#e4b77e" />
-          <stop offset="0.55" stopColor="#d49c5c" />
-          <stop offset="1" stopColor="#b97f42" />
+        <radialGradient id="wf-body" cx="0.46" cy="0.28" r="0.9">
+          <stop offset="0" stopColor="#f6e2b4" />
+          <stop offset="0.45" stopColor="#e9c58a" />
+          <stop offset="0.75" stopColor="#d4a260" />
+          <stop offset="1" stopColor="#b07c42" />
         </radialGradient>
+        <clipPath id="wf-body-clip">
+          <path d={BODY_PATH} />
+        </clipPath>
         <filter id="wf-blur" x="-60%" y="-200%" width="220%" height="500%">
           <feGaussianBlur stdDeviation="5" />
+        </filter>
+        <filter id="wf-soft" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="8" />
         </filter>
       </defs>
 
       {/* 地面投影 */}
-      <ellipse cx="218" cy="170" rx="112" ry="7" fill="#3a2412" opacity="0.18" filter="url(#wf-blur)" />
+      <ellipse cx="230" cy="340" rx="130" ry="8" fill="#3a2412" opacity="0.22" filter="url(#wf-blur)" />
 
-      {/* 鱼身：圆头在右、尾部收尖在左下的纯色剪影 */}
-      <path
-        d="M106 148 C124 120 158 78 210 52 C232 41 258 38 282 46 C304 55 320 72 323 92 C326 112 314 130 292 141 C264 156 226 158 190 152 C158 147 128 155 106 148 Z"
-        fill="url(#wf-body)"
-      />
+      {/* 鱼身：丰满圆润的木墩子 */}
+      <path d={BODY_PATH} fill="url(#wf-body)" />
 
-      {/* 月牙口：左端圆厚、向右上收细的切口 */}
+      {/* 年轮与木纹：裁剪进鱼身内 */}
+      <g clipPath="url(#wf-body-clip)" fill="none" strokeLinecap="round">
+        <g stroke="#c08a4e" strokeWidth="2" opacity="0.4">
+          <circle cx="250" cy="255" r="45" />
+          <circle cx="250" cy="255" r="75" />
+          <circle cx="250" cy="255" r="105" />
+          <circle cx="250" cy="255" r="135" />
+        </g>
+        <g stroke="#c08a4e" strokeWidth="2" opacity="0.32">
+          <circle cx="150" cy="95" r="22" />
+          <circle cx="150" cy="95" r="42" />
+          <circle cx="150" cy="95" r="62" />
+        </g>
+        {/* 沿轮廓的细木纹 */}
+        <path d="M17 272 C34 196 80 92 158 38 C190 17 226 8 262 16 C320 28 388 78 424 140 C444 176 444 214 428 248 C404 292 348 320 292 332 C240 342 176 338 130 314 C96 296 40 288 17 272 Z" stroke="#b07c42" strokeWidth="1.6" opacity="0.28" transform="translate(9.2 6.9) scale(0.96)" />
+        <path d="M17 272 C34 196 80 92 158 38 C190 17 226 8 262 16 C320 28 388 78 424 140 C444 176 444 214 428 248 C404 292 348 320 292 332 C240 342 176 338 130 314 C96 296 40 288 17 272 Z" stroke="#b07c42" strokeWidth="1.4" opacity="0.18" transform="translate(19.6 14.7) scale(0.915)" />
+        {/* 顶部高光与左下反光 */}
+        <ellipse cx="215" cy="52" rx="62" ry="16" fill="#fff3d6" opacity="0.5" filter="url(#wf-soft)" transform="rotate(-10 215 52)" />
+        <ellipse cx="322" cy="72" rx="30" ry="10" fill="#fff3d6" opacity="0.38" filter="url(#wf-soft)" transform="rotate(-8 322 72)" />
+        <ellipse cx="95" cy="235" rx="26" ry="44" fill="#f2d9a8" opacity="0.4" filter="url(#wf-soft)" transform="rotate(18 95 235)" />
+      </g>
+
+      {/* 轮廓线 */}
+      <path d={BODY_PATH} fill="none" stroke="#9c6b3a" strokeWidth="3" opacity="0.7" />
+
+      {/* 月牙口：宽厚带洞腔的 3D 切口，左端圆深、向右上收细 */}
       <g className="woodfish__mouth" ref={mouthRef}>
         <path
-          d="M171 94 C222 87 276 81 314 79 C317.5 80 318 84.5 314.5 85.5 C270 95 220 107 186 123 C172 129.5 155 128 148 118 C143 110.5 146 99 156 94.5 C161 92 166 92.5 171 94 Z"
-          fill="#241106"
+          d="M148 162 C240 138 330 120 420 108 C425 110 425 116 419 118 C330 138 240 166 186 196 C168 206 146 208 132 198 C118 188 116 170 128 160 C134 155 142 156 148 162 Z"
+          fill="#55260d"
         />
+        {/* 切口内上颚面：亮一档做出深度 */}
+        <path d="M160 172 C250 150 335 132 413 118" stroke="#8a4a1e" strokeWidth="9" strokeLinecap="round" fill="none" opacity="0.85" />
+        {/* 左端深洞 */}
+        <ellipse cx="156" cy="180" rx="30" ry="20" fill="#3a1404" opacity="0.85" />
       </g>
+      {/* 切口上缘棱线与下唇影 */}
+      <path d="M148 162 C240 138 330 120 420 108" stroke="#f7dca8" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.65" />
+      <path d="M188 199 C240 172 330 144 416 123" stroke="#9c6b3a" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.4" />
     </svg>
   );
 }
