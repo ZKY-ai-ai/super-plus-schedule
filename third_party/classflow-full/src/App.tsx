@@ -907,6 +907,14 @@ export default function App() {
             setSettingsOpen(false);
             setShareOpen(true);
           }}
+          onRestoreWebDav={(next) =>
+            actions.previewThirdParty(
+              next,
+              "WebDAV 备份.json",
+              "已读取 WebDAV 备份，请选择替换或合并。",
+            )
+          }
+          onImportCourseSeeds={actions.addTextCourses}
         />
       ) : null}
 

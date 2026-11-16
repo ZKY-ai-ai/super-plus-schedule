@@ -7,6 +7,8 @@ import {
   Check,
   ClipboardList,
   Clock,
+  Cloud,
+  CloudDownload,
   Pencil,
   Plus,
   Sparkles,
@@ -35,6 +37,9 @@ import { GradesSettingsTab } from "./settings/GradesSettingsTab";
 import { RemindersSettingsTab } from "./settings/RemindersSettingsTab";
 import { SystemCalendarPanel } from "./settings/SystemCalendarPanel";
 import { GoogleCalendarPanel } from "./settings/GoogleCalendarPanel";
+import { WebDavSettingsPanel } from "./settings/WebDavSettingsPanel";
+import { AcademicImportPanel } from "./settings/AcademicImportPanel";
+import type { ParsedCourseSeed } from "../lib/textImport";
 import { TasksSettingsTab } from "./settings/TasksSettingsTab";
 import {
   MAX_PERIODS,
@@ -73,6 +78,8 @@ type SettingsTab =
   | "reminders"
   | "calendar"
   | "google-calendar"
+  | "academic"
+  | "webdav"
   | "data"
   | "ai";
 
@@ -112,6 +119,8 @@ interface SettingsModalProps {
   onOpenScreenshotImport: () => void;
   onOpenExcelImport: () => void;
   onOpenTimetableShare: () => void;
+  onRestoreWebDav: (data: ScheduleData) => ImportResult;
+  onImportCourseSeeds: (seeds: ParsedCourseSeed[]) => { courses: number; slots: number };
 }
 
 interface Notice {
@@ -127,6 +136,8 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Database }> = [
   { id: "reminders", label: "上课提醒", icon: Bell },
   { id: "calendar", label: "系统日历", icon: CalendarDays },
   { id: "google-calendar", label: "Google 日历", icon: CalendarRange },
+  { id: "academic", label: "教务导入", icon: CloudDownload },
+  { id: "webdav", label: "WebDAV 备份", icon: Cloud },
   { id: "data", label: "数据与备份", icon: Database },
   { id: "ai", label: "笔记与 AI", icon: Sparkles },
 ];
@@ -189,6 +200,8 @@ export function SettingsModal({
   onOpenScreenshotImport,
   onOpenExcelImport,
   onOpenTimetableShare,
+  onRestoreWebDav,
+  onImportCourseSeeds,
 }: SettingsModalProps) {
   const active = data.timetables.find((item) => item.id === data.activeTimetableId) ?? data.timetables[0];
   const calendarOverrides = active.calendarOverrides ?? [];
@@ -1042,6 +1055,14 @@ tab === "ai" ? (
                 timetable={active}
                 periodProfiles={data.periodProfiles}
               />
+            ) : null}
+
+            {tab === "academic" ? (
+              <AcademicImportPanel onImport={onImportCourseSeeds} />
+            ) : null}
+
+            {tab === "webdav" ? (
+              <WebDavSettingsPanel data={data} onRestore={onRestoreWebDav} />
             ) : null}
 
             {tab === "data" ? (
