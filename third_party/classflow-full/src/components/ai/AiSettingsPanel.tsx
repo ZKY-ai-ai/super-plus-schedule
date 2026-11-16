@@ -1,18 +1,24 @@
 import { useEffect, useState } from "react";
-import { Bot, KeyRound, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { Bot, Heart, KeyRound, Plus, ShieldCheck, Sparkles, Trash2, UserRound } from "lucide-react";
 import {
   DEFAULT_AI_SETTINGS,
   describePermissions,
   normalizeAiSettings,
+  type AiMemoryEntry,
   type AiPersona,
   type AiPermissions,
   type AiSettings,
   type AiTone,
 } from "../../lib/ai";
+import { ConfirmDialog } from "../ConfirmDialog";
 import "../../styles/ai.css";
 
 interface AiSettingsPanelProps {
   settings: AiSettings;
+  memory: AiMemoryEntry[];
+  onAddMemory: (text: string) => void;
+  onRemoveMemory: (id: string) => void;
+  onClearMemory: () => void;
   onSave: (next: AiSettings) => void;
   onNotify?: (message: string, tone?: "success" | "error") => void;
 }
@@ -32,10 +38,20 @@ function isValidBaseUrl(value: string): boolean {
   }
 }
 
-export function AiSettingsPanel({ settings, onSave, onNotify }: AiSettingsPanelProps) {
+export function AiSettingsPanel({
+  settings,
+  memory,
+  onAddMemory,
+  onRemoveMemory,
+  onClearMemory,
+  onSave,
+  onNotify,
+}: AiSettingsPanelProps) {
   const [draft, setDraft] = useState<AiSettings>(settings);
   const [showKey, setShowKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [memoryInput, setMemoryInput] = useState("");
+  const [clearMemoryOpen, setClearMemoryOpen] = useState(false);
 
   useEffect(() => {
     setDraft(settings);
@@ -212,6 +228,78 @@ export function AiSettingsPanel({ settings, onSave, onNotify }: AiSettingsPanelP
 
       <section className="ai-settings-section">
         <div className="ai-settings-heading">
+          <Heart size={15} />
+          <div>
+            <h3>长期记忆</h3>
+            <p>只保存你主动说「记住」的内容，可随时逐条删除。</p>
+          </div>
+        </div>
+        <form
+          className="ai-memory-add"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const value = memoryInput.trim();
+            if (!value) return;
+            onAddMemory(value);
+            setMemoryInput("");
+          }}
+        >
+          <input
+            className="field-input"
+            maxLength={200}
+            value={memoryInput}
+            onChange={(event) => setMemoryInput(event.target.value)}
+            placeholder="例如：周三下午没空，别排复习"
+            aria-label="新增一条记忆"
+          />
+          <button
+            className="secondary-button"
+            type="submit"
+            disabled={memoryInput.trim().length === 0}
+          >
+            <Plus size={14} />
+            添加
+          </button>
+        </form>
+        {memory.length === 0 ? (
+          <p className="ai-inline-hint">
+            还没有记忆。在对话里说「记住我周三下午没空」，或在这里手动添加。
+          </p>
+        ) : (
+          <ul className="ai-memory-list">
+            {memory.map((entry) => (
+              <li key={entry.id}>
+                <span>{entry.text}</span>
+                <button
+                  className="ai-ghost-button"
+                  type="button"
+                  onClick={() => onRemoveMemory(entry.id)}
+                  aria-label={`删除记忆：${entry.text}`}
+                >
+                  <Trash2 size={13} />
+                  删除
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="ai-memory-foot">
+          <p className="ai-inline-hint">
+            <ShieldCheck size={13} /> 记忆只存在本机；远程模式下会随请求发送给你选择的模型。
+          </p>
+          <button
+            className="ai-inline-link"
+            type="button"
+            disabled={memory.length === 0}
+            onClick={() => setClearMemoryOpen(true)}
+          >
+            清空全部记忆
+          </button>
+        </div>
+      </section>
+
+      <section className="ai-settings-section">
+        <div className="ai-settings-heading">
           <ShieldCheck size={15} />
           <div>
             <h3>数据授权</h3>
@@ -263,6 +351,20 @@ export function AiSettingsPanel({ settings, onSave, onNotify }: AiSettingsPanelP
           保存设置
         </button>
       </div>
+
+      {clearMemoryOpen ? (
+        <ConfirmDialog
+          title="清空全部长期记忆？"
+          message={`将删除 ${memory.length} 条记忆，删除后无法恢复。课表、笔记与聊天记录不受影响。`}
+          confirmLabel="清空记忆"
+          tone="danger"
+          onConfirm={() => {
+            onClearMemory();
+            setClearMemoryOpen(false);
+          }}
+          onCancel={() => setClearMemoryOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

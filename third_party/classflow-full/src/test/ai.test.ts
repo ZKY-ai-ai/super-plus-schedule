@@ -1,22 +1,32 @@
 import { describe, expect, it } from "vitest";
 import {
   AI_CHAT_KEY,
+  AI_MEMORY_KEY,
   AI_SETTINGS_KEY,
+  addMemory,
   appendChat,
   answerScheduleQuestion,
   buildAiContext,
   buildAiScheduleSnapshot,
   buildSystemPrompt,
+  clearMemory,
   complete,
   createChatMessage,
   DEFAULT_AI_SETTINGS,
   describePermissions,
+  extractMemoryRequest,
   loadAiSettings,
   loadChat,
+  loadMemory,
   normalizeAiSettings,
+  normalizeMemory,
+  removeMemory,
   saveAiSettings,
   saveChat,
+  saveMemory,
+  updateMemory,
   type AiCompletionRequest,
+  type AiMemoryData,
   type AiSettings,
   type FetchLike,
 } from "../lib/ai";
@@ -404,5 +414,100 @@ describe("OpenAI-compatible provider", () => {
       ({ ok: true, status: 200, text: async () => "{}" }) as unknown as Response;
     const result = await complete(userRequest("你好"), remoteSettings, empty, NOW);
     expect(result.error).toBe("empty-content");
+  });
+});
+
+describe("persona memory (F119)", () => {
+  const empty: AiMemoryData = { version: 1, entries: [], updatedAt: NOW.toISOString() };
+
+  it("extracts explicit remember requests and ignores questions", () => {
+    expect(extractMemoryRequest("记住我周三下午没空")).toBe("我周三下午没空");
+    expect(extractMemoryRequest("帮我记一下：喜欢靠窗的位置。")).toBe("喜欢靠窗的位置");
+    expect(extractMemoryRequest("以后叫我小张")).toBe("以后称呼我「小张」");
+    expect(extractMemoryRequest("你记得周三有课吗？")).toBeNull();
+    expect(extractMemoryRequest("记住")).toBeNull();
+    expect(extractMemoryRequest("今天有什么课")).toBeNull();
+  });
+
+  it("adds, dedupes, updates, removes and clears entries", () => {
+    const added = addMemory(empty, "  周三下午没空  ", NOW);
+    expect(added.entries).toHaveLength(1);
+    expect(added.entries[0].text).toBe("周三下午没空");
+
+    const duplicate = addMemory(added, "周三下午没空", new Date(NOW.getTime() + 1000));
+    expect(duplicate.entries).toHaveLength(1);
+
+    const id = added.entries[0].id;
+    const renamed = updateMemory(added, id, "周三晚上没空", NOW);
+    expect(renamed.entries[0].text).toBe("周三晚上没空");
+
+    const cleared = removeMemory(renamed, id, NOW);
+    expect(cleared.entries).toHaveLength(0);
+    expect(clearMemory(added).entries).toHaveLength(0);
+  });
+
+  it("normalizes corrupt storage and round-trips", () => {
+    expect(normalizeMemory(null).entries).toHaveLength(0);
+    expect(
+      normalizeMemory({ entries: [{ text: "  " }, { text: "偏好靠窗" }, { text: "偏好靠窗" }] })
+        .entries,
+    ).toHaveLength(1);
+
+    const storage = createMemoryStorage();
+    expect(saveMemory(addMemory(empty, "周三下午没空", NOW), storage)).toBe(true);
+    expect(loadMemory(storage).entries[0].text).toBe("周三下午没空");
+
+    storage.setItem(AI_MEMORY_KEY, "{broken");
+    expect(loadMemory(storage).entries).toHaveLength(0);
+  });
+
+  it("injects memory into the system prompt", () => {
+    const withMemory = buildSystemPrompt(
+      baseSettings(),
+      { snapshot },
+      addMemory(empty, "周三下午没空", NOW).entries,
+    );
+    expect(withMemory).toContain("【长期记忆】");
+    expect(withMemory).toContain("周三下午没空");
+    expect(buildSystemPrompt(baseSettings(), { snapshot })).not.toContain("【长期记忆】");
+  });
+
+  it("acknowledges and recalls memory in local mode", async () => {
+    const remembered = addMemory(empty, "周三下午没空", NOW).entries;
+    const request = userRequest("记住我喜欢靠窗的位置");
+    request.memory = remembered;
+    const ack = await complete(request, baseSettings(), undefined, NOW);
+    expect(ack.content).toContain("记下了");
+    expect(ack.content).toContain("喜欢靠窗的位置");
+
+    const recall = userRequest("你记得什么");
+    recall.memory = remembered;
+    const recalled = await complete(recall, baseSettings(), undefined, NOW);
+    expect(recalled.content).toContain("周三下午没空");
+
+    const none = await complete(userRequest("你记得什么"), baseSettings(), undefined, NOW);
+    expect(none.content).toContain("还没有保存任何记忆");
+  });
+
+  it("sends memory only as part of the remote system prompt", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const fetchImpl: FetchLike = async (url, init) => {
+      requests.push({ url, init });
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ choices: [{ message: { content: "好" } }] }),
+      } as unknown as Response;
+    };
+    const settings = baseSettings({
+      provider: "openai-compatible",
+      baseUrl: "https://api.example.com/v1",
+      apiKey: "sk-test",
+    });
+    const request = userRequest("周三下午有课吗");
+    request.memory = addMemory(empty, "周三下午没空", NOW).entries;
+    await complete(request, settings, fetchImpl, NOW);
+    const body = JSON.parse(String(requests[0].init?.body));
+    expect(body.messages[0].content).toContain("周三下午没空");
   });
 });

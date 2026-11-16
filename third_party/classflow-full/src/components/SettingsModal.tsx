@@ -41,7 +41,17 @@ import {
 } from "../lib/date";
 import { getUsedMaxPeriod, weeksForSlot } from "../lib/schedule";
 import { isNativeApp, type ExportResult } from "../lib/nativeFile";
-import { loadAiSettings, saveAiSettings, type AiSettings } from "../lib/ai";
+import {
+  addMemory,
+  clearMemory,
+  loadAiSettings,
+  loadMemory,
+  removeMemory,
+  saveAiSettings,
+  saveMemory,
+  type AiMemoryData,
+  type AiSettings,
+} from "../lib/ai";
 import { AiSettingsPanel } from "./ai/AiSettingsPanel";
 import { WhaleMascot } from "./WhaleMascot";
 
@@ -162,6 +172,25 @@ export function SettingsModal({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
   const [aiSettings, setAiSettings] = useState<AiSettings>(() => loadAiSettings());
+  const [aiMemory, setAiMemory] = useState<AiMemoryData>(() => loadMemory());
+  const rememberForAi = (value: string) => {
+    const next = addMemory(aiMemory, value);
+    saveMemory(next);
+    setAiMemory(next);
+    setNotice({ tone: "success", message: "已加入长期记忆。" });
+  };
+  const forgetForAi = (id: string) => {
+    const next = removeMemory(aiMemory, id);
+    saveMemory(next);
+    setAiMemory(next);
+    setNotice({ tone: "success", message: "已删除这条记忆。" });
+  };
+  const forgetAllForAi = () => {
+    const next = clearMemory(aiMemory);
+    saveMemory(next);
+    setAiMemory(next);
+    setNotice({ tone: "success", message: "长期记忆已清空。" });
+  };
   const fileRef = useRef<HTMLInputElement>(null);
   const native = isNativeApp();
   const currentProfile = data.periodProfiles.find((profile) => profile.id === profileId);
@@ -935,6 +964,10 @@ export function SettingsModal({
                 </div>
                 <AiSettingsPanel
                   settings={aiSettings}
+                  memory={aiMemory.entries}
+                  onAddMemory={rememberForAi}
+                  onRemoveMemory={forgetForAi}
+                  onClearMemory={forgetAllForAi}
                   onSave={(next) => {
                     saveAiSettings(next);
                     setAiSettings(next);

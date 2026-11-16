@@ -1,10 +1,11 @@
 /**
- * 丁 · AI 与自然语言模块（F111 / F117 / F118）
+ * 丁 · AI 与自然语言模块（F111 / F117 / F118 / F119）
  *
  * 设计原则：
  * 1. 本地规则模式零配置可用，不联网也能查课。
  * 2. OpenAI 兼容接口是可选项，密钥只存本机。
  * 3. 任何上下文都必须经过分项授权裁剪，默认最小授权。
+ * 4. 长期记忆只保存用户主动说「记住」的内容，可逐条删除。
  */
 import type { Course, Semester } from "../types";
 import {
@@ -779,6 +780,167 @@ export function appendChat(
   };
 }
 
+/* --------------------------- 长期记忆（F119） --------------------------- */
+
+export interface AiMemoryEntry {
+  id: string;
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiMemoryData {
+  version: 1;
+  entries: AiMemoryEntry[];
+  updatedAt: string;
+}
+
+export const AI_MEMORY_KEY = "kexu:ai:memory:v1";
+export const MAX_AI_MEMORY = 30;
+export const MAX_MEMORY_LENGTH = 200;
+
+function memoryId(now: Date): string {
+  return `mem-${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+export function normalizeMemory(raw: unknown, now = new Date()): AiMemoryData {
+  const object = isRecord(raw) ? raw : {};
+  const entries: AiMemoryEntry[] = [];
+  const seen = new Set<string>();
+  if (Array.isArray(object.entries)) {
+    for (const item of object.entries.slice(-MAX_AI_MEMORY)) {
+      if (!isRecord(item)) continue;
+      const value = text(item.text, MAX_MEMORY_LENGTH);
+      if (!value) continue;
+      const dedupe = value.toLocaleLowerCase();
+      if (seen.has(dedupe)) continue;
+      seen.add(dedupe);
+      entries.push({
+        id: text(item.id, 80) || `mem-${entries.length}`,
+        text: value,
+        createdAt: text(item.createdAt, 40, now.toISOString()),
+        updatedAt: text(item.updatedAt, 40, now.toISOString()),
+      });
+    }
+  }
+  return { version: 1, entries, updatedAt: now.toISOString() };
+}
+
+export function loadMemory(
+  storage: StorageLike | null = defaultStorage(),
+  now = new Date(),
+): AiMemoryData {
+  if (!storage) return { version: 1, entries: [], updatedAt: now.toISOString() };
+  try {
+    const raw = storage.getItem(AI_MEMORY_KEY);
+    if (!raw) return { version: 1, entries: [], updatedAt: now.toISOString() };
+    return normalizeMemory(JSON.parse(raw), now);
+  } catch {
+    return { version: 1, entries: [], updatedAt: now.toISOString() };
+  }
+}
+
+export function saveMemory(
+  data: AiMemoryData,
+  storage: StorageLike | null = defaultStorage(),
+): boolean {
+  if (!storage) return false;
+  try {
+    storage.setItem(AI_MEMORY_KEY, JSON.stringify(normalizeMemory(data)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function addMemory(
+  data: AiMemoryData,
+  raw: string,
+  now = new Date(),
+): AiMemoryData {
+  const value = raw.trim().replace(/\s+/g, " ").slice(0, MAX_MEMORY_LENGTH);
+  if (!value) return data;
+  const dedupe = value.toLocaleLowerCase();
+  const existing = data.entries.find((entry) => entry.text.toLocaleLowerCase() === dedupe);
+  if (existing) {
+    return {
+      ...data,
+      entries: data.entries.map((entry) =>
+        entry.id === existing.id ? { ...entry, updatedAt: now.toISOString() } : entry,
+      ),
+      updatedAt: now.toISOString(),
+    };
+  }
+  const entry: AiMemoryEntry = {
+    id: memoryId(now),
+    text: value,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+  return {
+    version: 1,
+    entries: [...data.entries, entry].slice(-MAX_AI_MEMORY),
+    updatedAt: now.toISOString(),
+  };
+}
+
+export function updateMemory(
+  data: AiMemoryData,
+  id: string,
+  raw: string,
+  now = new Date(),
+): AiMemoryData {
+  const value = raw.trim().replace(/\s+/g, " ").slice(0, MAX_MEMORY_LENGTH);
+  if (!value) return removeMemory(data, id, now);
+  return {
+    version: 1,
+    entries: data.entries.map((entry) =>
+      entry.id === id ? { ...entry, text: value, updatedAt: now.toISOString() } : entry,
+    ),
+    updatedAt: now.toISOString(),
+  };
+}
+
+export function removeMemory(
+  data: AiMemoryData,
+  id: string,
+  now = new Date(),
+): AiMemoryData {
+  return {
+    version: 1,
+    entries: data.entries.filter((entry) => entry.id !== id),
+    updatedAt: now.toISOString(),
+  };
+}
+
+export function clearMemory(_data: AiMemoryData, now = new Date()): AiMemoryData {
+  return { version: 1, entries: [], updatedAt: now.toISOString() };
+}
+
+/**
+ * 从一句话里提取「记住……」。识别失败返回 null，不猜测用户意图。
+ * 支持：记住/记一下/记下/记着、帮我记住、以后叫我……
+ */
+export function extractMemoryRequest(question: string): string | null {
+  const trimmed = question.trim();
+  if (!trimmed) return null;
+  const nickname = /以后(?:都)?(?:叫我|喊我)\s*([^\s，。！？!?,]{1,12})/.exec(trimmed);
+  if (nickname) return `以后称呼我「${nickname[1]}」`;
+  const match = /(?:记住|记一下|记下|记着)\s*[：:，,、]?\s*(.+)$/.exec(trimmed);
+  if (!match) return null;
+  const value = match[1].trim().replace(/[。！!]+$/, "");
+  if (value.length < 2 || value.length > MAX_MEMORY_LENGTH) return null;
+  if (/[吗嘛？?]$/.test(value)) return null;
+  return value;
+}
+
+function memoryBlock(entries: AiMemoryEntry[]): string {
+  return `【长期记忆】\n以下是用户主动保存的偏好与事实，回答时优先遵守，不要逐条复述：\n${entries
+    .map((entry) => `- ${entry.text}`)
+    .join("\n")}`;
+}
+
+
 /* --------------------------- 分项授权与上下文 --------------------------- */
 
 export interface AiContextSources {
@@ -890,6 +1052,7 @@ export interface AiCompletionRequest {
   system?: string;
   snapshot?: AiScheduleSnapshot;
   notes?: Note[];
+  memory?: AiMemoryEntry[];
 }
 
 export interface AiCompletionResult {
@@ -907,12 +1070,14 @@ function toneInstruction(tone: AiTone): string {
 export function buildSystemPrompt(
   settings: AiSettings,
   sources: AiContextSources,
+  memory: AiMemoryEntry[] = [],
 ): string {
   return [
     `你是「${settings.persona.name}」，一个住在课表里的 AI 助手。`,
     toneInstruction(settings.persona.tone),
     "只依据下面授权上下文中的事实回答；没有数据就直说没有，不要编造课程、时间或老师。",
     settings.persona.customPrompt ? `用户的人格补充：${settings.persona.customPrompt}` : "",
+    memory.length > 0 ? memoryBlock(memory) : "",
     "以下是用户本次授权的上下文：",
     buildAiContext(sources, settings.permissions),
   ]
@@ -973,10 +1138,14 @@ async function completeRemote(
       error: "missing-api-key",
     };
   }
-  const system = buildSystemPrompt(settings, {
-    snapshot: request.snapshot,
-    notes: request.notes,
-  });
+  const system = buildSystemPrompt(
+    settings,
+    {
+      snapshot: request.snapshot,
+      notes: request.notes,
+    },
+    request.memory,
+  );
   const messages = [
     { role: "system", content: request.system ? `${request.system}\n\n${system}` : system },
     ...request.messages
@@ -1063,6 +1232,22 @@ export async function complete(
   const question = lastUser?.content.trim() ?? "";
   if (!question) {
     return { content: localFallback(settings), provider: "local" };
+  }
+  const memoryText = extractMemoryRequest(question);
+  if (memoryText) {
+    return {
+      content: `记下了：${memoryText}。以后回答时会参考这条，可在「人与授权」里修改或删除。`,
+      provider: "local",
+    };
+  }
+  if (/记得什么|有哪些记忆|我的记忆|你记得/.test(question)) {
+    const memory = request.memory ?? [];
+    return {
+      content: memory.length > 0
+        ? `我记得这些：\n${memory.map((entry) => `· ${entry.text}`).join("\n")}\n这些只保存在本机，随时可以删掉。`
+        : "还没有保存任何记忆。说「记住……」我就会记下来，之后可以在「人与授权」里管理。",
+      provider: "local",
+    };
   }
   if (settings.permissions.schedule && request.snapshot) {
     const answer = answerScheduleQuestion(question, request.snapshot, now);

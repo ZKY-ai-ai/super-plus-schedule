@@ -661,6 +661,61 @@
   padding-top: 4px;
 }
 
+.ai-memory-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ai-memory-add .field-input {
+  flex: 1;
+}
+
+.ai-memory-add .secondary-button {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.ai-memory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-memory-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 12px;
+}
+
+.ai-memory-list li span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ai-memory-list .ai-ghost-button {
+  flex-shrink: 0;
+}
+
+.ai-memory-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-memory-foot .ai-inline-link {
+  align-self: flex-start;
+}
+
 /* ------------------------------- 侧栏 ------------------------------- */
 
 .ai-side {

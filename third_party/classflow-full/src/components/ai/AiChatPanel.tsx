@@ -4,9 +4,11 @@ import {
   appendChat,
   complete,
   createChatMessage,
+  extractMemoryRequest,
   loadChat,
   saveChat,
   type AiChatData,
+  type AiMemoryEntry,
   type AiScheduleSnapshot,
   type AiSettings,
 } from "../../lib/ai";
@@ -17,6 +19,8 @@ interface AiChatPanelProps {
   settings: AiSettings;
   snapshot: AiScheduleSnapshot;
   notes: Note[];
+  memory: AiMemoryEntry[];
+  onRemember: (text: string) => AiMemoryEntry[];
   onOpenSettings: () => void;
   onNotify: (message: string, tone?: "success" | "error") => void;
 }
@@ -31,6 +35,8 @@ export function AiChatPanel({
   settings,
   snapshot,
   notes,
+  memory,
+  onRemember,
   onOpenSettings,
   onNotify,
 }: AiChatPanelProps) {
@@ -55,6 +61,7 @@ export function AiChatPanel({
     snapshot.nextSession ? "下一节是什么？" : "这周还有几节课？",
     snapshot.courses[0] ? `${snapshot.courses[0].name}在哪上？` : "第 8 周有几节课？",
     "帮我找一下复习笔记",
+    "记住我周三下午没空",
   ];
 
   const send = async (raw: string) => {
@@ -66,9 +73,11 @@ export function AiChatPanel({
     setChat(pendingChat);
     setInput("");
     setBusy(true);
+    const memoryText = extractMemoryRequest(content);
+    const nextMemory = memoryText ? onRemember(memoryText) : memory;
     try {
       const result = await complete(
-        { messages: pendingChat.messages, snapshot, notes },
+        { messages: pendingChat.messages, snapshot, notes, memory: nextMemory },
         settings,
         undefined,
         now,

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   CalendarClock,
+  Heart,
   Layers,
   MapPin,
   MessageCircle,
@@ -11,10 +12,17 @@ import {
 } from "lucide-react";
 import type { Course, Semester } from "../../types";
 import {
+  addMemory,
   buildAiScheduleSnapshot,
+  clearMemory,
   describePermissions,
   loadAiSettings,
+  loadMemory,
+  removeMemory,
   saveAiSettings,
+  saveMemory,
+  type AiMemoryData,
+  type AiMemoryEntry,
   type AiSettings,
 } from "../../lib/ai";
 import { loadNotes } from "../../lib/notes";
@@ -36,6 +44,7 @@ export function AiWorkspace({ courses, semester, now, onNotify }: AiWorkspacePro
   const [settings, setSettings] = useState<AiSettings>(() => loadAiSettings());
   const [tab, setTab] = useState<AiTab>("chat");
   const [notes] = useState(() => loadNotes().notes);
+  const [memory, setMemory] = useState<AiMemoryData>(() => loadMemory());
 
   const week = getWeekNumber(semester.startDate, now, semester.totalWeeks);
   const snapshot = useMemo(
@@ -52,6 +61,28 @@ export function AiWorkspace({ courses, semester, now, onNotify }: AiWorkspacePro
   const saveSettings = (nextSettings: AiSettings) => {
     saveAiSettings(nextSettings);
     setSettings(nextSettings);
+  };
+
+  const remember = (text: string): AiMemoryEntry[] => {
+    const next = addMemory(memory, text);
+    saveMemory(next);
+    setMemory(next);
+    onNotify("已加入长期记忆，可在「人与授权」里管理。");
+    return next.entries;
+  };
+
+  const forget = (id: string) => {
+    const next = removeMemory(memory, id);
+    saveMemory(next);
+    setMemory(next);
+    onNotify("已删除这条记忆。");
+  };
+
+  const forgetAll = () => {
+    const next = clearMemory(memory);
+    saveMemory(next);
+    setMemory(next);
+    onNotify("长期记忆已清空。");
   };
 
   return (
@@ -72,6 +103,10 @@ export function AiWorkspace({ courses, semester, now, onNotify }: AiWorkspacePro
             <span>
               <ShieldCheck size={13} />
               已授权 {enabledPermissions.length} 项
+            </span>
+            <span>
+              <Heart size={13} />
+              记忆 {memory.entries.length} 条
             </span>
             <button type="button" className="ai-inline-link" onClick={() => setTab("settings")}>
               调整授权与人设
@@ -127,11 +162,21 @@ export function AiWorkspace({ courses, semester, now, onNotify }: AiWorkspacePro
               settings={settings}
               snapshot={snapshot}
               notes={notes}
+              memory={memory.entries}
+              onRemember={remember}
               onOpenSettings={() => setTab("settings")}
               onNotify={onNotify}
             />
           ) : (
-            <AiSettingsPanel settings={settings} onSave={saveSettings} onNotify={onNotify} />
+            <AiSettingsPanel
+              settings={settings}
+              memory={memory.entries}
+              onAddMemory={remember}
+              onRemoveMemory={forget}
+              onClearMemory={forgetAll}
+              onSave={saveSettings}
+              onNotify={onNotify}
+            />
           )}
         </section>
 
