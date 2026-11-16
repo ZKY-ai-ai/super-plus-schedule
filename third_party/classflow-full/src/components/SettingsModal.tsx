@@ -8,6 +8,7 @@ import {
   Clock,
   Pencil,
   Plus,
+  Sparkles,
   X,
   Database,
   GraduationCap,
@@ -47,9 +48,21 @@ import {
 } from "../lib/date";
 import { getUsedMaxPeriod, weeksForSlot } from "../lib/schedule";
 import type { ExportResult } from "../lib/nativeFile";
+import {
+  addMemory,
+  clearMemory,
+  loadAiSettings,
+  loadMemory,
+  removeMemory,
+  saveAiSettings,
+  saveMemory,
+  type AiMemoryData,
+  type AiSettings,
+} from "../lib/ai";
+import { AiSettingsPanel } from "./ai/AiSettingsPanel";
 import { WhaleMascot } from "./WhaleMascot";
 
-type SettingsTab = "term" | "periods" | "tasks" | "grades" | "reminders" | "data";
+type SettingsTab = "term" | "periods" | "tasks" | "grades" | "reminders" | "data" | "ai";
 
 interface SettingsModalProps {
   data: ScheduleData;
@@ -98,6 +111,7 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Database }> = [
   { id: "grades", label: "考试与成绩", icon: GraduationCap },
   { id: "reminders", label: "上课提醒", icon: Bell },
   { id: "data", label: "数据与备份", icon: Database },
+  { id: "ai", label: "笔记与 AI", icon: Sparkles },
 ];
 
 function isValidMonthDay(value: string): boolean {
@@ -189,6 +203,26 @@ export function SettingsModal({
   const [overrideKind, setOverrideKind] = useState<"holiday" | "workday">("holiday");
   const [overrideBorrow, setOverrideBorrow] = useState(0);
   const [overrideName, setOverrideName] = useState("");
+  const [aiSettings, setAiSettings] = useState<AiSettings>(() => loadAiSettings());
+  const [aiMemory, setAiMemory] = useState<AiMemoryData>(() => loadMemory());
+  const rememberForAi = (value: string) => {
+    const next = addMemory(aiMemory, value);
+    saveMemory(next);
+    setAiMemory(next);
+    setNotice({ tone: "success", message: "已加入长期记忆。" });
+  };
+  const forgetForAi = (id: string) => {
+    const next = removeMemory(aiMemory, id);
+    saveMemory(next);
+    setAiMemory(next);
+    setNotice({ tone: "success", message: "已删除这条记忆。" });
+  };
+  const forgetAllForAi = () => {
+    const next = clearMemory(aiMemory);
+    saveMemory(next);
+    setAiMemory(next);
+    setNotice({ tone: "success", message: "长期记忆已清空。" });
+  };
   const currentProfile = data.periodProfiles.find((profile) => profile.id === profileId);
   const maxPeriodForProfile = (id: string): number => {
     const related = data.timetables.filter((timetable) => timetable.periodProfileId === id);
@@ -311,6 +345,7 @@ export function SettingsModal({
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
+    if (tab === "ai") return;
     const name = draft.name.trim();
     if (!name) {
       setError("学期名称不能为空。");
@@ -396,19 +431,29 @@ export function SettingsModal({
       title="设置"
       onClose={onClose}
       footer={
-        <>
-          <p className="modal-foot-note">所有内容只保存在本机</p>
-          <span className="modal-foot-spacer" />
-          <button className="secondary-button" type="button" onClick={onClose}>
-            {tab === "term" || tab === "periods" ? "取消" : "关闭"}
-          </button>
-          {tab === "term" || tab === "periods" ? (
-            <button className="primary-button" type="submit" form="settings-form">
-              <Check size={16} />
-              保存设置
+tab === "ai" ? (
+          <>
+            <p className="modal-foot-note">聊天与密钥只保存在本机</p>
+            <span className="modal-foot-spacer" />
+            <button className="primary-button" type="button" onClick={onClose}>
+              完成
             </button>
-          ) : null}
-        </>
+          </>
+        ) : (
+          <>
+            <p className="modal-foot-note">所有内容只保存在本机</p>
+            <span className="modal-foot-spacer" />
+            <button className="secondary-button" type="button" onClick={onClose}>
+              {tab === "term" || tab === "periods" ? "取消" : "关闭"}
+            </button>
+            {tab === "term" || tab === "periods" ? (
+              <button className="primary-button" type="submit" form="settings-form">
+                <Check size={16} />
+                保存设置
+              </button>
+            ) : null}
+          </>
+        )
       }
     >
       <form id="settings-form" className="settings-form" onSubmit={handleSubmit}>
@@ -980,6 +1025,33 @@ export function SettingsModal({
                 onPrint={onPrint}
                 onClearData={onClearData}
               />
+            ) : null}
+
+            {tab === "ai" ? (
+              <section className="settings-pane">
+                <div className="settings-pane-head">
+                  <p className="eyebrow">NOTES & AI</p>
+                  <h3>笔记与 AI 助手</h3>
+                  <p>
+                    本地规则零配置可用；需要自由聊天时再接入兼容 OpenAI 的服务。
+                    笔记、聊天记录与密钥都只保存在这台设备。
+                  </p>
+                </div>
+                <AiSettingsPanel
+                  settings={aiSettings}
+                  memory={aiMemory.entries}
+                  onAddMemory={rememberForAi}
+                  onRemoveMemory={forgetForAi}
+                  onClearMemory={forgetAllForAi}
+                  onSave={(next) => {
+                    saveAiSettings(next);
+                    setAiSettings(next);
+                    setError("");
+                    setNotice({ tone: "success", message: "AI 设置已保存在本机。" });
+                  }}
+                  onNotify={(message, tone) => setNotice({ tone: tone ?? "success", message })}
+                />
+              </section>
             ) : null}
           </div>
         </div>
