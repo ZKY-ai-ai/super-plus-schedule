@@ -9,6 +9,7 @@ import {
   Plus,
   X,
   Database,
+  GraduationCap,
   Trash2,
   Waves,
 } from "lucide-react";
@@ -24,6 +25,7 @@ import type {
 } from "../types";
 import { Modal } from "./Modal";
 import { DataSettingsTab } from "./settings/DataSettingsTab";
+import { GradesSettingsTab } from "./settings/GradesSettingsTab";
 import { TasksSettingsTab } from "./settings/TasksSettingsTab";
 import {
   MAX_PERIODS,
@@ -41,7 +43,7 @@ import { getUsedMaxPeriod, weeksForSlot } from "../lib/schedule";
 import type { ExportResult } from "../lib/nativeFile";
 import { WhaleMascot } from "./WhaleMascot";
 
-type SettingsTab = "term" | "periods" | "tasks" | "data";
+type SettingsTab = "term" | "periods" | "tasks" | "grades" | "data";
 
 interface SettingsModalProps {
   data: ScheduleData;
@@ -73,6 +75,7 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Database }> = [
   { id: "term", label: "学期与视图", icon: CalendarDays },
   { id: "periods", label: "作息时间", icon: Clock },
   { id: "tasks", label: "作业与任务", icon: ClipboardList },
+  { id: "grades", label: "考试与成绩", icon: GraduationCap },
   { id: "data", label: "数据与备份", icon: Database },
 ];
 
@@ -760,6 +763,10 @@ export function SettingsModal({
 
             {tab === "tasks" ? (
               <TasksSettingsTab timetableId={active.id} courses={active.courses} />
+            ) : null}
+
+            {tab === "grades" ? (
+              <GradesSettingsTab timetableId={active.id} courses={active.courses} />
             ) : null}
 
             {tab === "data" ? (
