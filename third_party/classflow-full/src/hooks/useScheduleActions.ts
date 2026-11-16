@@ -707,10 +707,15 @@ export function useScheduleActions({
     date: string,
     kind: "holiday" | "workday",
     name: string,
+    borrowFrom?: number | null,
   ): ImportResult => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return { ok: false, message: "请选择正确的日期。" };
     }
+    const borrow =
+      kind === "workday" && borrowFrom && borrowFrom >= 1 && borrowFrom <= 7
+        ? borrowFrom
+        : undefined;
     updateActiveTimetable((current) => ({
       ...current,
       calendarOverrides: [
@@ -720,10 +725,17 @@ export function useScheduleActions({
           date,
           kind,
           name: name.trim() || (kind === "holiday" ? "自定义放假" : "补课日"),
+          ...(borrow ? { borrowFrom: borrow } : {}),
         },
       ].sort((a, b) => a.date.localeCompare(b.date)),
     }));
-    notify(kind === "holiday" ? `${date} 已标记为放假。` : `${date} 已标记为补课日。`);
+    notify(
+      kind === "holiday"
+        ? `${date} 已标记为放假。`
+        : borrow
+          ? `${date} 已标记为补课日，按周${"一二三四五六日"[borrow - 1]}课表上课。`
+          : `${date} 已标记为补课日。`,
+    );
     return { ok: true, message: "" };
   };
 

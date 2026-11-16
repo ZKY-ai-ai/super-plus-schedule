@@ -9,7 +9,7 @@ import {
   WEEKDAYS,
 } from "./date";
 import { buildSessions } from "./schedule";
-import { filterHolidaySessions, getCalendarInfo } from "./holidays";
+import { applyCalendarToSessions, getCalendarInfo } from "./holidays";
 import { periodsForDate } from "./periods";
 
 interface WidgetClass {
@@ -76,7 +76,7 @@ export function buildWidgetPayload(
     let classes: WidgetClass[] = [];
 
     if (position.state === "during") {
-      const sessions = filterHolidaySessions(
+      const sessions = applyCalendarToSessions(
         buildSessions(active.courses, position.week, active.overrides),
         weekDates,
         autoHolidays,

@@ -306,11 +306,16 @@ function normalizeCalendarOverrides(value: unknown): CalendarOverride[] {
     const kind = item.kind;
     if (kind !== "holiday" && kind !== "workday") return;
     dates.add(date);
+    const borrowFrom =
+      kind === "workday" && Number.isFinite(Number(item.borrowFrom))
+        ? int(item.borrowFrom, 1, 7, 0) || undefined
+        : undefined;
     overrides.push({
       id: text(item.id, 80) || uid(`calendar-${index + 1}`),
       date,
       kind,
       name: text(item.name, 20) || (kind === "holiday" ? "自定义放假" : "补课日"),
+      ...(borrowFrom ? { borrowFrom } : {}),
     });
   });
   return overrides.sort((a, b) => a.date.localeCompare(b.date));

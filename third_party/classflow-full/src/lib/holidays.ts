@@ -123,10 +123,53 @@ export function isClassDay(
 }
 
 /**
+ * A custom make-up workday can borrow another weekday's timetable, mirroring
+ * the school's real "上周五的课" arrangement.
+ */
+export function getBorrowedWeekday(
+  date: Date | string,
+  overrides: CalendarOverride[] = [],
+): number | null {
+  const key = typeof date === "string" ? date : dateKey(date);
+  const custom = overrides.find(
+    (override) =>
+      override.date === key &&
+      override.kind === "workday" &&
+      typeof override.borrowFrom === "number" &&
+      override.borrowFrom >= 1 &&
+      override.borrowFrom <= 7,
+  );
+  return custom?.borrowFrom ?? null;
+}
+
+export function applyCalendarToSessions(
+  sessions: Session[],
+  weekDates: Date[],
+  enabled: boolean,
+  overrides: CalendarOverride[] = [],
+): Session[] {
+  if (!enabled) return sessions;
+  const visible = sessions.filter((session) => {
+    const date = weekDates[session.day - 1];
+    return !date || !isHolidayDate(date, overrides);
+  });
+  const borrowed: Session[] = [];
+  weekDates.forEach((date, index) => {
+    const weekday = index + 1;
+    const source = getBorrowedWeekday(date, overrides);
+    if (!source || source === weekday || !isClassDay(date, overrides)) return;
+    for (const session of sessions) {
+      if (session.day !== source) continue;
+      borrowed.push({ ...session, id: `${session.id}@${dateKey(date)}`, day: weekday });
+    }
+  });
+  return borrowed.length > 0 ? [...visible, ...borrowed] : visible;
+}
+
+/**
  * Hide classes on official holidays. Make-up workdays stay visible and keep
- * their badge; they do not automatically borrow another weekday's timetable,
- * because that mapping is set by each school and is not part of the national
- * holiday notice.
+ * their badge; use applyCalendarToSessions when the custom workday should also
+ * borrow another weekday's timetable.
  */
 export function filterHolidaySessions(
   sessions: Session[],

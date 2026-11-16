@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyCalendarToSessions,
   filterHolidaySessions,
+  getBorrowedWeekday,
   getCalendarInfo,
   getVisibleDays,
   isClassDay,
@@ -86,5 +88,27 @@ describe("Chinese holiday calendar", () => {
     const sessions = [session(4)];
     expect(filterHolidaySessions(sessions, dates, true, overrides)).toHaveLength(0);
     expect(getVisibleDays(false, dates, true, overrides)).toEqual([1, 2, 3, 4, 5, 7]);
+  });
+
+  it("borrows another weekday's timetable on a mapped make-up day", () => {
+    const overrides = [
+      {
+        id: "o1",
+        date: "2026-11-15",
+        kind: "workday" as const,
+        name: "校庆补课",
+        borrowFrom: 5,
+      },
+    ];
+    const dates = getWeekDates("2026-11-09", 1);
+    expect(getBorrowedWeekday("2026-11-15", overrides)).toBe(5);
+    expect(getBorrowedWeekday("2026-11-15")).toBeNull();
+
+    const sessions = [session(5), session(1)];
+    const mapped = applyCalendarToSessions(sessions, dates, true, overrides);
+    expect(mapped).toHaveLength(3);
+    expect(mapped.filter((item) => item.day === 7)).toHaveLength(1);
+    expect(mapped.find((item) => item.day === 7)?.id).toContain("2026-11-15");
+    expect(applyCalendarToSessions(sessions, dates, false, overrides)).toHaveLength(2);
   });
 });

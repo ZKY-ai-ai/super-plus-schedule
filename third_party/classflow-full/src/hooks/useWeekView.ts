@@ -12,7 +12,7 @@ import {
 import { buildSessions, getWeekStats } from "../lib/schedule";
 import { periodsForDate } from "../lib/periods";
 import {
-  filterHolidaySessions,
+  applyCalendarToSessions,
   getCalendarSummary,
   getDayStatusMap,
   getVisibleDays,
@@ -91,12 +91,18 @@ export function useWeekView({ data, prefs, timetable, now }: WeekViewParams) {
     [timetable.courses, timetable.overrides, currentWeek],
   );
   const viewSessions = useMemo(
-    () => filterHolidaySessions(rawViewSessions, viewDates, prefs.autoHolidays, calendarOverrides),
+    () =>
+      applyCalendarToSessions(
+        rawViewSessions,
+        viewDates,
+        prefs.autoHolidays,
+        calendarOverrides,
+      ),
     [rawViewSessions, viewDates, prefs.autoHolidays, calendarOverrides],
   );
   const currentSessions = useMemo(
     () =>
-      filterHolidaySessions(
+      applyCalendarToSessions(
         rawCurrentSessions,
         currentDates,
         prefs.autoHolidays,

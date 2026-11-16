@@ -78,6 +78,7 @@ interface SettingsModalProps {
     date: string,
     kind: "holiday" | "workday",
     name: string,
+    borrowFrom?: number | null,
   ) => ImportResult;
   onRemoveCalendarOverride: (id: string) => void;
   onRenameProfile: (id: string, name: string) => void;
@@ -184,6 +185,7 @@ export function SettingsModal({
   const [notice, setNotice] = useState<Notice | null>(null);
   const [overrideDate, setOverrideDate] = useState("");
   const [overrideKind, setOverrideKind] = useState<"holiday" | "workday">("holiday");
+  const [overrideBorrow, setOverrideBorrow] = useState(0);
   const [overrideName, setOverrideName] = useState("");
   const currentProfile = data.periodProfiles.find((profile) => profile.id === profileId);
   const maxPeriodForProfile = (id: string): number => {
@@ -209,12 +211,18 @@ export function SettingsModal({
     ),
   );
   const handleAddCalendarOverride = () => {
-    const result = onSetCalendarOverride(overrideDate, overrideKind, overrideName);
+    const result = onSetCalendarOverride(
+      overrideDate,
+      overrideKind,
+      overrideName,
+      overrideBorrow || null,
+    );
     if (!result.ok) {
       setNotice({ tone: "error", message: result.message });
       return;
     }
     setOverrideDate("");
+    setOverrideBorrow(0);
     setOverrideName("");
   };
 
@@ -632,6 +640,21 @@ export function SettingsModal({
                       <option value="holiday">放假</option>
                       <option value="workday">补课</option>
                     </select>
+                    {overrideKind === "workday" ? (
+                      <select
+                        className="field-input"
+                        value={overrideBorrow}
+                        onChange={(event) => setOverrideBorrow(Number(event.target.value) || 0)}
+                        aria-label="按哪天的课表上课"
+                      >
+                        <option value={0}>不映射课程</option>
+                        {WEEKDAYS.map((day) => (
+                          <option key={day.index} value={day.index}>
+                            上周{day.label.replace("周", "")}的课
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
                     <input
                       className="field-input"
                       value={overrideName}
@@ -662,6 +685,9 @@ export function SettingsModal({
                             <small>
                               {formatDateWithWeekday(parseDateKey(override.date))} ·{" "}
                               {override.name}
+                              {override.borrowFrom
+                                ? ` · 上周${WEEKDAYS[override.borrowFrom - 1]?.label.replace("周", "") ?? ""}课`
+                                : ""}
                             </small>
                           </span>
                           <button

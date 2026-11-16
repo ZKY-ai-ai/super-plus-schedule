@@ -1,5 +1,12 @@
-import type { ScheduleData, Timetable } from "../types";
-import { dateKey, getDateForSlot, parseDateKey, timeToMinutes } from "./date";
+import type { Course, CourseSlot, ScheduleData, Timetable } from "../types";
+import {
+  dateKey,
+  getDateForSlot,
+  getTermPosition,
+  getWeekNumber,
+  parseDateKey,
+  timeToMinutes,
+} from "./date";
 import { isHolidayDate } from "./holidays";
 import { isSlotActiveInWeek } from "./schedule";
 import { periodsForDate } from "./periods";
@@ -108,45 +115,76 @@ export function buildIcs(
     `X-WR-CALNAME:${icsEscape(`${active.name}·${semester.name}`)}`,
   ];
   let count = 0;
+  const weekStartsOn = semester.weekStartsOn ?? 1;
+
+  const addCourseEvent = (
+    course: Course,
+    slot: CourseSlot,
+    week: number,
+    date: Date,
+    note = "",
+  ) => {
+    const periods = periodsForDate(active, data.periodProfiles, date);
+    const periodStart = periods[slot.start - 1];
+    const periodEnd = periods[slot.end - 1];
+    if (!periodStart || !periodEnd) return;
+    const description = [
+      course.name,
+      course.teacher ? `教师：${course.teacher}` : "",
+      course.location ? `地点：${course.location}` : "",
+      `第 ${week} 周 · 第 ${slot.start}${slot.end !== slot.start ? `–${slot.end}` : ""} 节`,
+      note,
+      course.note,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    lines.push(
+      "BEGIN:VEVENT",
+      foldLine(`UID:${course.id}-${slot.id}-${week}-${dateKey(date)}@classflow`),
+      `DTSTAMP:${icsStamp(now)}`,
+      foldLine(`DTSTART:${icsLocalDate(date, periodStart.start)}`),
+      foldLine(`DTEND:${icsLocalDate(date, periodEnd.end)}`),
+      foldLine(`SUMMARY:${icsEscape(course.name)}`),
+      foldLine(`LOCATION:${icsEscape(course.location)}`),
+      foldLine(`DESCRIPTION:${icsEscape(description)}`),
+      "END:VEVENT",
+    );
+    count += 1;
+  };
 
   for (const course of courses) {
     for (const slot of course.slots) {
       for (let week = slot.weekStart; week <= slot.weekEnd; week += 1) {
         if (!isSlotActiveInWeek(slot, week)) continue;
-        const date = getDateForSlot(
-          semester.startDate,
-          week,
-          slot.day,
-          semester.weekStartsOn ?? 1,
-        );
-        const periods = periodsForDate(active, data.periodProfiles, date);
-        const periodStart = periods[slot.start - 1];
-        const periodEnd = periods[slot.end - 1];
-        if (!periodStart || !periodEnd) continue;
+        const date = getDateForSlot(semester.startDate, week, slot.day, weekStartsOn);
         if (autoHolidays && isHolidayDate(date, active.calendarOverrides ?? [])) continue;
-        const description = [
-          course.name,
-          course.teacher ? `教师：${course.teacher}` : "",
-          course.location ? `地点：${course.location}` : "",
-          `第 ${week} 周 · 第 ${slot.start}${
-            slot.end !== slot.start ? `–${slot.end}` : ""
-          } 节`,
-          course.note,
-        ]
-          .filter(Boolean)
-          .join("\n");
-        lines.push(
-          "BEGIN:VEVENT",
-          foldLine(`UID:${course.id}-${slot.id}-${week}@classflow`),
-          `DTSTAMP:${icsStamp(now)}`,
-          foldLine(`DTSTART:${icsLocalDate(date, periodStart.start)}`),
-          foldLine(`DTEND:${icsLocalDate(date, periodEnd.end)}`),
-          foldLine(`SUMMARY:${icsEscape(course.name)}`),
-          foldLine(`LOCATION:${icsEscape(course.location)}`),
-          foldLine(`DESCRIPTION:${icsEscape(description)}`),
-          "END:VEVENT",
-        );
-        count += 1;
+        addCourseEvent(course, slot, week, date);
+      }
+    }
+  }
+
+  if (autoHolidays) {
+    for (const override of active.calendarOverrides ?? []) {
+      if (override.kind !== "workday" || !override.borrowFrom) continue;
+      const date = parseDateKey(override.date);
+      if (
+        getTermPosition(semester.startDate, semester.totalWeeks, date, weekStartsOn).state !==
+        "during"
+      ) {
+        continue;
+      }
+      const week = getWeekNumber(semester.startDate, date, semester.totalWeeks, weekStartsOn);
+      for (const course of courses) {
+        for (const slot of course.slots) {
+          if (slot.day !== override.borrowFrom || !isSlotActiveInWeek(slot, week)) continue;
+          addCourseEvent(
+            course,
+            slot,
+            week,
+            date,
+            `补课（按周${"一二三四五六日"[override.borrowFrom - 1]}课表）`,
+          );
+        }
       }
     }
   }

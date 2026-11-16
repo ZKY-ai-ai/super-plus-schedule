@@ -117,6 +117,8 @@ export interface CalendarOverride {
   date: string;
   kind: CalendarOverrideKind;
   name: string;
+  /** Workday only: borrow the timetable of this ISO weekday (1 = Monday). */
+  borrowFrom?: number;
 }
 
 export interface Timetable {

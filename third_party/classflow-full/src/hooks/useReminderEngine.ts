@@ -4,12 +4,13 @@ import {
   addDays,
   dateKey,
   getTermPosition,
+  getWeekDates,
   getWeekNumber,
   getWeekdayNumber,
 } from "../lib/date";
 import { buildSessions } from "../lib/schedule";
 import { periodsForDate } from "../lib/periods";
-import { isHolidayDate } from "../lib/holidays";
+import { applyCalendarToSessions } from "../lib/holidays";
 import { loadExams, planExamReminders } from "../lib/exams";
 import { loadTasks, planTaskReminders } from "../lib/tasks";
 import {
@@ -58,14 +59,19 @@ export function useReminderEngine({ data, timetable, autoHolidays }: ReminderEng
           timetable.semester.weekStartsOn ?? 1,
         );
         const periods = periodsForDate(timetable, data.periodProfiles, date);
-        if (autoHolidays && isHolidayDate(date, timetable.calendarOverrides ?? [])) {
-          return { sessions: [], periods };
-        }
         const weekday = getWeekdayNumber(date);
+        const weekDates = getWeekDates(
+          timetable.semester.startDate,
+          week,
+          timetable.semester.weekStartsOn ?? 1,
+        );
         return {
-          sessions: buildSessions(timetable.courses, week, timetable.overrides).filter(
-            (session) => session.day === weekday,
-          ),
+          sessions: applyCalendarToSessions(
+            buildSessions(timetable.courses, week, timetable.overrides),
+            weekDates,
+            autoHolidays,
+            timetable.calendarOverrides ?? [],
+          ).filter((session) => session.day === weekday),
           periods,
         };
       };

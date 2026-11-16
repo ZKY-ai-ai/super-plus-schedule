@@ -15,6 +15,25 @@ describe("calendar export", () => {
     expect(content).toContain("DTSTART:20260907T080000");
     expect(content).not.toContain("\n\n");
   });
+
+  it("exports borrowed classes on a mapped make-up workday", () => {
+    const data = createDemoSchedule(new Date(2026, 10, 12));
+    const timetable = data.timetables[0];
+    const overrideDate = "2026-11-15";
+    timetable.calendarOverrides = [
+      {
+        id: "calendar-test",
+        date: overrideDate,
+        kind: "workday",
+        name: "校庆补课",
+        borrowFrom: 5,
+      },
+    ];
+    const { content } = buildIcs(data);
+    expect(content).toContain("补课（按周五课表）");
+    expect(content).toContain("DTSTART:20261115T");
+    expect(content).toContain("DTSTART:20261113T");
+  });
 });
 
 describe("multi-format import", () => {
