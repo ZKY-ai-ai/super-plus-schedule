@@ -484,6 +484,23 @@ export function useScheduleActions({
     return { ok: true, message: "已读取备份，请选择替换或合并。" };
   };
 
+  const previewThirdParty = (
+    data: ScheduleData,
+    fileName: string,
+    message: string,
+  ): ImportResult => {
+    const next = normalizeSchedule(data);
+    if (!next) return { ok: false, message: "第三方课表无法转换为课序格式。" };
+    onPreviewImport({
+      id: uid("draft"),
+      fileName,
+      createdAt: new Date().toISOString(),
+      data: next,
+      message,
+    });
+    return { ok: true, message: "已读取第三方课表，请选择替换或合并。" };
+  };
+
   const saveDraftForLater = (draft: ImportDraft): ImportResult => {
     const saved = saveImportDraft(draft);
     return {
@@ -766,6 +783,7 @@ export function useScheduleActions({
     exportJson,
     exportIcs,
     importFile,
+    previewThirdParty,
     saveDraftForLater,
     replaceWithImport,
     mergeWithImport,

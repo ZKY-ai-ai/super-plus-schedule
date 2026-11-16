@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CalendarRange,
+  CloudDownload,
   Database,
   Download,
   FileClock,
@@ -21,6 +22,7 @@ interface DataSettingsTabProps {
   onExportJson: () => Promise<ExportResult>;
   onExportIcs: () => Promise<ExportResult & { count: number }>;
   onImportFile: (file: File) => Promise<ImportResult>;
+  onOpenThirdPartyImport: () => void;
   onOpenExcelImport: () => void;
   onOpenTimetableShare: () => void;
   onApplyDraft: (draft: ImportDraft) => Promise<ImportResult>;
@@ -60,6 +62,7 @@ export function DataSettingsTab({
   onExportJson,
   onExportIcs,
   onImportFile,
+  onOpenThirdPartyImport,
   onOpenExcelImport,
   onOpenTimetableShare,
   onApplyDraft,
@@ -227,6 +230,15 @@ export function DataSettingsTab({
             <small>课序 JSON 备份、ICS 日历、CSV 表格或课程文本</small>
           </span>
         </button>
+        <button className="data-card" type="button" onClick={onOpenThirdPartyImport}>
+          <span className="data-card-icon">
+            <CloudDownload size={18} />
+          </span>
+          <span>
+            <strong>WakeUp / 星链导入</strong>
+            <small>分享口令、.wakeup_schedule 备份或星链课表 JSON</small>
+          </span>
+        </button>
         <button className="data-card" type="button" onClick={onOpenExcelImport}>
           <span className="data-card-icon">
             <FileSpreadsheet size={18} />
@@ -261,7 +273,7 @@ export function DataSettingsTab({
         ref={fileRef}
         id="import-file"
         type="file"
-        accept=".json,.ics,.csv,.tsv,.txt,.md,.html,.htm,application/json,text/calendar,text/csv,text/plain"
+        accept=".json,.wakeup_schedule,.ics,.csv,.tsv,.txt,.md,.html,.htm,application/json,text/calendar,text/csv,text/plain"
         aria-label="选择课表文件"
         hidden
         onChange={(event) => {

@@ -39,6 +39,7 @@ import { Timetable } from "./components/Timetable";
 import { ImportPreviewDialog } from "./components/ImportPreviewDialog";
 import { SessionOverrideDialog } from "./components/SessionOverrideDialog";
 import { TextImportDialog } from "./components/TextImportDialog";
+import { ThirdPartyImportDialog } from "./components/ThirdPartyImportDialog";
 import { TimetableShareDialog } from "./components/TimetableShareDialog";
 import { TimetableList } from "./components/TimetableList";
 import { TimetableManager } from "./components/TimetableManager";
@@ -95,6 +96,7 @@ export default function App() {
   const [sessionMenu, setSessionMenu] = useState<{ session: Session; week: number } | null>(null);
   const [textImportOpen, setTextImportOpen] = useState(false);
   const [excelImportOpen, setExcelImportOpen] = useState(false);
+  const [thirdPartyImportOpen, setThirdPartyImportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [sharedCourseText, setSharedCourseText] = useState("");
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
@@ -804,6 +806,13 @@ export default function App() {
         />
       ) : null}
 
+      {thirdPartyImportOpen ? (
+        <ThirdPartyImportDialog
+          onClose={() => setThirdPartyImportOpen(false)}
+          onPreview={actions.previewThirdParty}
+        />
+      ) : null}
+
       {sessionMenu ? (
         <SessionOverrideDialog
           key={sessionMenu.session.id}
@@ -865,6 +874,10 @@ export default function App() {
           onRemoveCalendarOverride={actions.removeCalendarOverride}
           onRenameProfile={actions.renamePeriodProfile}
           onChangeTheme={store.setTheme}
+          onOpenThirdPartyImport={() => {
+            setSettingsOpen(false);
+            setThirdPartyImportOpen(true);
+          }}
           onOpenExcelImport={() => {
             setSettingsOpen(false);
             setExcelImportOpen(true);

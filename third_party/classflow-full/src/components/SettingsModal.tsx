@@ -96,6 +96,7 @@ interface SettingsModalProps {
   onRemoveCalendarOverride: (id: string) => void;
   onRenameProfile: (id: string, name: string) => void;
   onChangeTheme: (theme: Theme) => void;
+  onOpenThirdPartyImport: () => void;
   onOpenExcelImport: () => void;
   onOpenTimetableShare: () => void;
 }
@@ -169,6 +170,7 @@ export function SettingsModal({
   onRemoveCalendarOverride,
   onRenameProfile,
   onChangeTheme,
+  onOpenThirdPartyImport,
   onOpenExcelImport,
   onOpenTimetableShare,
 }: SettingsModalProps) {
@@ -1018,6 +1020,7 @@ tab === "ai" ? (
                 onExportJson={onExportJson}
                 onExportIcs={onExportIcs}
                 onImportFile={onImportFile}
+                onOpenThirdPartyImport={onOpenThirdPartyImport}
                 onOpenExcelImport={onOpenExcelImport}
                 onOpenTimetableShare={onOpenTimetableShare}
                 onApplyDraft={onApplyImportDraft}
