@@ -8861,3 +8861,472 @@ html[data-theme="whale"] .week-pick.is-selected span {
   font-size: 7px;
   white-space: nowrap;
 }
+
+/* ---- Tasks / grades / reminders settings tabs (乙) ---- */
+
+.task-form {
+  padding-bottom: 4px;
+}
+
+.task-form-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+
+.task-import {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.task-import summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 11px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 9px;
+  list-style: none;
+}
+
+.task-import summary::-webkit-details-marker {
+  display: none;
+}
+
+.task-import-input {
+  width: calc(100% - 22px);
+  margin: 0 11px;
+  resize: vertical;
+  font-family: var(--mono, monospace);
+  font-size: 8.5px;
+}
+
+.task-import-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 11px 11px;
+}
+
+.task-import-foot small {
+  color: var(--faint);
+  font-size: 8px;
+}
+
+.task-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 22px 12px;
+  margin-top: 16px;
+  color: var(--faint);
+  border: 1px dashed var(--line-strong);
+  border-radius: 9px;
+  font-size: 8.5px;
+}
+
+.task-empty svg {
+  flex: 0 0 auto;
+  color: var(--coral);
+}
+
+.task-group {
+  margin-top: 18px;
+}
+
+.task-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--line);
+}
+
+.task-group-head strong {
+  color: var(--ink-2);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.task-group-head span {
+  color: var(--faint);
+  font-size: 8px;
+}
+
+.task-group--overdue .task-group-head strong {
+  color: var(--danger);
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 2px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+}
+
+.task-check {
+  position: relative;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  cursor: pointer;
+}
+
+.task-check input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.task-checkmark {
+  display: block;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--surface);
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.task-check input:checked + .task-checkmark {
+  border-color: var(--coral);
+  background: var(--coral);
+}
+
+.task-check input:checked + .task-checkmark::after {
+  display: block;
+  width: 4px;
+  height: 7px;
+  margin: -1px auto 0;
+  border: solid var(--surface);
+  border-width: 0 1.5px 1.5px 0;
+  content: "";
+  transform: rotate(45deg);
+}
+
+.task-check input:focus-visible + .task-checkmark {
+  outline: 2px solid var(--coral);
+  outline-offset: 2px;
+}
+
+.task-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.task-title {
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: 9.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--faint);
+  font-size: 8px;
+}
+
+.task-course {
+  padding: 0 5px;
+  color: var(--coral-deep);
+  border-radius: 4px;
+  background: var(--coral-soft);
+}
+
+.task-note {
+  overflow: hidden;
+  max-width: 220px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-badge {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: 99px;
+  font-size: 7.5px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.task-badge--danger {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.task-badge--warn {
+  color: var(--coral-deep);
+  background: var(--coral-soft);
+}
+
+.task-badge--normal {
+  color: var(--ink-2);
+  background: var(--surface-2);
+}
+
+.task-badge--muted {
+  color: var(--faint);
+  background: var(--surface-2);
+}
+
+.task-delete {
+  flex: 0 0 auto;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.task-item:hover .task-delete,
+.task-delete:focus-visible {
+  opacity: 1;
+}
+
+.task-item.is-done .task-title {
+  color: var(--faint);
+  text-decoration: line-through;
+}
+
+.task-done-group {
+  margin-top: 16px;
+}
+
+.task-done-group summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 8.5px;
+}
+
+.grade-privacy {
+  margin-top: 16px;
+}
+
+.grade-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-top: 14px;
+  border-left: 2px solid var(--coral);
+  background: var(--surface-2);
+  font-size: 8.5px;
+}
+
+.grade-summary strong {
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.grade-summary .grade-summary-fail strong {
+  color: var(--danger);
+}
+
+.grade-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+}
+
+.grade-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 2px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+}
+
+.grade-name {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.grade-name strong {
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: 9.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grade-name small {
+  color: var(--faint);
+  font-size: 8px;
+}
+
+.grade-input {
+  width: 74px;
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.grade-score-masked {
+  min-width: 74px;
+  flex: 0 0 auto;
+  color: var(--faint);
+  font-size: 11px;
+  text-align: right;
+  letter-spacing: 0.12em;
+}
+
+.grade-fail {
+  padding: 2px 6px;
+  color: var(--danger);
+  border-radius: 99px;
+  background: var(--danger-soft);
+  font-size: 7.5px;
+  white-space: nowrap;
+}
+
+.grade-row.is-failed .grade-name strong {
+  color: var(--danger);
+}
+
+.reminder-permission {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.reminder-permission div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reminder-permission strong {
+  color: var(--ink-2);
+  font-size: 9.5px;
+}
+
+.reminder-permission small {
+  color: var(--faint);
+  font-size: 8px;
+}
+
+.reminder-pill {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 99px;
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.reminder-pill--ok {
+  color: var(--olive, #718a4b);
+  background: color-mix(in srgb, var(--olive, #718a4b) 16%, transparent);
+}
+
+.reminder-pill--off {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.reminder-pill--idle {
+  color: var(--muted);
+  background: var(--surface-2);
+}
+
+.reminder-time-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.reminder-time-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.reminder-time-card label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: 9px;
+}
+
+.reminder-time-card input[type="checkbox"] {
+  accent-color: var(--coral);
+}
+
+.sent-log {
+  margin-top: 16px;
+}
+
+.sent-log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sent-log-head strong {
+  color: var(--ink-2);
+  font-size: 9.5px;
+}
+
+.sent-log ul {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 0 0;
+  margin: 0;
+  list-style: none;
+}
+
+.sent-log li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.sent-log li span:last-child {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 720px) {
+  .reminder-time-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

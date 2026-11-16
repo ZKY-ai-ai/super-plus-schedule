@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   CalendarDays,
   Check,
+  ClipboardList,
   Clock,
   Pencil,
   Plus,
@@ -23,6 +24,7 @@ import type {
 } from "../types";
 import { Modal } from "./Modal";
 import { DataSettingsTab } from "./settings/DataSettingsTab";
+import { TasksSettingsTab } from "./settings/TasksSettingsTab";
 import {
   MAX_PERIODS,
   MIN_PERIODS,
@@ -39,7 +41,7 @@ import { getUsedMaxPeriod, weeksForSlot } from "../lib/schedule";
 import type { ExportResult } from "../lib/nativeFile";
 import { WhaleMascot } from "./WhaleMascot";
 
-type SettingsTab = "term" | "periods" | "data";
+type SettingsTab = "term" | "periods" | "tasks" | "data";
 
 interface SettingsModalProps {
   data: ScheduleData;
@@ -70,6 +72,7 @@ interface Notice {
 const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Database }> = [
   { id: "term", label: "学期与视图", icon: CalendarDays },
   { id: "periods", label: "作息时间", icon: Clock },
+  { id: "tasks", label: "作业与任务", icon: ClipboardList },
   { id: "data", label: "数据与备份", icon: Database },
 ];
 
@@ -335,12 +338,14 @@ export function SettingsModal({
           <p className="modal-foot-note">所有内容只保存在本机</p>
           <span className="modal-foot-spacer" />
           <button className="secondary-button" type="button" onClick={onClose}>
-            取消
+            {tab === "term" || tab === "periods" ? "取消" : "关闭"}
           </button>
-          <button className="primary-button" type="submit" form="settings-form">
-            <Check size={16} />
-            保存设置
-          </button>
+          {tab === "term" || tab === "periods" ? (
+            <button className="primary-button" type="submit" form="settings-form">
+              <Check size={16} />
+              保存设置
+            </button>
+          ) : null}
         </>
       }
     >
@@ -718,6 +723,7 @@ export function SettingsModal({
                   </p>
                 </div>
 
+
                 <div className="period-table">
                   <div className="period-table-head">
                     <span>节次</span>
@@ -750,6 +756,10 @@ export function SettingsModal({
                   修改节次数量时，已有课程若使用了被删除的节次，将无法保存。
                 </p>
               </section>
+            ) : null}
+
+            {tab === "tasks" ? (
+              <TasksSettingsTab timetableId={active.id} courses={active.courses} />
             ) : null}
 
             {tab === "data" ? (
