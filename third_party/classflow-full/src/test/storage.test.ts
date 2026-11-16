@@ -2,9 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearImportDraft,
   loadImportDraft,
+  loadTemplates,
   normalizeSchedule,
+  removeTemplate,
   saveImportDraft,
+  saveTemplate,
 } from "../lib/storage";
+import { instantiateTemplate } from "../lib/templates";
 import { createDemoSchedule, createInitialData } from "../lib/factory";
 
 describe("v2 schedule normalization", () => {
@@ -122,5 +126,68 @@ describe("import drafts", () => {
 
     clearImportDraft();
     expect(loadImportDraft()).toBeNull();
+  });
+});
+
+describe("course templates", () => {
+  beforeEach(() => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, String(value));
+      },
+      removeItem: (key: string) => {
+        store.delete(key);
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("saves the current course set and reloads it", () => {
+    const data = createDemoSchedule(new Date(2026, 10, 12));
+    const active = data.timetables[0];
+    const template = saveTemplate("我的模板", active.courses, active.semester.totalWeeks);
+    expect(template?.courses).toHaveLength(active.courses.length);
+
+    const templates = loadTemplates();
+    expect(templates).toHaveLength(1);
+    expect(templates[0].name).toBe("我的模板");
+    expect(templates[0].totalWeeks).toBe(active.semester.totalWeeks);
+
+    removeTemplate(templates[0].id);
+    expect(loadTemplates()).toHaveLength(0);
+  });
+
+  it("rejects empty course sets", () => {
+    expect(saveTemplate("空模板", [], 20)).toBeNull();
+    expect(loadTemplates()).toHaveLength(0);
+  });
+
+  it("clamps slots to the target semester when instantiated", () => {
+    const data = createDemoSchedule(new Date(2026, 10, 12));
+    const template = saveTemplate("我的模板", data.timetables[0].courses, 20);
+    expect(template).not.toBeNull();
+    const semester = {
+      ...data.timetables[0].semester,
+      totalWeeks: 16,
+      periods: data.timetables[0].semester.periods.slice(0, 8),
+    };
+    const courses = instantiateTemplate(template!, semester);
+    expect(courses).toHaveLength(template!.courses.length);
+    for (const course of courses) {
+      expect(course.slots.length).toBeGreaterThan(0);
+      for (const slot of course.slots) {
+        expect(slot.end).toBeLessThanOrEqual(8);
+        expect(slot.weekStart).toBeGreaterThanOrEqual(1);
+        expect(slot.weekEnd).toBeLessThanOrEqual(16);
+        expect(slot.weekStart).toBeLessThanOrEqual(slot.weekEnd);
+      }
+    }
+    expect(courses[0].id).not.toBe(template!.courses[0].id);
+    expect(courses[0].slots[0].id).not.toBe(template!.courses[0].slots[0].id);
   });
 });

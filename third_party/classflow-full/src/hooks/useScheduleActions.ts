@@ -1,5 +1,6 @@
 import type {
   Course,
+  CourseTemplate,
   ImportDraft,
   ImportResult,
   PeriodProfile,
@@ -25,13 +26,16 @@ import {
   getActiveTimetable,
   uid,
 } from "../lib/factory";
-import { createTemplateCourses } from "../lib/templates";
+import { createTemplateCourses, instantiateTemplate } from "../lib/templates";
 import type { TimetableTemplateId } from "../lib/templates";
 import { downloadScheduleIcs, downloadScheduleJson, readScheduleFile } from "../lib/transfer";
 import {
+  MAX_TEMPLATES,
   clearImportDraft,
   normalizeSchedule,
+  removeTemplate,
   saveImportDraft,
+  saveTemplate,
 } from "../lib/storage";
 import type { ToastTone } from "../components/Toast";
 import type { ScheduleStore } from "./useScheduleStore";
@@ -392,6 +396,44 @@ export function useScheduleActions({
     notify("已丢弃导入草稿。");
   };
 
+  const saveCurrentAsTemplate = (name: string): ImportResult => {
+    const active = getActiveTimetable(data);
+    if (active.courses.length === 0) {
+      return { ok: false, message: "当前课表还没有课程，先添加课程再存模板。" };
+    }
+    const template = saveTemplate(name, active.courses, active.semester.totalWeeks);
+    if (!template) {
+      return {
+        ok: false,
+        message: `最多保存 ${MAX_TEMPLATES} 个模板，或本机空间不足，请删掉旧模板再试。`,
+      };
+    }
+    notify(`已存为模板「${template.name}」。`);
+    return { ok: true, message: `已存为模板「${template.name}」，含 ${template.courses.length} 门课程。` };
+  };
+
+  const applyTemplate = (template: CourseTemplate): ImportResult => {
+    const active = getActiveTimetable(data);
+    const courses = instantiateTemplate(template, active.semester);
+    if (courses.length === 0) {
+      return { ok: false, message: "这个模板里没有可套用的课程。" };
+    }
+    updateActiveTimetable((current) => ({
+      ...current,
+      courses: [...current.courses, ...courses],
+    }));
+    notify(`已套用「${template.name}」的 ${courses.length} 门课程。`);
+    return {
+      ok: true,
+      message: `已把「${template.name}」的 ${courses.length} 门课程追加到当前课表。`,
+    };
+  };
+
+  const deleteTemplate = (id: string) => {
+    removeTemplate(id);
+    notify("模板已删除。");
+  };
+
   return {
     saveCourse,
     requestDeleteCourse,
@@ -411,5 +453,8 @@ export function useScheduleActions({
     importFile,
     applyImportDraft,
     discardImportDraft,
+    saveCurrentAsTemplate,
+    applyTemplate,
+    deleteTemplate,
   };
 }

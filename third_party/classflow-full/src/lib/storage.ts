@@ -2,6 +2,7 @@ import { normalizePeriodRules } from "./periods";
 import type {
   Course,
   CourseSlot,
+  CourseTemplate,
   ImportDraft,
   Period,
   PeriodProfile,
@@ -40,6 +41,8 @@ export const LEGACY_DATA_KEY = "kexu:data:v1";
 export const PREFS_KEY = "kexu:prefs:v1";
 export const DEFAULT_VIEW_KEY = "kexu:prefs:week-default:v1";
 export const IMPORT_DRAFT_KEY = "kexu:import-draft:v1";
+export const TEMPLATES_KEY = "kexu:templates:v1";
+export const MAX_TEMPLATES = 12;
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -472,6 +475,7 @@ export function resetAllStorage(): void {
     localStorage.removeItem(LEGACY_DATA_KEY);
     localStorage.removeItem(PREFS_KEY);
     localStorage.removeItem(IMPORT_DRAFT_KEY);
+    localStorage.removeItem(TEMPLATES_KEY);
   } catch {
     // Ignore storage access failures.
   }
@@ -535,6 +539,97 @@ export function clearImportDraft(): void {
   } catch {
     // Ignore storage access failures.
   }
+}
+
+// Generous bounds so a saved template keeps its original week and period
+// numbers; applying it clamps them to the target semester.
+const TEMPLATE_SEMESTER: Semester = {
+  name: "模板",
+  startDate: "2026-01-05",
+  totalWeeks: 30,
+  showWeekends: true,
+  periods: Array.from({ length: 14 }, (_, index) => ({
+    index: index + 1,
+    start: "08:00",
+    end: "08:45",
+  })),
+};
+
+function normalizeTemplate(value: unknown, index: number): CourseTemplate | null {
+  if (!isRecord(value)) return null;
+  const rawCourses = Array.isArray(value.courses) ? value.courses.slice(0, 100) : [];
+  const courses: Course[] = [];
+  const ids = new Set<string>();
+  rawCourses.forEach((item, courseIndex) => {
+    const course = normalizeCourse(item, TEMPLATE_SEMESTER, courseIndex);
+    if (!course || ids.has(course.id)) return;
+    ids.add(course.id);
+    courses.push(course);
+  });
+  if (courses.length === 0) return null;
+  return {
+    id: text(value.id, 80) || uid(`template-${index + 1}`),
+    name: text(value.name, 40) || `课表模板 ${index + 1}`,
+    createdAt: text(value.createdAt, 40) || new Date().toISOString(),
+    courses,
+    totalWeeks: int(value.totalWeeks, 1, 30, DEFAULT_TOTAL_WEEKS),
+  };
+}
+
+export function loadTemplates(): CourseTemplate[] {
+  let raw: unknown;
+  try {
+    const stored = localStorage.getItem(TEMPLATES_KEY);
+    if (!stored) return [];
+    raw = JSON.parse(stored);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(raw)) return [];
+  const templates: CourseTemplate[] = [];
+  const ids = new Set<string>();
+  raw.slice(0, MAX_TEMPLATES).forEach((item, index) => {
+    const template = normalizeTemplate(item, index);
+    if (!template || ids.has(template.id)) return;
+    ids.add(template.id);
+    templates.push(template);
+  });
+  return templates;
+}
+
+function persistTemplates(templates: CourseTemplate[]): boolean {
+  try {
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function saveTemplate(
+  name: string,
+  courses: Course[],
+  totalWeeks: number,
+): CourseTemplate | null {
+  const templates = loadTemplates();
+  if (templates.length >= MAX_TEMPLATES || courses.length === 0) return null;
+  const template: CourseTemplate = {
+    id: uid("template"),
+    name: text(name, 40) || `课表模板 ${templates.length + 1}`,
+    createdAt: new Date().toISOString(),
+    courses: courses.map((course) => ({
+      ...course,
+      slots: course.slots.map((slot) => ({ ...slot })),
+    })),
+    totalWeeks: int(totalWeeks, 1, 30, DEFAULT_TOTAL_WEEKS),
+  };
+  return persistTemplates([template, ...templates]) ? template : null;
+}
+
+export function removeTemplate(id: string): CourseTemplate[] {
+  const templates = loadTemplates().filter((template) => template.id !== id);
+  persistTemplates(templates);
+  return templates;
 }
 
 export function makeBlankData(): ScheduleData {

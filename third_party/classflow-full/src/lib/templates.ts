@@ -1,5 +1,5 @@
-import type { Course, CourseSlot, ToneId } from "../types";
-import { makeCourse, makeSlot } from "./factory";
+import type { Course, CourseSlot, CourseTemplate, Semester, ToneId } from "../types";
+import { makeCourse, makeSlot, uid } from "./factory";
 
 export type TimetableTemplateId = "blank" | "stem" | "humanities" | "medical" | "exam";
 
@@ -222,6 +222,59 @@ export function createTemplateCourses(
       teacher: seed.teacher,
       location: seed.location,
       tone: seed.tone,
+      slots,
+    });
+  });
+}
+
+/**
+ * Copy a saved template's courses into a timetable, re-issuing ids and clamping
+ * every slot to the target semester's weeks and period count.
+ */
+export function instantiateTemplate(
+  template: CourseTemplate,
+  semester: Semester,
+): Course[] {
+  const totalPeriods = semester.periods.length;
+  const totalWeeks = semester.totalWeeks;
+  return template.courses.map((course) => {
+    const slots: CourseSlot[] = course.slots.map((slot) => {
+      const start = Math.min(slot.start, totalPeriods);
+      const end = Math.min(Math.max(slot.end, start), totalPeriods);
+      const weeks = slot.weeks
+        ? slot.weeks.filter((week) => week >= 1 && week <= totalWeeks)
+        : [];
+      if (weeks.length > 0) {
+        return {
+          id: uid("slot"),
+          day: slot.day,
+          start,
+          end,
+          weekStart: weeks[0],
+          weekEnd: weeks[weeks.length - 1],
+          pattern: "all",
+          weeks,
+        };
+      }
+      const weekStart = Math.min(slot.weekStart, totalWeeks);
+      const weekEnd = Math.min(Math.max(slot.weekEnd, weekStart), totalWeeks);
+      return {
+        id: uid("slot"),
+        day: slot.day,
+        start,
+        end,
+        weekStart,
+        weekEnd,
+        pattern: slot.pattern,
+      };
+    });
+    return makeCourse({
+      name: course.name,
+      alias: course.alias,
+      teacher: course.teacher,
+      location: course.location,
+      tone: course.tone,
+      note: course.note,
       slots,
     });
   });
