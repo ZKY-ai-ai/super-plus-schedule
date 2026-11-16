@@ -13,8 +13,11 @@ import {
   rankAlternatives,
   sectionsConflict,
   sectionsFromCourses,
+  withPlanSections,
   withSectionAdded,
+  withSectionDeleted,
   withSectionRemoved,
+  type CatalogState,
   type SelectionMeeting,
   type SelectionSection,
 } from "../lib/planner";
@@ -190,6 +193,19 @@ describe("目录状态", () => {
     expect(withOne.plans[0].sectionIds).toEqual(["sec-1"]);
     const removed = withSectionRemoved(withOne, "sec-1");
     expect(removed.plans[0].sectionIds).toEqual([]);
+  });
+
+  it("覆盖方案课程时过滤不存在的课程，删除课程同时清理所有方案", () => {
+    const base = createEmptyCatalog();
+    const saved: CatalogState = {
+      ...base,
+      sections: [section({ name: "高数", id: "a" }), section({ name: "英语", id: "b" })],
+    };
+    const replaced = withPlanSections(saved, ["a", "b", "a", "missing"]);
+    expect(replaced.plans[0].sectionIds).toEqual(["a", "b"]);
+    const deleted = withSectionDeleted(replaced, "a");
+    expect(deleted.sections.map((item) => item.id)).toEqual(["b"]);
+    expect(deleted.plans[0].sectionIds).toEqual(["b"]);
   });
 
   it("从课表课程生成候选课程并推断类别", () => {

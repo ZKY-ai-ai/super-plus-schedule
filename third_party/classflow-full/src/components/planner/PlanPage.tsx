@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Compass, Timer } from "lucide-react";
+import { Compass, GraduationCap, Timer } from "lucide-react";
 import type { Course, Period, ScheduleEvent, Session } from "../../types";
 import type { GapPreferences } from "../../lib/gaps";
 import { GapBoard } from "./GapBoard";
+import { SelectionBoard } from "./SelectionBoard";
 import { StudyPanel } from "./StudyPanel";
 
 interface PlanPageProps {
@@ -21,11 +22,12 @@ interface PlanPageProps {
   onAddCourse: () => void;
 }
 
-type PlanTab = "gaps" | "study";
+type PlanTab = "gaps" | "study" | "select";
 
 const TABS: Array<{ id: PlanTab; label: string; hint: string; icon: typeof Compass }> = [
   { id: "gaps", label: "空档与规划", hint: "找空档、算步行、定出发", icon: Compass },
   { id: "study", label: "学习与统计", hint: "番茄钟、待办、热力图", icon: Timer },
+  { id: "select", label: "选课规划", hint: "课程池、多方案、冲突替代", icon: GraduationCap },
 ];
 
 export function PlanPage({
@@ -84,7 +86,7 @@ export function PlanPage({
           preferences={preferences}
           onChangePreferences={onChangePreferences}
         />
-      ) : (
+      ) : tab === "study" ? (
         <StudyPanel
           now={now}
           week={week}
@@ -95,6 +97,8 @@ export function PlanPage({
           preferences={preferences}
           onSelectCourse={onSelectCourse}
         />
+      ) : (
+        <SelectionBoard courses={courses} />
       )}
     </div>
   );

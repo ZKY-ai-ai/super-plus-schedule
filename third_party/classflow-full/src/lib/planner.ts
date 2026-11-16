@@ -7,6 +7,14 @@ import type {
   SelectionSection,
 } from "./planner-types";
 
+export type {
+  CatalogState,
+  CourseCategory,
+  SelectionMeeting,
+  SelectionPlan,
+  SelectionSection,
+} from "./planner-types";
+
 export const PLAN_CATALOG_KEY = "kexu:planner:catalog:v1";
 export const MAX_PLAN_SECTIONS = 40;
 
@@ -243,6 +251,30 @@ export function withPlanRemoved(state: CatalogState, planId: string): CatalogSta
     ...state,
     plans,
     activePlanId: state.activePlanId === planId ? plans[0].id : state.activePlanId,
+  };
+}
+
+export function withPlanSections(state: CatalogState, sectionIds: string[]): CatalogState {
+  const plan = activePlan(state);
+  const known = new Set(state.sections.map((section) => section.id));
+  const nextIds = [...new Set(sectionIds)].filter((id) => known.has(id)).slice(0, MAX_PLAN_SECTIONS);
+  const now = new Date().toISOString();
+  return {
+    ...state,
+    plans: state.plans.map((item) =>
+      item.id === plan.id ? { ...item, sectionIds: nextIds, updatedAt: now } : item,
+    ),
+  };
+}
+
+export function withSectionDeleted(state: CatalogState, sectionId: string): CatalogState {
+  return {
+    ...state,
+    sections: state.sections.filter((section) => section.id !== sectionId),
+    plans: state.plans.map((plan) => ({
+      ...plan,
+      sectionIds: plan.sectionIds.filter((id) => id !== sectionId),
+    })),
   };
 }
 
