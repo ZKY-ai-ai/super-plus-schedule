@@ -1,4 +1,4 @@
-# 超级无敌plus课表
+# 课序PLUS
 
 以 [课序 ClassFlow](https://github.com/lcymxm/classflow) 为底座开发的大学生课表项目。
 
