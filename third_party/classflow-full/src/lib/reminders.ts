@@ -1,5 +1,6 @@
 import type { Period, Session } from "../types";
 import { timeToMinutes } from "./date";
+import type { Task } from "./tasks";
 
 export interface ReminderSettings {
   enabled: boolean;
@@ -26,6 +27,7 @@ export interface PlannedReminder {
 
 export const LEAD_OPTIONS = [5, 10, 15, 20, 30, 45, 60] as const;
 const SUMMARY_GRACE_MINUTES = 180;
+const SUMMARY_TASK_LIMIT = 5;
 const SENT_LOG_MAX = 300;
 const SENT_LOG_DAYS = 7;
 const REMINDERS_KEY = "kexu:reminders:v1";
@@ -142,17 +144,57 @@ function withinSummaryWindow(now: Date, time: string): boolean {
   return elapsed >= 0 && elapsed <= SUMMARY_GRACE_MINUTES;
 }
 
-function summaryBody(sessions: Session[], periods: Period[], emptyText: string): string {
-  if (sessions.length === 0) return emptyText;
-  return sessions
-    .map((session) => {
-      const start = periods[session.start - 1]?.start ?? "";
-      const end = periods[session.end - 1]?.end ?? "";
-      const time = start && end ? `${start}–${end}` : "";
-      const place = session.course.location ? ` · ${session.course.location}` : "";
-      return `${time} ${session.course.name}${place}`.trim();
-    })
-    .join("\n");
+function summaryBody(
+  sessions: Session[],
+  periods: Period[],
+  emptyText: string,
+  taskLines: string[] = [],
+): string {
+  const classLines = sessions.map((session) => {
+    const start = periods[session.start - 1]?.start ?? "";
+    const end = periods[session.end - 1]?.end ?? "";
+    const time = start && end ? `${start}–${end}` : "";
+    const place = session.course.location ? ` · ${session.course.location}` : "";
+    return `${time} ${session.course.name}${place}`.trim();
+  });
+  const lines = [...classLines, ...taskLines];
+  return lines.length > 0 ? lines.join("\n") : emptyText;
+}
+
+function sortSummaryTasks(tasks: Task[]): Task[] {
+  return [...tasks].sort(
+    (a, b) => a.dueDate.localeCompare(b.dueDate) || a.dueTime.localeCompare(b.dueTime),
+  );
+}
+
+function summaryTaskLines(
+  groups: { tasks: Task[]; prefix: (task: Task) => string }[],
+  courseName: (courseId: string | null) => string,
+): string[] {
+  const lines: string[] = [];
+  let total = 0;
+  for (const group of groups) {
+    for (const task of sortSummaryTasks(group.tasks)) {
+      total += 1;
+      if (lines.length >= SUMMARY_TASK_LIMIT) continue;
+      const course = courseName(task.courseId);
+      lines.push(`${group.prefix(task)} · ${task.title}${course ? `（${course}）` : ""}`);
+    }
+  }
+  if (total > SUMMARY_TASK_LIMIT) lines.push(`还有 ${total - SUMMARY_TASK_LIMIT} 项`);
+  return lines;
+}
+
+function courseNameResolver(
+  sessions: Session[],
+  fallback?: (courseId: string) => string,
+): (courseId: string | null) => string {
+  const names = new Map<string, string>();
+  for (const session of sessions) names.set(session.course.id, session.course.name);
+  return (courseId) => {
+    if (!courseId) return "";
+    return names.get(courseId) ?? fallback?.(courseId) ?? "";
+  };
 }
 
 function sessionLabel(session: Session): string {
@@ -171,6 +213,12 @@ export interface ReminderPlanInput {
   todayPeriods: Period[];
   tomorrowSessions: Session[];
   tomorrowPeriods: Period[];
+  /** Unfinished tasks due today / tomorrow / before today. */
+  todayTasks?: Task[];
+  tomorrowTasks?: Task[];
+  overdueTasks?: Task[];
+  /** Resolves a task's course name when the course has no session that day. */
+  courseName?: (courseId: string) => string;
   sent: SentLog;
 }
 
@@ -201,11 +249,36 @@ export function planReminders(input: ReminderPlanInput): PlannedReminder[] {
   }
 
   const todayKey = `summary:today:${input.todayKey}`;
+  const todayTasks = input.todayTasks ?? [];
+  const tomorrowTasks = input.tomorrowTasks ?? [];
+  const overdueTasks = input.overdueTasks ?? [];
+  const resolveCourse = courseNameResolver(
+    [...input.todaySessions, ...input.tomorrowSessions],
+    input.courseName,
+  );
+  const todayTaskCount = todayTasks.length + overdueTasks.length;
   if (settings.todaySummary && withinSummaryWindow(now, settings.todaySummaryTime) && !sent[todayKey]) {
     planned.push({
       key: todayKey,
-      title: `今日课程 · ${input.todaySessions.length} 节`,
-      body: summaryBody(input.todaySessions, input.todayPeriods, "今天没有排课，稍微喘口气。"),
+      title:
+        todayTaskCount > 0
+          ? `今日 · ${input.todaySessions.length} 节课 · ${todayTaskCount} 项作业`
+          : `今日课程 · ${input.todaySessions.length} 节`,
+      body: summaryBody(
+        input.todaySessions,
+        input.todayPeriods,
+        "今天没有排课，稍微喘口气。",
+        summaryTaskLines(
+          [
+            { tasks: overdueTasks, prefix: () => "已逾期" },
+            {
+              tasks: todayTasks,
+              prefix: (task) => (task.dueTime ? `截止 ${task.dueTime}` : "今日截止"),
+            },
+          ],
+          resolveCourse,
+        ),
+      ),
     });
   }
 
@@ -218,7 +291,20 @@ export function planReminders(input: ReminderPlanInput): PlannedReminder[] {
     planned.push({
       key: tomorrowKey,
       title: `明日课程 · ${input.tomorrowSessions.length} 节`,
-      body: summaryBody(input.tomorrowSessions, input.tomorrowPeriods, "明天没有排课。"),
+      body: summaryBody(
+        input.tomorrowSessions,
+        input.tomorrowPeriods,
+        "明天没有排课。",
+        summaryTaskLines(
+          [
+            {
+              tasks: tomorrowTasks,
+              prefix: (task) => (task.dueTime ? `截止 ${task.dueTime}` : "明日截止"),
+            },
+          ],
+          resolveCourse,
+        ),
+      ),
     });
   }
 

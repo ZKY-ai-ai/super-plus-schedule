@@ -70,7 +70,7 @@ export function RemindersSettingsTab() {
       <div className="settings-pane-head">
         <p className="eyebrow">REMINDERS</p>
         <h3>上课提醒与每日摘要</h3>
-        <p>上课前按设定提前量提醒；今日与明日摘要可以分别设置发送时间。</p>
+        <p>上课前按设定提前量提醒；今日与明日摘要可以分别设置发送时间，摘要会带上当天到期的作业。</p>
       </div>
 
       <div className="reminder-permission">
@@ -130,7 +130,7 @@ export function RemindersSettingsTab() {
               onChange={(event) => update({ todaySummary: event.target.checked })}
               disabled={!settings.enabled}
             />
-            今日课程摘要
+            今日课程与作业摘要
           </label>
           <input
             className="field-input"
@@ -140,7 +140,9 @@ export function RemindersSettingsTab() {
             disabled={!settings.enabled || !settings.todaySummary}
             aria-label="今日摘要发送时间"
           />
-          <small className="field-hint">当天过了这个时间再打开 App 会补发一次。</small>
+          <small className="field-hint">
+            包含当天到期与已逾期未完成的任务；过了这个时间再打开 App 会补发一次。
+          </small>
         </div>
         <div className="reminder-time-card">
           <label>
@@ -151,7 +153,7 @@ export function RemindersSettingsTab() {
               onChange={(event) => update({ tomorrowSummary: event.target.checked })}
               disabled={!settings.enabled}
             />
-            明日课表提醒
+            明日课程与作业摘要
           </label>
           <input
             className="field-input"
@@ -159,9 +161,9 @@ export function RemindersSettingsTab() {
             value={settings.tomorrowSummaryTime}
             onChange={(event) => update({ tomorrowSummaryTime: event.target.value })}
             disabled={!settings.enabled || !settings.tomorrowSummary}
-            aria-label="明日课表发送时间"
+            aria-label="明日摘要发送时间"
           />
-          <small className="field-hint">提前一晚看看明天的课与教室。</small>
+          <small className="field-hint">提前一晚看看明天的课与第二天到期的作业。</small>
         </div>
       </div>
 
