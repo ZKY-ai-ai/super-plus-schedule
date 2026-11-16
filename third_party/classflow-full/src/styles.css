@@ -9734,6 +9734,180 @@ html[data-theme="whale"] .week-pick.is-selected span {
   cursor: pointer;
 }
 
+.course-block {
+  cursor: pointer;
+  user-select: none;
+}
+
+.course-block:focus-visible,
+.tt-list-item:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 1px;
+}
+
+.course-block-menu {
+  margin-left: auto;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.course-block:hover .course-block-menu,
+.course-block:focus-within .course-block-menu {
+  opacity: 1;
+}
+
+.course-block-menu:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--tone) 18%, transparent);
+}
+
+.tt-list-item {
+  cursor: pointer;
+  user-select: none;
+}
+
+.tt-list-menu {
+  margin-top: 3px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tt-list-menu:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--tone) 16%, transparent);
+}
+
+.override-summary {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.6;
+}
+
+.override-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.override-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.override-section-title svg {
+  color: var(--coral);
+}
+
+.override-move-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.override-move-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.override-move-grid label > span {
+  color: var(--muted);
+  font-size: 8.5px;
+}
+
+.override-move-grid select {
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 10px;
+}
+
+.override-move-button {
+  width: 100%;
+  justify-content: center;
+}
+
+.override-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.override-actions button {
+  gap: 5px;
+}
+
+.course-card-restore {
+  padding: 2px 7px;
+  border: 1px dashed var(--coral);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--coral) 8%, transparent);
+  color: var(--coral-deep);
+  font-size: 8px;
+  cursor: pointer;
+}
+
+.detail-overrides {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.detail-overrides li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px dashed var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+.detail-override-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.detail-override-text strong {
+  color: var(--ink);
+  font-size: 9.5px;
+}
+
+.detail-override-text small {
+  color: var(--muted);
+  font-size: 8.5px;
+}
+
 /* ---- Grade stats, credits and course status (乙) ---- */
 .grade-stats {
   display: grid;

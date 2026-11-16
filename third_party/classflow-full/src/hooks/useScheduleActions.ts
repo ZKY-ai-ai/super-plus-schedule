@@ -8,6 +8,8 @@ import type {
   ScheduleData,
   ScheduleEvent,
   Semester,
+  Session,
+  SessionOverride,
   Timetable as TimetableModel,
   TimetableCreateInput,
 } from "../types";
@@ -434,6 +436,104 @@ export function useScheduleActions({
     notify("模板已删除。");
   };
 
+  const putOverride = (override: SessionOverride) => {
+    updateActiveTimetable((current) => ({
+      ...current,
+      overrides: [
+        ...current.overrides.filter((item) =>
+          override.action === "hide"
+            ? !(item.action === "hide" && item.courseId === override.courseId)
+            : !(
+                item.action !== "hide" &&
+                item.courseId === override.courseId &&
+                item.slotId === override.slotId &&
+                item.week === override.week
+              ),
+        ),
+        override,
+      ],
+    }));
+  };
+
+  const cancelSession = (session: Session, week: number) => {
+    putOverride({
+      id: uid("override"),
+      action: "cancel",
+      courseId: session.course.id,
+      slotId: session.slot.id,
+      week,
+      createdAt: new Date().toISOString(),
+    });
+    notify(`已停掉第 ${week} 周「${session.course.name}」的这一次课。`);
+  };
+
+  const moveSession = (
+    session: Session,
+    week: number,
+    toDay: number,
+    toStart: number,
+    toEnd: number,
+  ) => {
+    putOverride({
+      id: uid("override"),
+      action: "move",
+      courseId: session.course.id,
+      slotId: session.slot.id,
+      week,
+      toDay,
+      toStart,
+      toEnd,
+      createdAt: new Date().toISOString(),
+    });
+    notify(`已把第 ${week} 周「${session.course.name}」调到周${"一二三四五六日"[toDay - 1]}第 ${toStart} 节。`);
+  };
+
+  const hideCourseFromWeek = (courseId: string, week: number) => {
+    putOverride({
+      id: uid("override"),
+      action: "hide",
+      courseId,
+      slotId: "",
+      week,
+      createdAt: new Date().toISOString(),
+    });
+    notify(`这门课从第 ${week} 周起不再显示，可随时恢复。`);
+  };
+
+  const restoreCourse = (courseId: string) => {
+    updateActiveTimetable((current) => ({
+      ...current,
+      overrides: current.overrides.filter(
+        (item) => !(item.action === "hide" && item.courseId === courseId),
+      ),
+    }));
+    notify("已恢复显示这门课。");
+  };
+
+  const restoreSession = (session: Session, week: number) => {
+    updateActiveTimetable((current) => ({
+      ...current,
+      overrides: current.overrides.filter(
+        (item) =>
+          !(
+            item.action !== "hide" &&
+            item.courseId === session.course.id &&
+            item.slotId === session.slot.id &&
+            item.week === week
+          ),
+      ),
+    }));
+    notify("这一次课已恢复原样。");
+  };
+
+  const removeOverride = (id: string) => {
+    updateActiveTimetable((current) => ({
+      ...current,
+      overrides: current.overrides.filter((item) => item.id !== id),
+    }));
+    notify("这次单次调整已撤销。");
+  };
+
   return {
     saveCourse,
     requestDeleteCourse,
@@ -456,5 +556,11 @@ export function useScheduleActions({
     saveCurrentAsTemplate,
     applyTemplate,
     deleteTemplate,
+    cancelSession,
+    moveSession,
+    hideCourseFromWeek,
+    restoreCourse,
+    restoreSession,
+    removeOverride,
   };
 }

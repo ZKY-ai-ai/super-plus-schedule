@@ -9,7 +9,7 @@ import {
   Printer,
   Tag,
 } from "lucide-react";
-import type { AppPage, Course, ScheduleEvent } from "./types";
+import type { AppPage, Course, ScheduleEvent, Session } from "./types";
 import { dateKey } from "./lib/date";
 import { wallpaperStyle } from "./lib/wallpaper";
 import { isNativeApp } from "./lib/nativeFile";
@@ -32,6 +32,7 @@ import type { EventSeed } from "./components/EventEditor";
 import { SettingsModal } from "./components/SettingsModal";
 import { Sidebar } from "./components/Sidebar";
 import { Timetable } from "./components/Timetable";
+import { SessionOverrideDialog } from "./components/SessionOverrideDialog";
 import { TimetableList } from "./components/TimetableList";
 import { TimetableManager } from "./components/TimetableManager";
 import { Toast } from "./components/Toast";
@@ -77,6 +78,7 @@ export default function App() {
   const [editorSeed, setEditorSeed] = useState<EditorSeed | null>(null);
   const [eventSeed, setEventSeed] = useState<EventSeed | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [sessionMenu, setSessionMenu] = useState<{ session: Session; week: number } | null>(null);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const toastId = useRef(0);
@@ -384,6 +386,7 @@ export default function App() {
                       showAliases={prefs.showAliases}
                       now={now}
                       onSelectCourse={openCourseDetail}
+                      onSessionMenu={(session) => setSessionMenu({ session, week: view.week })}
                       onAddAt={(day, start) => openEditor({ prefill: { day, start } })}
                       onAddCourse={() => openEditor()}
                     />
@@ -401,6 +404,7 @@ export default function App() {
                       showAliases={prefs.showAliases}
                       now={now}
                       onSelectCourse={openCourseDetail}
+                      onSessionMenu={(session) => setSessionMenu({ session, week: view.week })}
                       onPrevWeek={() => view.goToWeek(view.week - 1)}
                       onNextWeek={() => view.goToWeek(view.week + 1)}
                       onAddAt={(day, start) => openEditor({ prefill: { day, start } })}
@@ -469,9 +473,17 @@ export default function App() {
               courses={courses}
               semester={viewSemester}
               showAliases={prefs.showAliases}
+              hiddenCourseIds={
+                new Set(
+                  timetable.overrides
+                    .filter((override) => override.action === "hide")
+                    .map((override) => override.courseId),
+                )
+              }
               onAddCourse={() => openEditor()}
               onSelectCourse={openCourseDetail}
               onEditCourse={(course) => openEditor({ course })}
+              onRestoreCourse={actions.restoreCourse}
             />
           )}
 
@@ -502,12 +514,44 @@ export default function App() {
         <CourseDetail
           course={detailCourse}
           semester={viewSemester}
+          overrides={timetable.overrides.filter(
+            (override) => override.courseId === detailCourse.id,
+          )}
           onClose={() => setDetailId(null)}
           onEdit={() => {
             setDetailId(null);
             setEditorSeed({ course: detailCourse });
           }}
           onDelete={() => handleDeleteCourse(detailCourse)}
+          onRemoveOverride={actions.removeOverride}
+        />
+      ) : null}
+
+      {sessionMenu ? (
+        <SessionOverrideDialog
+          key={sessionMenu.session.id}
+          session={sessionMenu.session}
+          week={sessionMenu.week}
+          periods={viewSemester.periods}
+          overrides={timetable.overrides}
+          showAliases={prefs.showAliases}
+          onClose={() => setSessionMenu(null)}
+          onCancelSession={() => {
+            actions.cancelSession(sessionMenu.session, sessionMenu.week);
+            setSessionMenu(null);
+          }}
+          onMoveSession={(toDay, toStart, toEnd) => {
+            actions.moveSession(sessionMenu.session, sessionMenu.week, toDay, toStart, toEnd);
+            setSessionMenu(null);
+          }}
+          onHideCourse={() => {
+            actions.hideCourseFromWeek(sessionMenu.session.course.id, sessionMenu.week);
+            setSessionMenu(null);
+          }}
+          onRestoreSession={() => {
+            actions.restoreSession(sessionMenu.session, sessionMenu.week);
+            setSessionMenu(null);
+          }}
         />
       ) : null}
 

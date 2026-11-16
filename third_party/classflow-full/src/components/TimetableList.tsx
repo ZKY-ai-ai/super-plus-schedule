@@ -21,6 +21,7 @@ interface TimetableListProps {
   showAliases: boolean;
   now: Date;
   onSelectCourse: (course: Course) => void;
+  onSessionMenu: (session: Session) => void;
   onAddAt: (day: number, start: number) => void;
   onAddCourse: () => void;
 }
@@ -38,6 +39,7 @@ export function TimetableList({
   showAliases,
   now,
   onSelectCourse,
+  onSessionMenu,
   onAddAt,
   onAddCourse,
 }: TimetableListProps) {
@@ -119,12 +121,23 @@ export function TimetableList({
                   const last = semester.periods[session.end - 1];
                   const conflict = conflictIds.has(session.id);
                   return (
-                    <button
+                    <div
                       className={`tt-list-item ${conflict ? "is-conflict" : ""}`}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       key={session.id}
                       style={{ "--tone": toneColor(session.course.tone) } as CSSProperties}
                       onClick={() => onSelectCourse(session.course)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onSelectCourse(session.course);
+                        }
+                      }}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        onSessionMenu(session);
+                      }}
                     >
                       <span className="tt-list-time">
                         <strong>{first?.start ?? session.start}</strong>
@@ -154,8 +167,20 @@ export function TimetableList({
                             : `第 ${session.start}–${session.end} 节`}
                         </span>
                         <span className="tt-list-weeks">{formatWeeks(session.slot)}</span>
+                        <button
+                          className="tt-list-menu"
+                          type="button"
+                          aria-label="调整这一次课"
+                          title="调整这一次课"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onSessionMenu(session);
+                          }}
+                        >
+                          ⋯
+                        </button>
                       </span>
-                    </button>
+                    </div>
                   );
                 })}
               </div>

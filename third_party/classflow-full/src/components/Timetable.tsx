@@ -23,6 +23,7 @@ interface TimetableProps {
   showAliases: boolean;
   now: Date;
   onSelectCourse: (course: Course) => void;
+  onSessionMenu: (session: Session) => void;
   onPrevWeek: () => void;
   onNextWeek: () => void;
   onAddAt: (day: number, start: number) => void;
@@ -56,6 +57,7 @@ export function Timetable({
   showAliases,
   now,
   onSelectCourse,
+  onSessionMenu,
   onPrevWeek,
   onNextWeek,
   onAddAt,
@@ -241,17 +243,28 @@ export function Timetable({
                   const conflict = conflictIds.has(session.id);
                   const single = session.start === session.end;
                   return (
-                    <button
+                    <div
                       className={`course-block ${ongoing ? "is-ongoing" : ""} ${
                         conflict ? "is-conflict" : ""
                       } ${single ? "is-single" : ""}`}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       style={courseBlockStyle(session)}
                       key={session.id}
                       onClick={() => onSelectCourse(session.course)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onSelectCourse(session.course);
+                        }
+                      }}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        onSessionMenu(session);
+                      }}
                       title={`${courseDisplayName(session.course, showAliases)}｜${
                         session.course.location || "未填地点"
-                      }`}
+                      }｜右键调整这一次课`}
                     >
                       <span className="course-block-top">
                         <span className="course-block-name">
@@ -263,6 +276,18 @@ export function Timetable({
                           </span>
                         ) : null}
                         {ongoing && !conflict ? <span className="live-dot" /> : null}
+                        <button
+                          className="course-block-menu"
+                          type="button"
+                          aria-label="调整这一次课"
+                          title="调整这一次课"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onSessionMenu(session);
+                          }}
+                        >
+                          ⋯
+                        </button>
                       </span>
                       <span className="course-block-meta">
                         {session.course.location || "地点待定"}
@@ -274,7 +299,7 @@ export function Timetable({
                         {formatWeeks(session.slot)} · 第 {session.start}
                         {session.end !== session.start ? `–${session.end}` : ""} 节
                       </span>
-                    </button>
+                    </div>
                   );
                 })}
 

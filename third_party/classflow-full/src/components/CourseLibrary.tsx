@@ -16,9 +16,11 @@ interface CourseLibraryProps {
   courses: Course[];
   semester: Semester;
   showAliases: boolean;
+  hiddenCourseIds: Set<string>;
   onAddCourse: () => void;
   onSelectCourse: (course: Course) => void;
   onEditCourse: (course: Course) => void;
+  onRestoreCourse: (courseId: string) => void;
 }
 
 function slotTime(slot: Course["slots"][number], periods: Period[]): string {
@@ -29,9 +31,11 @@ export function CourseLibrary({
   courses,
   semester,
   showAliases,
+  hiddenCourseIds,
   onAddCourse,
   onSelectCourse,
   onEditCourse,
+  onRestoreCourse,
 }: CourseLibraryProps) {
   const [query, setQuery] = useState("");
   const ordered = useMemo(() => sortCoursesByDay(courses), [courses]);
@@ -134,6 +138,18 @@ export function CourseLibrary({
               <div className="course-card-accent" aria-hidden="true" />
               <div className="course-card-head">
                 <span className="course-card-count">{course.slots.length} 个时间段</span>
+                {hiddenCourseIds.has(course.id) ? (
+                  <button
+                    className="course-card-restore"
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRestoreCourse(course.id);
+                    }}
+                  >
+                    已隐藏 · 恢复
+                  </button>
+                ) : null}
                 <button
                   className="course-card-edit"
                   type="button"
