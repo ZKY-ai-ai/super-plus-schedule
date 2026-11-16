@@ -10105,3 +10105,11 @@ html[data-theme="whale"] .week-pick.is-selected span {
   font-size: 8.5px;
   line-height: 1.6;
 }
+
+/* ---- Repeating tasks (乙) ---- */
+.task-repeat {
+  padding: 0 5px;
+  color: var(--olive, #718a4b);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--olive, #718a4b) 14%, transparent);
+}

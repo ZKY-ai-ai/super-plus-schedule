@@ -4,16 +4,20 @@ import type { Course } from "../../types";
 import { useClock } from "../../hooks/useClock";
 import {
   addSubtask,
+  completeTask,
   describeDue,
   groupTasks,
   loadTasks,
   makeTask,
   parseTasksJson,
   removeSubtask,
+  REPEAT_OPTIONS,
+  repeatLabel,
   saveTasks,
   subtaskProgress,
   taskCountdown,
   toggleSubtask,
+  type RepeatRule,
   type Task,
   type TaskBucket,
 } from "../../lib/tasks";
@@ -44,6 +48,7 @@ export function TasksSettingsTab({ timetableId, courses }: TasksSettingsTabProps
   const [courseId, setCourseId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [dueTime, setDueTime] = useState("");
+  const [repeat, setRepeat] = useState<RepeatRule>("none");
   const [importText, setImportText] = useState("");
   const [notice, setNotice] = useState<TaskNotice | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
@@ -75,6 +80,7 @@ export function TasksSettingsTab({ timetableId, courses }: TasksSettingsTabProps
       courseId: courseId || null,
       dueDate,
       dueTime: dueDate ? dueTime : "",
+      repeat: dueDate ? repeat : "none",
     });
     persist([task, ...tasks], `已添加「${task.title}」。`);
     setTitle("");
@@ -85,7 +91,11 @@ export function TasksSettingsTab({ timetableId, courses }: TasksSettingsTabProps
     const timestamp = new Date().toISOString();
     persist(
       tasks.map((task) =>
-        task.id === id ? { ...task, done: !task.done, updatedAt: timestamp } : task,
+        task.id === id
+          ? task.done
+            ? { ...task, done: false, updatedAt: timestamp }
+            : completeTask(task)
+          : task,
       ),
     );
   };
@@ -161,6 +171,9 @@ export function TasksSettingsTab({ timetableId, courses }: TasksSettingsTabProps
           <span className="task-title">{task.title}</span>
           <span className="task-meta">
             {linked ? <span className="task-course">{linked}</span> : null}
+            {task.repeat !== "none" ? (
+              <span className="task-repeat">{repeatLabel(task.repeat)}</span>
+            ) : null}
             <span>{describeDue(task)}</span>
             {task.note ? <span className="task-note">{task.note}</span> : null}
           </span>
@@ -314,6 +327,22 @@ export function TasksSettingsTab({ timetableId, courses }: TasksSettingsTabProps
             disabled={!dueDate}
           />
           <small className="field-hint">不填则按当天结束计算倒计时。</small>
+        </label>
+        <label className="field">
+          <span className="field-label">重复</span>
+          <select
+            className="field-input"
+            value={repeat}
+            onChange={(event) => setRepeat(event.target.value as RepeatRule)}
+            disabled={!dueDate}
+          >
+            {REPEAT_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <small className="field-hint">勾选完成后自动顺延到下一次。</small>
         </label>
         <div className="task-form-actions">
           <button className="primary-button" type="button" onClick={handleAdd}>

@@ -1,4 +1,4 @@
-import { dayDiff, parseDateKey, timeToMinutes } from "./date";
+import { dateKey, dayDiff, parseDateKey, timeToMinutes } from "./date";
 import { uid } from "./factory";
 import type { PlannedReminder, SentLog } from "./reminders";
 
@@ -7,6 +7,20 @@ export interface Subtask {
   title: string;
   done: boolean;
 }
+
+export type RepeatRule = "none" | "daily" | "weekly" | "monthly";
+
+export interface RepeatOption {
+  id: RepeatRule;
+  label: string;
+}
+
+export const REPEAT_OPTIONS: RepeatOption[] = [
+  { id: "none", label: "不重复" },
+  { id: "daily", label: "每天" },
+  { id: "weekly", label: "每周" },
+  { id: "monthly", label: "每月" },
+];
 
 export interface Task {
   id: string;
@@ -18,6 +32,7 @@ export interface Task {
   dueTime: string;
   note: string;
   done: boolean;
+  repeat: RepeatRule;
   subtasks: Subtask[];
   createdAt: string;
   updatedAt: string;
@@ -107,6 +122,14 @@ function todayStart(now: Date): Date {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
+function isRepeatRule(value: unknown): value is RepeatRule {
+  return REPEAT_OPTIONS.some((item) => item.id === value);
+}
+
+export function repeatLabel(rule: RepeatRule): string {
+  return REPEAT_OPTIONS.find((item) => item.id === rule)?.label ?? "不重复";
+}
+
 export function normalizeTasks(raw: unknown): Task[] {
   const list = Array.isArray(raw)
     ? raw
@@ -135,6 +158,7 @@ export function normalizeTasks(raw: unknown): Task[] {
       dueTime,
       note: text(item.note, 300),
       done: item.done === true,
+      repeat: isRepeatRule(item.repeat) && dueDate ? item.repeat : "none",
       subtasks: normalizeSubtasks(item.subtasks),
       createdAt: text(item.createdAt, 40) || now,
       updatedAt: text(item.updatedAt, 40) || now,
@@ -149,21 +173,64 @@ export function makeTask(input: {
   dueDate?: string;
   dueTime?: string;
   note?: string;
+  repeat?: RepeatRule;
   subtasks?: Subtask[];
   id?: string;
 }): Task {
   const now = new Date().toISOString();
+  const dueDate = input.dueDate && DATE_RE.test(input.dueDate) ? input.dueDate : "";
   return {
     id: input.id ?? uid("task"),
     title: input.title.trim().slice(0, 80),
     courseId: input.courseId?.trim() || null,
-    dueDate: input.dueDate && DATE_RE.test(input.dueDate) ? input.dueDate : "",
-    dueTime: input.dueTime && TIME_RE.test(input.dueTime) ? input.dueTime : "",
+    dueDate,
+    dueTime: dueDate && input.dueTime && TIME_RE.test(input.dueTime) ? input.dueTime : "",
     note: input.note?.trim().slice(0, 300) ?? "",
     done: false,
+    repeat: dueDate && input.repeat ? input.repeat : "none",
     subtasks: normalizeSubtasks(input.subtasks ?? []),
     createdAt: now,
     updatedAt: now,
+  };
+}
+
+function addMonths(date: Date, months: number): Date {
+  const day = date.getDate();
+  const next = new Date(date.getFullYear(), date.getMonth() + months, 1);
+  const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+  next.setDate(Math.min(day, lastDay));
+  return next;
+}
+
+/**
+ * Marking a repeating task done rolls its deadline forward to at least
+ * tomorrow (or next week / month) and reopens its subtasks. Non-repeating
+ * tasks simply move to the done list.
+ */
+export function completeTask(task: Task, now = new Date()): Task {
+  const stamp = now.toISOString();
+  if (task.repeat === "none" || !task.dueDate) {
+    return { ...task, done: true, updatedAt: stamp };
+  }
+  const today = todayStart(now);
+  let next = parseDateKey(task.dueDate);
+  let guard = 0;
+  do {
+    if (task.repeat === "daily") {
+      next = new Date(next.getFullYear(), next.getMonth(), next.getDate() + 1);
+    } else if (task.repeat === "weekly") {
+      next = new Date(next.getFullYear(), next.getMonth(), next.getDate() + 7);
+    } else {
+      next = addMonths(next, 1);
+    }
+    guard += 1;
+  } while (dayDiff(today, next) <= 0 && guard < 500);
+  return {
+    ...task,
+    done: false,
+    dueDate: dateKey(next),
+    subtasks: task.subtasks.map((subtask) => ({ ...subtask, done: false })),
+    updatedAt: stamp,
   };
 }
 

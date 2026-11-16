@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addSubtask,
+  completeTask,
   groupTasks,
   makeTask,
   normalizeTasks,
@@ -218,5 +219,53 @@ describe("deadline reminders", () => {
         "task:tt-1:t1:30m": "2026-11-20T09:35:00.000Z",
       }),
     ).toHaveLength(0);
+  });
+});
+
+describe("repeating tasks", () => {
+  it("normalizes repeat rules and requires a due date", () => {
+    const [withRepeat, noDate] = normalizeTasks([
+      { title: "每周例会", dueDate: "2026-11-20", repeat: "weekly" },
+      { title: "有空再看", repeat: "daily" },
+    ]);
+    expect(withRepeat.repeat).toBe("weekly");
+    expect(noDate.repeat).toBe("none");
+    expect(makeTask({ title: "无日期", repeat: "daily" }).repeat).toBe("none");
+  });
+
+  it("marks non-repeating tasks as done", () => {
+    const task = makeTask({ title: "交作业", dueDate: "2026-11-16" });
+    expect(completeTask(task, new Date(2026, 10, 16, 10, 0)).done).toBe(true);
+  });
+
+  it("rolls daily and weekly deadlines into the future", () => {
+    const now = new Date(2026, 10, 16, 10, 0);
+    const daily = makeTask({ title: "背单词", dueDate: "2026-11-15", repeat: "daily" });
+    expect(completeTask(daily, now)).toMatchObject({
+      done: false,
+      dueDate: "2026-11-17",
+      repeat: "daily",
+    });
+
+    const weekly = makeTask({ title: "交周报", dueDate: "2026-11-16", repeat: "weekly" });
+    expect(completeTask(weekly, now).dueDate).toBe("2026-11-23");
+  });
+
+  it("keeps the day of month for monthly repeats and clamps short months", () => {
+    const now = new Date(2026, 0, 31, 10, 0);
+    const monthly = makeTask({ title: "交房租", dueDate: "2026-01-31", repeat: "monthly" });
+    expect(completeTask(monthly, now).dueDate).toBe("2026-02-28");
+  });
+
+  it("reopens subtasks for the next occurrence", () => {
+    const task = makeTask({
+      title: "每周复习",
+      dueDate: "2026-11-15",
+      repeat: "weekly",
+      subtasks: [{ id: "s1", title: "第一章", done: true }],
+    });
+    const next = completeTask(task, new Date(2026, 10, 16, 10, 0));
+    expect(next.subtasks[0].done).toBe(false);
+    expect(next.dueDate).toBe("2026-11-22");
   });
 });
