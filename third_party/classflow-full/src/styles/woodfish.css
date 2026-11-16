@@ -395,26 +395,6 @@ html[data-theme="dark"] .woodfish__mote {
   overflow: visible;
 }
 
-.woodfish__eye {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: woodfish-blink 5.4s ease-in-out infinite;
-}
-
-@keyframes woodfish-blink {
-  0%,
-  90%,
-  100% {
-    transform: scaleY(1);
-  }
-  94% {
-    transform: scaleY(0.12);
-  }
-  97% {
-    transform: scaleY(1);
-  }
-}
-
 .woodfish__mouth {
   transform-box: fill-box;
   transform-origin: center;
@@ -479,8 +459,8 @@ html[data-theme="dark"] .woodfish__mote {
 
 .woodfish__burst {
   position: absolute;
-  top: 44%;
-  left: 66%;
+  top: 40%;
+  left: 70%;
   z-index: 3;
   width: 0;
   height: 0;
@@ -662,7 +642,6 @@ html[data-theme="dark"] .woodfish__merit {
 
 @media (prefers-reduced-motion: reduce) {
   .woodfish__fish-bob,
-  .woodfish__eye,
   .woodfish__aura,
   .woodfish__orbit,
   .woodfish__smoke,

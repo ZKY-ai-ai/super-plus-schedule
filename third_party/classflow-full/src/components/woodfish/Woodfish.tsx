@@ -56,33 +56,18 @@ function formatCount(value: number): string {
 }
 
 /**
- * 木鱼本体：按经典木鱼剪影绘制——圆头在右、尾部收尖在左下，
- * 月牙口从左侧圆头端扫向右上方。分层渐变 + 内嵌雕刻轮廓，
- * 木纹阴影用静态滤镜一次栅格化，动画只跑 transform/opacity，不触发重绘。
+ * 木鱼本体：参考 clockhub 在线木鱼的扁平剪影风格——纯色鱼身、
+ * 月牙口是左端圆厚、向右上收细直抵头部边缘的切口，不加眼睛鳞纹等附加细节。
+ * 仅保留极轻的渐变与地面投影；动画只跑 transform/opacity，不触发重绘。
  */
 function WoodenFishArt({ mouthRef }: { mouthRef: RefObject<SVGGElement | null> }) {
   return (
     <svg viewBox="0 0 448 190" role="img" aria-hidden="true" focusable="false">
       <defs>
-        <radialGradient id="wf-body" cx="0.58" cy="0.3" r="0.9">
-          <stop offset="0" stopColor="#ffdfae" />
-          <stop offset="0.35" stopColor="#f0b471" />
-          <stop offset="0.68" stopColor="#c98d4e" />
-          <stop offset="0.88" stopColor="#9a6430" />
-          <stop offset="1" stopColor="#6f411c" />
-        </radialGradient>
-        <radialGradient id="wf-sheen" cx="0.38" cy="0.2" r="0.55">
-          <stop offset="0" stopColor="#fff6e2" stopOpacity="0.5" />
-          <stop offset="1" stopColor="#fff6e2" stopOpacity="0" />
-        </radialGradient>
-        <radialGradient id="wf-eye" cx="0.35" cy="0.3" r="0.9">
-          <stop offset="0" stopColor="#5a3216" />
-          <stop offset="0.55" stopColor="#2b1508" />
-          <stop offset="1" stopColor="#120701" />
-        </radialGradient>
-        <radialGradient id="wf-slit" cx="0.5" cy="0.2" r="1">
-          <stop offset="0" stopColor="#1d0c02" />
-          <stop offset="1" stopColor="#3d2010" />
+        <radialGradient id="wf-body" cx="0.42" cy="0.3" r="0.85">
+          <stop offset="0" stopColor="#e4b77e" />
+          <stop offset="0.55" stopColor="#d49c5c" />
+          <stop offset="1" stopColor="#b97f42" />
         </radialGradient>
         <filter id="wf-blur" x="-60%" y="-200%" width="220%" height="500%">
           <feGaussianBlur stdDeviation="5" />
@@ -90,60 +75,21 @@ function WoodenFishArt({ mouthRef }: { mouthRef: RefObject<SVGGElement | null> }
       </defs>
 
       {/* 地面投影 */}
-      <ellipse cx="218" cy="168" rx="115" ry="7.5" fill="#3a2412" opacity="0.28" filter="url(#wf-blur)" />
+      <ellipse cx="218" cy="170" rx="112" ry="7" fill="#3a2412" opacity="0.18" filter="url(#wf-blur)" />
 
-      {/* 鱼身：圆头在右，尾部收尖在左下 */}
+      {/* 鱼身：圆头在右、尾部收尖在左下的纯色剪影 */}
       <path
         d="M106 148 C124 120 158 78 210 52 C232 41 258 38 282 46 C304 55 320 72 323 92 C326 112 314 130 292 141 C264 156 226 158 190 152 C158 147 128 155 106 148 Z"
         fill="url(#wf-body)"
       />
-      <path
-        d="M106 148 C124 120 158 78 210 52 C232 41 258 38 282 46 C304 55 320 72 323 92 C326 112 314 130 292 141 C264 156 226 158 190 152 C158 147 128 155 106 148 Z"
-        fill="url(#wf-sheen)"
-      />
 
-      {/* 内嵌雕刻轮廓：暗线 + 错位亮线做出刻痕立体感 */}
-      <g transform="translate(13.2 5.8) scale(0.94)">
-        <path
-          d="M106 148 C124 120 158 78 210 52 C232 41 258 38 282 46 C304 55 320 72 323 92 C326 112 314 130 292 141 C264 156 226 158 190 152 C158 147 128 155 106 148 Z"
-          fill="none"
-          stroke="#7c451d"
-          strokeWidth="1.6"
-          opacity="0.24"
-        />
-      </g>
-      <g transform="translate(13.2 7.6) scale(0.94)">
-        <path
-          d="M106 148 C124 120 158 78 210 52 C232 41 258 38 282 46 C304 55 320 72 323 92 C326 112 314 130 292 141 C264 156 226 158 190 152 C158 147 128 155 106 148 Z"
-          fill="none"
-          stroke="#f6cf9c"
-          strokeWidth="1"
-          opacity="0.2"
-        />
-      </g>
-
-      {/* 云纹与底部反光 */}
-      <path d="M196 136c16 9 40 11 60 3" stroke="#6e3c18" strokeWidth="2.6" strokeLinecap="round" fill="none" opacity="0.28" />
-      <path d="M206 144c12 5 28 6 42 2" stroke="#f3c78e" strokeWidth="1.6" strokeLinecap="round" fill="none" opacity="0.3" />
-      <path d="M170 146c40 10 86 10 126 -4" stroke="#ffdfae" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.2" />
-
-      {/* 月牙口：左侧圆头端扫向右上方，细缝微弧，越靠头部越细 */}
+      {/* 月牙口：左端圆厚、向右上收细的切口 */}
       <g className="woodfish__mouth" ref={mouthRef}>
         <path
-          d="M158 106 C204 95 252 87 296 86 C297 87.5 297 89 295 89.5 C254 93 210 101 184 112 C172 117 160 114 157.5 106 C156.5 104.5 156.5 105.5 158 106 Z"
-          fill="url(#wf-slit)"
+          d="M171 94 C222 87 276 81 314 79 C317.5 80 318 84.5 314.5 85.5 C270 95 220 107 186 123 C172 129.5 155 128 148 118 C143 110.5 146 99 156 94.5 C161 92 166 92.5 171 94 Z"
+          fill="#241106"
         />
-        <path d="M166 101 C210 91 254 84 292 83" stroke="#ffb765" strokeWidth="1.1" strokeLinecap="round" fill="none" opacity="0.35" />
       </g>
-
-      {/* 眼睛：双层渐变 + 双高光，位于月牙口圆头端上方 */}
-      <g className="woodfish__eye">
-        <circle cx="196" cy="74" r="6.5" fill="url(#wf-eye)" />
-        <circle cx="196" cy="74" r="6.5" fill="none" stroke="#4a2810" strokeWidth="1" opacity="0.6" />
-        <circle cx="193.8" cy="71.8" r="2" fill="#fff3d9" opacity="0.95" />
-        <circle cx="199" cy="76.6" r="0.9" fill="#ffd98f" opacity="0.5" />
-      </g>
-      <path d="M187 65.5c4-3.5 9-4.5 15-3" stroke="#6b3a17" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.42" />
     </svg>
   );
 }
@@ -341,7 +287,7 @@ export function Woodfish() {
       mouthRef.current,
       [
         { transform: "scaleY(1)" },
-        { transform: "scaleY(1.9)", offset: 0.35 },
+        { transform: "scaleY(1.5)", offset: 0.35 },
         { transform: "scaleY(1)" },
       ],
       { duration: 260, easing: "ease-out" },
