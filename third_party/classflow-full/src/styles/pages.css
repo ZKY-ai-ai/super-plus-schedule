@@ -252,6 +252,42 @@
   background: var(--surface-2);
 }
 
+.agenda-event-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line);
+}
+
+.agenda-event-row:last-child {
+  border-bottom: 0;
+}
+
+.agenda-event-row .agenda-event-item {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+}
+
+.agenda-event-check {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  padding: 0 13px;
+  color: var(--muted);
+  font-size: 7.5px;
+  border-left: 1px solid var(--line);
+}
+
+.agenda-event-check:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.agenda-event-check.is-checked {
+  color: var(--success);
+}
+
 .agenda-event-dot {
   width: 7px;
   height: 7px;

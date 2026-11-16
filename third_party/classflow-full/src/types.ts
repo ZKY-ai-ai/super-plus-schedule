@@ -96,6 +96,8 @@ export interface Wallpaper {
   dim: number;
 }
 
+export type EventRepeat = "none" | "daily" | "weekly" | "monthly";
+
 export interface ScheduleEvent {
   id: string;
   title: string;
@@ -105,6 +107,11 @@ export interface ScheduleEvent {
   end: string;
   note: string;
   tone: ToneId;
+  repeat: EventRepeat;
+  /** YYYY-MM-DD; empty means the series has no end date. */
+  repeatUntil: string;
+  /** Occurrence dates (YYYY-MM-DD) that have been checked in. */
+  checkIns: string[];
   createdAt: string;
   updatedAt: string;
 }

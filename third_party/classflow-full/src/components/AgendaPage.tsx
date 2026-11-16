@@ -1,4 +1,4 @@
-import { CalendarPlus, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { CalendarPlus, Check, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import type { CalendarDayInfo } from "../lib/holidays";
 import { formatWeekRange, WEEKDAYS } from "../lib/date";
 import type {
@@ -9,6 +9,7 @@ import type {
   WeekStats,
 } from "../types";
 import { toneColor } from "../types";
+import type { EventOccurrence } from "../lib/eventRepeat";
 import { DayView } from "./DayView";
 import { TodayRail } from "./TodayRail";
 
@@ -23,7 +24,7 @@ interface AgendaPageProps {
   sessions: Session[];
   selectedDay: number;
   selectedEvents: ScheduleEvent[];
-  weekEvents: ScheduleEvent[];
+  weekEvents: EventOccurrence[];
   dayStatuses: Record<number, CalendarDayInfo | null>;
   currentDates: Date[];
   currentSessions: Session[];
@@ -42,6 +43,8 @@ interface AgendaPageProps {
   onAddAt: (day: number, start: number) => void;
   onAddEventAt: (date: string) => void;
   onSelectEvent: (event: ScheduleEvent) => void;
+  /** Toggles the check-in state of one occurrence. Wired by App. */
+  onToggleEventCheckIn?: (event: EventOccurrence, date: string) => void;
 }
 
 export function AgendaPage({
@@ -74,6 +77,7 @@ export function AgendaPage({
   onAddAt,
   onAddEventAt,
   onSelectEvent,
+  onToggleEventCheckIn,
 }: AgendaPageProps) {
   const selectedDate = dates[selectedDay - 1];
   const dateKey = selectedDate
@@ -156,34 +160,48 @@ export function AgendaPage({
             {weekEvents.length > 0 ? (
               <div className="agenda-event-list">
                 {weekEvents.map((event) => {
-                  const [, month, date] = event.date.split("-");
-                  const weekday = WEEKDAYS[new Date(`${event.date}T00:00:00`).getDay() === 0 ? 7 : new Date(`${event.date}T00:00:00`).getDay()].label;
+                  const occurrenceDate = event.occurrenceDate ?? event.date;
+                  const [, month, date] = occurrenceDate.split("-");
+                  const weekdayIndex = new Date(`${occurrenceDate}T00:00:00`).getDay();
+                  const weekday = WEEKDAYS[weekdayIndex === 0 ? 7 : weekdayIndex].label;
                   return (
-                    <button
-                      className="agenda-event-item"
-                      type="button"
-                      key={event.id}
-                      onClick={() => onSelectEvent(event)}
-                    >
-                      <span
-                        className="agenda-event-dot"
-                        style={{ background: toneColor(event.tone) }}
-                        aria-hidden="true"
-                      />
-                      <span className="agenda-event-date">
-                        <strong>
-                          {Number(month)}/{Number(date)}
-                        </strong>
-                        <small>{weekday}</small>
-                      </span>
-                      <span className="agenda-event-copy">
-                        <strong>{event.title}</strong>
-                        {event.note ? <small>{event.note}</small> : null}
-                      </span>
-                      <span className="agenda-event-time">
-                        {event.allDay ? "全天" : event.start}
-                      </span>
-                    </button>
+                    <div className="agenda-event-row" key={event.occurrenceKey ?? event.id}>
+                      <button
+                        className="agenda-event-item"
+                        type="button"
+                        onClick={() => onSelectEvent(event)}
+                      >
+                        <span
+                          className="agenda-event-dot"
+                          style={{ background: toneColor(event.tone) }}
+                          aria-hidden="true"
+                        />
+                        <span className="agenda-event-date">
+                          <strong>
+                            {Number(month)}/{Number(date)}
+                          </strong>
+                          <small>{weekday}</small>
+                        </span>
+                        <span className="agenda-event-copy">
+                          <strong>{event.title}</strong>
+                          {event.note ? <small>{event.note}</small> : null}
+                        </span>
+                        <span className="agenda-event-time">
+                          {event.allDay ? "全天" : event.start}
+                        </span>
+                      </button>
+                      <button
+                        className={`agenda-event-check ${event.checked ? "is-checked" : ""}`}
+                        type="button"
+                        aria-pressed={event.checked}
+                        aria-label={event.checked ? `取消打卡：${event.title}` : `打卡：${event.title}`}
+                        title={event.checked ? "已打卡" : "打卡"}
+                        onClick={() => onToggleEventCheckIn?.(event, occurrenceDate)}
+                      >
+                        <Check size={13} />
+                        <span>{event.checked ? "已打卡" : "打卡"}</span>
+                      </button>
+                    </div>
                   );
                 })}
               </div>

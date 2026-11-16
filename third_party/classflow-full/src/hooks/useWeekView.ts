@@ -10,6 +10,7 @@ import {
   orderWeekdays,
 } from "../lib/date";
 import { buildSessions, getWeekStats } from "../lib/schedule";
+import { expandEventsForDates } from "../lib/eventRepeat";
 import { periodsForDate } from "../lib/periods";
 import {
   applyCalendarToSessions,
@@ -140,20 +141,15 @@ export function useWeekView({ data, prefs, timetable, now }: WeekViewParams) {
     [viewDates, prefs.autoHolidays, calendarOverrides],
   );
   const selectedDate = viewDates[selectedDay - 1] ?? viewDates[0];
-  const selectedEvents = selectedDate
-    ? events.filter((event) => event.date === dateKey(selectedDate))
-    : [];
-  const weekEvents = useMemo(() => {
-    const keys = new Set(viewDates.map((date) => dateKey(date)));
-    return events
-      .filter((event) => keys.has(event.date))
-      .sort((a, b) => {
-        if (a.date !== b.date) return a.date.localeCompare(b.date);
-        if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
-        return a.start.localeCompare(b.start);
-      });
-  }, [events, viewDates]);
-  const todayEvents = events.filter((event) => event.date === dateKey(now));
+  const selectedEvents = useMemo(
+    () => (selectedDate ? expandEventsForDates(events, [selectedDate]) : []),
+    [events, selectedDate],
+  );
+  const weekEvents = useMemo(() => expandEventsForDates(events, viewDates), [events, viewDates]);
+  const todayEvents = useMemo(
+    () => expandEventsForDates(events, [now]),
+    [events, todayKey],
+  );
 
   useEffect(() => {
     if (termState === "during" && week > semester.totalWeeks) {
