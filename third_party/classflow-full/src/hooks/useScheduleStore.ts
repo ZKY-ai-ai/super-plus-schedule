@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Preferences, ScheduleData, Theme, Timetable, TimetableLayout } from "../types";
 import { dateKey } from "../lib/date";
 import { getActiveTimetable } from "../lib/factory";
@@ -8,8 +8,47 @@ import { useReminderEngine } from "./useReminderEngine";
 
 export type ScheduleStore = ReturnType<typeof useScheduleStore>;
 
+const MAX_HISTORY = 50;
+
 export function useScheduleStore(now: Date) {
-  const [data, setData] = useState<ScheduleData>(() => loadSchedule());
+  const [data, setDataState] = useState<ScheduleData>(() => loadSchedule());
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  const undoStack = useRef<ScheduleData[]>([]);
+  const redoStack = useRef<ScheduleData[]>([]);
+  const [, setHistoryTick] = useState(0);
+
+  const setData = useCallback((update: ScheduleData | ((current: ScheduleData) => ScheduleData)) => {
+    const current = dataRef.current;
+    const next = typeof update === "function" ? update(current) : update;
+    if (!next || next === current) return;
+    undoStack.current = [...undoStack.current.slice(-(MAX_HISTORY - 1)), current];
+    redoStack.current = [];
+    dataRef.current = next;
+    setDataState(next);
+    setHistoryTick((tick) => tick + 1);
+  }, []);
+
+  const undo = useCallback((): boolean => {
+    const previous = undoStack.current.pop();
+    if (!previous) return false;
+    redoStack.current.push(dataRef.current);
+    dataRef.current = previous;
+    setDataState(previous);
+    setHistoryTick((tick) => tick + 1);
+    return true;
+  }, []);
+
+  const redo = useCallback((): boolean => {
+    const next = redoStack.current.pop();
+    if (!next) return false;
+    undoStack.current.push(dataRef.current);
+    dataRef.current = next;
+    setDataState(next);
+    setHistoryTick((tick) => tick + 1);
+    return true;
+  }, []);
+
   const [prefs, setPrefs] = useState<Preferences>(() => loadPreferences());
   const [storageOk, setStorageOk] = useState(true);
   const timetable = getActiveTimetable(data);
@@ -28,7 +67,7 @@ export function useScheduleStore(now: Date) {
         ),
       };
     });
-  }, []);
+  }, [setData]);
 
   useEffect(() => {
     setStorageOk(saveSchedule(data));
@@ -83,6 +122,10 @@ export function useScheduleStore(now: Date) {
     courses: timetable.courses,
     events: timetable.events,
     updateActiveTimetable,
+    undo,
+    redo,
+    canUndo: undoStack.current.length > 0,
+    canRedo: redoStack.current.length > 0,
     toggleTheme,
     setTheme,
     setAutoHolidays,

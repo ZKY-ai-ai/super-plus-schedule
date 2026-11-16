@@ -7,7 +7,9 @@ import {
   List,
   Plus,
   Printer,
+  Redo2,
   Tag,
+  Undo2,
 } from "lucide-react";
 import type { AppPage, Course, ImportDraft, ScheduleEvent, Session } from "./types";
 import { dateKey } from "./lib/date";
@@ -215,6 +217,21 @@ export default function App() {
         return;
       }
       if (document.querySelector("dialog[open]") || isTypingTarget(event.target)) return;
+      const mod = event.metaKey || event.ctrlKey;
+      if (mod && !event.altKey) {
+        const key = event.key.toLowerCase();
+        if (key === "z") {
+          event.preventDefault();
+          const done = event.shiftKey ? store.redo() : store.undo();
+          if (done) notify(event.shiftKey ? "已重做。" : "已撤销。");
+          return;
+        }
+        if (key === "y") {
+          event.preventDefault();
+          if (store.redo()) notify("已重做。");
+          return;
+        }
+      }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
 
       if (event.key.toLowerCase() === "n") {
@@ -244,7 +261,7 @@ export default function App() {
     };
     document.addEventListener("keydown", handleKeydown);
     return () => document.removeEventListener("keydown", handleKeydown);
-  }, [sidebarOpen, page, semester.totalWeeks, view, viewDates, viewDays, now]);
+  }, [sidebarOpen, page, semester.totalWeeks, view, viewDates, viewDays, now, store.undo, store.redo, notify]);
 
   const setAutoHolidays = (value: boolean) => {
     store.setAutoHolidays(value);
@@ -332,6 +349,30 @@ export default function App() {
                       <span>{prefs.layout === "list" ? "周列表" : "周全网格"}</span>
                     </div>
                     <div className="board-toolbar-right">
+                      <button
+                        className="icon-button"
+                        type="button"
+                        disabled={!store.canUndo}
+                        onClick={() => {
+                          if (store.undo()) notify("已撤销。", "info");
+                        }}
+                        aria-label="撤销"
+                        title="撤销（Ctrl/⌘+Z）"
+                      >
+                        <Undo2 size={17} />
+                      </button>
+                      <button
+                        className="icon-button"
+                        type="button"
+                        disabled={!store.canRedo}
+                        onClick={() => {
+                          if (store.redo()) notify("已重做。", "info");
+                        }}
+                        aria-label="重做"
+                        title="重做（Ctrl/⌘+Shift+Z）"
+                      >
+                        <Redo2 size={17} />
+                      </button>
                       <span className="board-meta">
                         {viewStats.sessionCount} 节 · {viewStats.courseCount} 门
                       </span>
