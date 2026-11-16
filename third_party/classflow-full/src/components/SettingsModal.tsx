@@ -14,6 +14,7 @@ import {
   Sparkles,
   X,
   Database,
+  Drum,
   GraduationCap,
   Trash2,
   Waves,
@@ -69,6 +70,7 @@ import {
 } from "../lib/ai";
 import { AiSettingsPanel } from "./ai/AiSettingsPanel";
 import { QqqPlayground } from "./playground/QqqPlayground";
+import { Woodfish } from "./woodfish/Woodfish";
 import { WhaleMascot } from "./WhaleMascot";
 
 type SettingsTab =
@@ -83,7 +85,8 @@ type SettingsTab =
   | "webdav"
   | "data"
   | "ai"
-  | "playground";
+  | "playground"
+  | "woodfish";
 
 interface SettingsModalProps {
   data: ScheduleData;
@@ -143,6 +146,7 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Database }> = [
   { id: "data", label: "数据与备份", icon: Database },
   { id: "ai", label: "笔记与 AI", icon: Sparkles },
   { id: "playground", label: "QQQ 游乐场", icon: Waves },
+  { id: "woodfish", label: "敲木鱼", icon: Drum },
 ];
 
 function isValidMonthDay(value: string): boolean {
@@ -381,7 +385,7 @@ export function SettingsModal({
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    if (tab === "ai" || tab === "playground") return;
+    if (tab === "ai" || tab === "playground" || tab === "woodfish") return;
     const name = draft.name.trim();
     if (!name) {
       setError("学期名称不能为空。");
@@ -467,9 +471,15 @@ export function SettingsModal({
       title="设置"
       onClose={onClose}
       footer={
-tab === "ai" || tab === "playground" ? (
+        tab === "ai" || tab === "playground" || tab === "woodfish" ? (
           <>
-            <p className="modal-foot-note">{tab === "playground" ? "这片水面只保存在本机" : "聊天与密钥只保存在本机"}</p>
+            <p className="modal-foot-note">
+              {tab === "playground"
+                ? "这片水面只保存在本机"
+                : tab === "woodfish"
+                  ? "功德只保存在本机"
+                  : "聊天与密钥只保存在本机"}
+            </p>
             <span className="modal-foot-spacer" />
             <button className="primary-button" type="button" onClick={onClose}>
               完成
@@ -1119,6 +1129,12 @@ tab === "ai" || tab === "playground" ? (
             {tab === "playground" ? (
               <section className="settings-pane" aria-label="QQQ 游乐场">
                 <QqqPlayground />
+              </section>
+            ) : null}
+
+            {tab === "woodfish" ? (
+              <section className="settings-pane" aria-label="敲木鱼">
+                <Woodfish />
               </section>
             ) : null}
           </div>

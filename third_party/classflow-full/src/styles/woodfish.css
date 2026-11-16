@@ -1,0 +1,424 @@
+/* --------------------------------------------------------------------------
+   敲木鱼（设置页彩蛋）
+   -------------------------------------------------------------------------- */
+
+.woodfish {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 4px 2px 6px;
+}
+
+.woodfish__head {
+  padding-top: 4px;
+  text-align: center;
+}
+
+.woodfish__head h3 {
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 27px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+.woodfish__head p {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+}
+
+/* 统计卡片：总计 / 当日 / 实时手速 */
+
+.woodfish__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.woodfish__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 11px 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.woodfish__stat-label {
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+
+.woodfish__stat-value {
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 25px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  line-height: 1.12;
+}
+
+.woodfish__stat-value small {
+  margin-left: 3px;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.woodfish__stat--speed .woodfish__stat-value {
+  font-size: 22px;
+}
+
+.woodfish__meter {
+  display: block;
+  height: 3px;
+  margin-top: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 80%, transparent);
+}
+
+.woodfish__meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--amber), var(--coral));
+  transition: width 140ms linear;
+}
+
+/* 敲击舞台 */
+
+.woodfish__stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 330px;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(255, 214, 156, 0.5), transparent 62%),
+    linear-gradient(180deg, #fbf3e1, #efe1c6);
+  box-shadow: inset 0 -26px 54px rgba(140, 94, 46, 0.09);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html[data-theme="dark"] .woodfish__stage {
+  background:
+    radial-gradient(circle at 50% 44%, rgba(206, 154, 84, 0.24), transparent 62%),
+    linear-gradient(180deg, #241c12, #181208);
+  box-shadow: inset 0 -26px 54px rgba(0, 0, 0, 0.34);
+}
+
+.woodfish__stage::before {
+  position: absolute;
+  inset: 0;
+  background: repeating-radial-gradient(
+    circle at 50% 56%,
+    rgba(146, 100, 52, 0.13) 0 1px,
+    transparent 1px 62px
+  );
+  content: "";
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+html[data-theme="dark"] .woodfish__stage::before {
+  background: repeating-radial-gradient(
+    circle at 50% 56%,
+    rgba(224, 176, 113, 0.1) 0 1px,
+    transparent 1px 62px
+  );
+}
+
+.woodfish__glow {
+  position: absolute;
+  width: 330px;
+  height: 330px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 205, 133, 0.45), transparent 62%);
+  transform: translateY(14px);
+  pointer-events: none;
+}
+
+html[data-theme="dark"] .woodfish__glow {
+  background: radial-gradient(circle, rgba(221, 164, 92, 0.2), transparent 62%);
+}
+
+.woodfish__fish-button {
+  position: relative;
+  z-index: 2;
+  width: clamp(168px, 46%, 258px);
+  padding: 0;
+  border: 0;
+  background: none;
+  outline: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.woodfish__fish-button:focus-visible {
+  border-radius: 26px;
+  outline: 2px solid var(--coral);
+  outline-offset: 6px;
+}
+
+.woodfish__fish {
+  display: block;
+  transform-origin: 50% 86%;
+  filter: drop-shadow(0 10px 18px rgba(74, 43, 15, 0.22));
+}
+
+.woodfish__fish svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.woodfish__fish.is-struck {
+  animation: woodfish-squash 240ms cubic-bezier(0.22, 0.9, 0.32, 1.2);
+}
+
+@keyframes woodfish-squash {
+  0% {
+    transform: scale(1, 1);
+  }
+  35% {
+    transform: scale(1.035, 0.94) translateY(4px);
+  }
+  70% {
+    transform: scale(0.985, 1.02);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+.woodfish__mallet {
+  position: absolute;
+  top: 3%;
+  right: 21%;
+  z-index: 3;
+  width: clamp(76px, 24%, 116px);
+  transform: rotate(-14deg);
+  transform-origin: 76% 20%;
+  filter: drop-shadow(0 8px 14px rgba(70, 40, 12, 0.18));
+  pointer-events: none;
+}
+
+.woodfish__mallet svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.woodfish__mallet.is-striking {
+  animation: woodfish-strike 230ms cubic-bezier(0.25, 0.9, 0.35, 1.15);
+}
+
+@keyframes woodfish-strike {
+  0% {
+    transform: rotate(-14deg);
+  }
+  38% {
+    transform: rotate(18deg);
+  }
+  100% {
+    transform: rotate(-14deg);
+  }
+}
+
+.woodfish__ring {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  width: 250px;
+  height: 250px;
+  border: 2px solid rgba(214, 158, 88, 0.7);
+  border-radius: 50%;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.45);
+  animation: woodfish-ring 640ms cubic-bezier(0.16, 0.7, 0.3, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes woodfish-ring {
+  0% {
+    opacity: 0.85;
+    transform: translate(-50%, -50%) scale(0.45);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.25);
+  }
+}
+
+.woodfish__merits {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.woodfish__merit {
+  position: absolute;
+  color: #8a4a17;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  text-shadow: 0 1px 8px rgba(255, 240, 214, 0.85);
+  transform: translate(-50%, 0);
+  animation: woodfish-rise 1100ms ease-out forwards;
+}
+
+html[data-theme="dark"] .woodfish__merit {
+  color: #f1c07c;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55);
+}
+
+@keyframes woodfish-rise {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.9);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -46px) scale(1.02);
+  }
+}
+
+.woodfish__hint {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  z-index: 3;
+  color: color-mix(in srgb, var(--ink) 52%, transparent);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  pointer-events: none;
+  transition: opacity 420ms ease;
+}
+
+.woodfish__hint.is-hidden {
+  opacity: 0;
+}
+
+/* 底栏：声音开关与说明 */
+
+.woodfish__tools {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.woodfish__sound {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-family: var(--sans);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.woodfish__sound:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+}
+
+.woodfish__sound:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 2px;
+}
+
+.woodfish__caption {
+  flex: 1 1 220px;
+  max-width: 440px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.7;
+  text-align: right;
+}
+
+@media (max-width: 760px) {
+  .woodfish {
+    gap: 12px;
+  }
+
+  .woodfish__head h3 {
+    font-size: 22px;
+  }
+
+  .woodfish__stats {
+    gap: 7px;
+  }
+
+  .woodfish__stat {
+    padding: 9px 10px 8px;
+  }
+
+  .woodfish__stat-value {
+    font-size: 21px;
+  }
+
+  .woodfish__stat--speed .woodfish__stat-value {
+    font-size: 19px;
+  }
+
+  .woodfish__stage {
+    min-height: 280px;
+    border-radius: 14px;
+  }
+
+  .woodfish__caption {
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .woodfish__fish.is-struck,
+  .woodfish__mallet.is-striking,
+  .woodfish__ring {
+    animation: none;
+  }
+
+  .woodfish__merit {
+    animation-duration: 600ms;
+  }
+
+  .woodfish__meter span {
+    transition: none;
+  }
+}
