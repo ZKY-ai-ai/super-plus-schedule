@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import type { FormEvent } from "react";
 import type {
+  CourseTemplate,
+  ImportDraft,
   ImportResult,
   Period,
   PeriodProfile,
@@ -25,6 +27,7 @@ import type {
 } from "../types";
 import { Modal } from "./Modal";
 import { DataSettingsTab } from "./settings/DataSettingsTab";
+import { PeriodGenerator } from "./settings/PeriodGenerator";
 import { GradesSettingsTab } from "./settings/GradesSettingsTab";
 import { TasksSettingsTab } from "./settings/TasksSettingsTab";
 import {
@@ -59,6 +62,11 @@ interface SettingsModalProps {
   onExportJson: () => Promise<ExportResult>;
   onExportIcs: () => Promise<ExportResult & { count: number }>;
   onImportFile: (file: File) => Promise<ImportResult>;
+  onApplyImportDraft: (draft: ImportDraft) => Promise<ImportResult>;
+  onDiscardImportDraft: () => void;
+  onSaveTemplate: (name: string) => ImportResult;
+  onApplyTemplate: (template: CourseTemplate) => ImportResult;
+  onDeleteTemplate: (id: string) => void;
   onPrint: () => void;
   onClearData: () => void;
   onToggleAutoHolidays: (value: boolean) => void;
@@ -120,6 +128,11 @@ export function SettingsModal({
   onExportJson,
   onExportIcs,
   onImportFile,
+  onApplyImportDraft,
+  onDiscardImportDraft,
+  onSaveTemplate,
+  onApplyTemplate,
+  onDeleteTemplate,
   onPrint,
   onClearData,
   onToggleAutoHolidays,
@@ -726,6 +739,15 @@ export function SettingsModal({
                   </p>
                 </div>
 
+                <PeriodGenerator
+                  periods={draft.periods}
+                  onGenerate={(periods) => {
+                    setDraft((current) => ({ ...current, periods }));
+                    if (profileId) {
+                      setProfilePeriods((current) => ({ ...current, [profileId]: periods }));
+                    }
+                  }}
+                />
 
                 <div className="period-table">
                   <div className="period-table-head">
@@ -771,9 +793,15 @@ export function SettingsModal({
 
             {tab === "data" ? (
               <DataSettingsTab
+                activeTimetableName={active.name}
                 onExportJson={onExportJson}
                 onExportIcs={onExportIcs}
                 onImportFile={onImportFile}
+                onApplyDraft={onApplyImportDraft}
+                onDiscardDraft={onDiscardImportDraft}
+                onSaveTemplate={onSaveTemplate}
+                onApplyTemplate={onApplyTemplate}
+                onDeleteTemplate={onDeleteTemplate}
                 onPrint={onPrint}
                 onClearData={onClearData}
               />

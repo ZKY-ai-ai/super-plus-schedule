@@ -3,17 +3,26 @@ import {
   CalendarRange,
   Database,
   Download,
+  FileClock,
+  LayoutTemplate,
   Printer,
   Trash2,
   Upload,
 } from "lucide-react";
-import type { ImportResult } from "../../types";
+import type { CourseTemplate, ImportDraft, ImportResult } from "../../types";
 import { isNativeApp, type ExportResult } from "../../lib/nativeFile";
+import { loadImportDraft, loadTemplates, MAX_TEMPLATES } from "../../lib/storage";
 
 interface DataSettingsTabProps {
+  activeTimetableName: string;
   onExportJson: () => Promise<ExportResult>;
   onExportIcs: () => Promise<ExportResult & { count: number }>;
   onImportFile: (file: File) => Promise<ImportResult>;
+  onApplyDraft: (draft: ImportDraft) => Promise<ImportResult>;
+  onDiscardDraft: () => void;
+  onSaveTemplate: (name: string) => ImportResult;
+  onApplyTemplate: (template: CourseTemplate) => ImportResult;
+  onDeleteTemplate: (id: string) => void;
   onPrint: () => void;
   onClearData: () => void;
 }
@@ -29,14 +38,34 @@ function deliveryMessage(delivery: ExportResult["delivery"], filename: string): 
   return `已导出 ${filename}`;
 }
 
+function formatDraftTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "刚刚";
+  return date.toLocaleString("zh-CN", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function DataSettingsTab({
+  activeTimetableName,
   onExportJson,
   onExportIcs,
   onImportFile,
+  onApplyDraft,
+  onDiscardDraft,
+  onSaveTemplate,
+  onApplyTemplate,
+  onDeleteTemplate,
   onPrint,
   onClearData,
 }: DataSettingsTabProps) {
   const [notice, setNotice] = useState<DataNotice | null>(null);
+  const [draft, setDraft] = useState<ImportDraft | null>(() => loadImportDraft());
+  const [templates, setTemplates] = useState<CourseTemplate[]>(() => loadTemplates());
+  const [templateName, setTemplateName] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const native = isNativeApp();
 
@@ -77,7 +106,42 @@ export function DataSettingsTab({
       tone: result.ok ? "success" : result.message.includes("取消") ? "info" : "error",
       message: result.message,
     });
+    setDraft(result.ok ? null : loadImportDraft());
     if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const handleApplyDraft = async () => {
+    if (!draft) return;
+    setNotice({ tone: "info", message: "正在导入草稿…" });
+    const result = await onApplyDraft(draft);
+    setNotice({ tone: result.ok ? "success" : "info", message: result.message });
+    if (result.ok) setDraft(null);
+  };
+
+  const handleDiscardDraft = () => {
+    onDiscardDraft();
+    setDraft(null);
+    setNotice({ tone: "info", message: "已丢弃这份导入草稿。" });
+  };
+
+  const handleSaveTemplate = () => {
+    const result = onSaveTemplate(templateName.trim() || `${activeTimetableName} 模板`);
+    setNotice({ tone: result.ok ? "success" : "error", message: result.message });
+    if (result.ok) {
+      setTemplates(loadTemplates());
+      setTemplateName("");
+    }
+  };
+
+  const handleApplyTemplate = (template: CourseTemplate) => {
+    const result = onApplyTemplate(template);
+    setNotice({ tone: result.ok ? "success" : "error", message: result.message });
+  };
+
+  const handleDeleteTemplate = (template: CourseTemplate) => {
+    onDeleteTemplate(template.id);
+    setTemplates(loadTemplates());
+    setNotice({ tone: "info", message: `已删除模板「${template.name}」。` });
   };
 
   return (
@@ -92,6 +156,35 @@ export function DataSettingsTab({
         <p className={`inline-notice inline-notice--${notice.tone}`} role="status">
           {notice.message}
         </p>
+      ) : null}
+
+      {draft ? (
+        <div className="import-draft-card">
+          <span className="import-draft-icon">
+            <FileClock size={17} />
+          </span>
+          <div className="import-draft-body">
+            <strong>{draft.fileName}</strong>
+            <small>
+              {formatDraftTime(draft.createdAt)} 留下 · 含 {draft.data.timetables.length} 套课表
+            </small>
+            <p>{draft.message}</p>
+          </div>
+          <div className="import-draft-actions">
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() => {
+                void handleApplyDraft();
+              }}
+            >
+              继续导入
+            </button>
+            <button className="ghost-button" type="button" onClick={handleDiscardDraft}>
+              丢弃
+            </button>
+          </div>
+        </div>
       ) : null}
 
       <div className="data-grid">
@@ -145,6 +238,78 @@ export function DataSettingsTab({
           void handleImport(event.target.files?.[0]);
         }}
       />
+
+      <div className="template-box">
+        <div className="template-head">
+          <span className="template-title">
+            <LayoutTemplate size={16} />
+            <strong>课表模板</strong>
+          </span>
+          <span className="storage-pill">
+            {templates.length}/{MAX_TEMPLATES}
+          </span>
+        </div>
+        <p className="template-hint">
+          把当前课表的全部课程存成模板，换学期或新课表时一键追加，节次和周次会自动裁剪。
+        </p>
+        <div className="template-save-row">
+          <input
+            className="template-name-input"
+            value={templateName}
+            maxLength={40}
+            placeholder={`${activeTimetableName} 模板`}
+            aria-label="模板名称"
+            onChange={(event) => setTemplateName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                handleSaveTemplate();
+              }
+            }}
+          />
+          <button
+            className="ghost-button"
+            type="button"
+            disabled={templates.length >= MAX_TEMPLATES}
+            onClick={handleSaveTemplate}
+          >
+            存为模板
+          </button>
+        </div>
+        {templates.length > 0 ? (
+          <ul className="template-list">
+            {templates.map((template) => (
+              <li className="template-item" key={template.id}>
+                <div className="template-item-text">
+                  <strong>{template.name}</strong>
+                  <small>
+                    {template.courses.length} 门课 · {template.totalWeeks} 周 ·{" "}
+                    {formatDraftTime(template.createdAt)}
+                  </small>
+                </div>
+                <div className="template-item-actions">
+                  <button
+                    className="ghost-button"
+                    type="button"
+                    onClick={() => handleApplyTemplate(template)}
+                  >
+                    套用
+                  </button>
+                  <button
+                    className="danger-ghost-button"
+                    type="button"
+                    onClick={() => handleDeleteTemplate(template)}
+                  >
+                    删除
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="template-empty">还没有自定义模板，先存一个试试。</p>
+        )}
+      </div>
 
       <div className="storage-box">
         <div>

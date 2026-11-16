@@ -531,6 +531,11 @@ export default function App() {
           onExportJson={actions.exportJson}
           onExportIcs={actions.exportIcs}
           onImportFile={actions.importFile}
+          onApplyImportDraft={actions.applyImportDraft}
+          onDiscardImportDraft={actions.discardImportDraft}
+          onSaveTemplate={actions.saveCurrentAsTemplate}
+          onApplyTemplate={actions.applyTemplate}
+          onDeleteTemplate={actions.deleteTemplate}
           onPrint={printTimetable}
           onClearData={() => void actions.clearAll()}
           onToggleAutoHolidays={setAutoHolidays}
