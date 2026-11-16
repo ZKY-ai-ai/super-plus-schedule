@@ -32,6 +32,7 @@ import { DataSettingsTab } from "./settings/DataSettingsTab";
 import { PeriodGenerator } from "./settings/PeriodGenerator";
 import { GradesSettingsTab } from "./settings/GradesSettingsTab";
 import { RemindersSettingsTab } from "./settings/RemindersSettingsTab";
+import { SystemCalendarPanel } from "./settings/SystemCalendarPanel";
 import { TasksSettingsTab } from "./settings/TasksSettingsTab";
 import {
   MAX_PERIODS,
@@ -62,7 +63,15 @@ import {
 import { AiSettingsPanel } from "./ai/AiSettingsPanel";
 import { WhaleMascot } from "./WhaleMascot";
 
-type SettingsTab = "term" | "periods" | "tasks" | "grades" | "reminders" | "data" | "ai";
+type SettingsTab =
+  | "term"
+  | "periods"
+  | "tasks"
+  | "grades"
+  | "reminders"
+  | "calendar"
+  | "data"
+  | "ai";
 
 interface SettingsModalProps {
   data: ScheduleData;
@@ -97,6 +106,7 @@ interface SettingsModalProps {
   onRenameProfile: (id: string, name: string) => void;
   onChangeTheme: (theme: Theme) => void;
   onOpenThirdPartyImport: () => void;
+  onOpenScreenshotImport: () => void;
   onOpenExcelImport: () => void;
   onOpenTimetableShare: () => void;
 }
@@ -112,6 +122,7 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Database }> = [
   { id: "tasks", label: "作业与任务", icon: ClipboardList },
   { id: "grades", label: "考试与成绩", icon: GraduationCap },
   { id: "reminders", label: "上课提醒", icon: Bell },
+  { id: "calendar", label: "系统日历", icon: CalendarDays },
   { id: "data", label: "数据与备份", icon: Database },
   { id: "ai", label: "笔记与 AI", icon: Sparkles },
 ];
@@ -171,6 +182,7 @@ export function SettingsModal({
   onRenameProfile,
   onChangeTheme,
   onOpenThirdPartyImport,
+  onOpenScreenshotImport,
   onOpenExcelImport,
   onOpenTimetableShare,
 }: SettingsModalProps) {
@@ -1013,6 +1025,14 @@ tab === "ai" ? (
               <RemindersSettingsTab />
             ) : null}
 
+            {tab === "calendar" ? (
+              <SystemCalendarPanel
+                timetable={active}
+                periodProfiles={data.periodProfiles}
+                autoHolidays={autoHolidays}
+              />
+            ) : null}
+
             {tab === "data" ? (
               <DataSettingsTab
                 activeTimetableName={active.name}
@@ -1021,6 +1041,7 @@ tab === "ai" ? (
                 onExportIcs={onExportIcs}
                 onImportFile={onImportFile}
                 onOpenThirdPartyImport={onOpenThirdPartyImport}
+                onOpenScreenshotImport={onOpenScreenshotImport}
                 onOpenExcelImport={onOpenExcelImport}
                 onOpenTimetableShare={onOpenTimetableShare}
                 onApplyDraft={onApplyImportDraft}

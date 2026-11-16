@@ -40,6 +40,7 @@ import { ImportPreviewDialog } from "./components/ImportPreviewDialog";
 import { SessionOverrideDialog } from "./components/SessionOverrideDialog";
 import { TextImportDialog } from "./components/TextImportDialog";
 import { ThirdPartyImportDialog } from "./components/ThirdPartyImportDialog";
+import { ScreenshotImportDialog } from "./components/ScreenshotImportDialog";
 import { TimetableShareDialog } from "./components/TimetableShareDialog";
 import { TimetableList } from "./components/TimetableList";
 import { TimetableManager } from "./components/TimetableManager";
@@ -97,6 +98,7 @@ export default function App() {
   const [textImportOpen, setTextImportOpen] = useState(false);
   const [excelImportOpen, setExcelImportOpen] = useState(false);
   const [thirdPartyImportOpen, setThirdPartyImportOpen] = useState(false);
+  const [screenshotImportOpen, setScreenshotImportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [sharedCourseText, setSharedCourseText] = useState("");
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
@@ -813,6 +815,21 @@ export default function App() {
         />
       ) : null}
 
+      {screenshotImportOpen ? (
+        <ScreenshotImportDialog
+          totalWeeks={viewSemester.totalWeeks}
+          onClose={() => setScreenshotImportOpen(false)}
+          onImport={(seeds) => {
+            actions.addTextCourses(seeds);
+            setScreenshotImportOpen(false);
+          }}
+          onOpenAiSettings={() => {
+            setScreenshotImportOpen(false);
+            navigate("ai");
+          }}
+        />
+      ) : null}
+
       {sessionMenu ? (
         <SessionOverrideDialog
           key={sessionMenu.session.id}
@@ -877,6 +894,10 @@ export default function App() {
           onOpenThirdPartyImport={() => {
             setSettingsOpen(false);
             setThirdPartyImportOpen(true);
+          }}
+          onOpenScreenshotImport={() => {
+            setSettingsOpen(false);
+            setScreenshotImportOpen(true);
           }}
           onOpenExcelImport={() => {
             setSettingsOpen(false);

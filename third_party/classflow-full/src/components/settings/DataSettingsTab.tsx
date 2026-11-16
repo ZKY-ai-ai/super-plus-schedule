@@ -8,6 +8,7 @@ import {
   FileSpreadsheet,
   LayoutTemplate,
   Printer,
+  ScanText,
   Share2,
   Trash2,
   Upload,
@@ -23,6 +24,7 @@ interface DataSettingsTabProps {
   onExportIcs: () => Promise<ExportResult & { count: number }>;
   onImportFile: (file: File) => Promise<ImportResult>;
   onOpenThirdPartyImport: () => void;
+  onOpenScreenshotImport: () => void;
   onOpenExcelImport: () => void;
   onOpenTimetableShare: () => void;
   onApplyDraft: (draft: ImportDraft) => Promise<ImportResult>;
@@ -63,6 +65,7 @@ export function DataSettingsTab({
   onExportIcs,
   onImportFile,
   onOpenThirdPartyImport,
+  onOpenScreenshotImport,
   onOpenExcelImport,
   onOpenTimetableShare,
   onApplyDraft,
@@ -237,6 +240,15 @@ export function DataSettingsTab({
           <span>
             <strong>WakeUp / 星链导入</strong>
             <small>分享口令、.wakeup_schedule 备份或星链课表 JSON</small>
+          </span>
+        </button>
+        <button className="data-card" type="button" onClick={onOpenScreenshotImport}>
+          <span className="data-card-icon">
+            <ScanText size={18} />
+          </span>
+          <span>
+            <strong>截图识课</strong>
+            <small>上传或粘贴课表截图，用已配置的视觉模型解析</small>
           </span>
         </button>
         <button className="data-card" type="button" onClick={onOpenExcelImport}>
