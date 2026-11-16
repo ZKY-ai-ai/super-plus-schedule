@@ -170,9 +170,11 @@ function normalizeCourse(value: unknown, semester: Semester, index: number): Cou
   if (slots.length === 0) return null;
   const toneValue = text(value.tone, 20) as ToneId;
   const now = new Date().toISOString();
+  const alias = text(value.alias, 40);
   return {
     id: text(value.id, 80) || uid(`course-${index + 1}`),
     name,
+    ...(alias ? { alias } : {}),
     teacher: text(value.teacher, 40),
     location: text(value.location, 60),
     tone: TONE_IDS.has(toneValue) ? toneValue : COURSE_TONES[index % COURSE_TONES.length].id,

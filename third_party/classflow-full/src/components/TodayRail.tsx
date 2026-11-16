@@ -21,7 +21,7 @@ import {
   getWeekdayNumber,
   WEEKDAYS,
 } from "../lib/date";
-import { getNextSession, isSessionNow } from "../lib/schedule";
+import { courseDisplayName, getNextSession, isSessionNow } from "../lib/schedule";
 
 interface TodayRailProps {
   now: Date;
@@ -34,6 +34,7 @@ interface TodayRailProps {
   days: number[];
   holiday: CalendarDayInfo | null;
   events: ScheduleEvent[];
+  showAliases: boolean;
   onSelectCourse: (course: Session["course"]) => void;
   onSelectEvent: (event: ScheduleEvent) => void;
   onAddEvent: () => void;
@@ -75,6 +76,7 @@ export function TodayRail({
   days,
   holiday,
   events,
+  showAliases,
   onSelectCourse,
   onSelectEvent,
   onAddEvent,
@@ -142,7 +144,7 @@ export function TodayRail({
                       style={{ background: toneColor(session.course.tone) }}
                     />
                     <span className="today-class-copy">
-                      <strong>{session.course.name}</strong>
+                      <strong>{courseDisplayName(session.course, showAliases)}</strong>
                       <span>{session.course.location || "地点待定"}</span>
                     </span>
                     {active ? <span className="live-badge">现在</span> : null}
@@ -199,7 +201,7 @@ export function TodayRail({
         </div>
         {next ? (
           <>
-            <h3>{next.session.course.name}</h3>
+            <h3>{courseDisplayName(next.session.course, showAliases)}</h3>
             <p className="next-meta">
               <span>{WEEKDAYS[next.session.day - 1].label}</span>
               <span>

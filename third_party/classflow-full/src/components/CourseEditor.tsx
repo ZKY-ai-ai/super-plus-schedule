@@ -37,6 +37,7 @@ interface DraftSlot extends CourseSlot {
 interface Draft {
   id: string;
   name: string;
+  alias: string;
   teacher: string;
   location: string;
   tone: ToneId;
@@ -67,6 +68,7 @@ function buildInitial(seed: EditorSeed, semester: Semester, courses: Course[]): 
     return {
       id: course.id,
       name: course.name,
+      alias: course.alias ?? "",
       teacher: course.teacher,
       location: course.location,
       tone: course.tone,
@@ -81,6 +83,7 @@ function buildInitial(seed: EditorSeed, semester: Semester, courses: Course[]): 
   return {
     id: uid("course"),
     name: "",
+    alias: "",
     teacher: "",
     location: "",
     tone: nextTone(courses),
@@ -223,8 +226,10 @@ export function CourseEditor({ seed, semester, courses, onClose, onSave }: Cours
     }));
 
     if (mergeTarget && mergeIntoExisting) {
+      const alias = draft.alias.trim();
       onSave({
         ...mergeTarget,
+        ...(alias ? { alias } : {}),
         teacher: draft.teacher.trim() || mergeTarget.teacher,
         location: draft.location.trim() || mergeTarget.location,
         note: mergeTarget.note || draft.note.trim(),
@@ -237,6 +242,7 @@ export function CourseEditor({ seed, semester, courses, onClose, onSave }: Cours
     const course: Course = {
       id: draft.id,
       name,
+      ...(draft.alias.trim() ? { alias: draft.alias.trim() } : {}),
       teacher: draft.teacher.trim(),
       location: draft.location.trim(),
       tone: draft.tone,
@@ -343,6 +349,18 @@ export function CourseEditor({ seed, semester, courses, onClose, onSave }: Cours
               </div>
             ) : null}
           </div>
+
+          <label className="field field--wide">
+            <span className="field-label">课程别名</span>
+            <input
+              className="field-input"
+              value={draft.alias}
+              onChange={(event) => setDraft((current) => ({ ...current, alias: event.target.value }))}
+              placeholder="课表上显示的短名字，例如：高数（选填）"
+              maxLength={40}
+            />
+            <small className="field-hint">打开课表顶部的「别名」开关后，网格与小列表会显示别名。</small>
+          </label>
 
           {!editing && sameNameCourses.length > 0 && !mergeTarget ? (
             <div className="same-name-teachers">

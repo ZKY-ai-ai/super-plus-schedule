@@ -8584,3 +8584,14 @@ html[data-theme="whale"] .week-pick.is-selected span {
     font-size: 9px;
   }
 }
+
+.icon-button.is-toggled {
+  color: var(--coral-deep);
+  border-color: var(--coral-soft);
+  background: var(--coral-soft);
+}
+
+.icon-button.is-toggled:hover {
+  color: var(--coral-deep);
+  border-color: var(--coral);
+}

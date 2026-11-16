@@ -157,6 +157,7 @@ export function makeSlot(
 
 export function makeCourse(input: {
   name: string;
+  alias?: string;
   teacher?: string;
   location?: string;
   tone?: ToneId;
@@ -165,9 +166,11 @@ export function makeCourse(input: {
   id?: string;
 }): Course {
   const now = new Date().toISOString();
+  const alias = input.alias?.trim();
   return {
     id: input.id ?? uid("course"),
     name: input.name.trim(),
+    ...(alias ? { alias } : {}),
     teacher: input.teacher?.trim() ?? "",
     location: input.location?.trim() ?? "",
     tone: input.tone ?? "clay",

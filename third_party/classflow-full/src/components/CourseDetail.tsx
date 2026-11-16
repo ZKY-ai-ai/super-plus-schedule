@@ -55,6 +55,7 @@ export function CourseDetail({
         <p className="eyebrow">THIS COURSE</p>
         <h3>{course.name}</h3>
         <div className="detail-hero-meta">
+          {course.alias ? <span>别名 · {course.alias}</span> : null}
           <span>{course.slots.length} 个时间段</span>
           <span>{minutesToHoursLabel(minutes)} / 周</span>
         </div>

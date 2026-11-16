@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 import type { Course, Period, Semester } from "../types";
 import { toneColor } from "../types";
 import {
+  courseDisplayName,
   courseWeeklyMinutes,
   formatSlotShort,
   formatWeeks,
@@ -14,6 +15,7 @@ import { minutesToHoursLabel } from "../lib/transfer";
 interface CourseLibraryProps {
   courses: Course[];
   semester: Semester;
+  showAliases: boolean;
   onAddCourse: () => void;
   onSelectCourse: (course: Course) => void;
   onEditCourse: (course: Course) => void;
@@ -26,6 +28,7 @@ function slotTime(slot: Course["slots"][number], periods: Period[]): string {
 export function CourseLibrary({
   courses,
   semester,
+  showAliases,
   onAddCourse,
   onSelectCourse,
   onEditCourse,
@@ -36,7 +39,7 @@ export function CourseLibrary({
     const keyword = query.trim().toLowerCase();
     if (!keyword) return ordered;
     return ordered.filter((course) =>
-      [course.name, course.teacher, course.location, course.note]
+      [course.name, course.alias, course.teacher, course.location, course.note]
         .join(" ")
         .toLowerCase()
         .includes(keyword),
@@ -151,8 +154,13 @@ export function CourseLibrary({
                   onSelectCourse(course);
                 }}
               >
-                {course.name}
+                {courseDisplayName(course, showAliases)}
               </button>
+              {course.alias && course.alias !== course.name ? (
+                <p className="course-card-alias">
+                  {showAliases ? `原名：${course.name}` : `别名：${course.alias}`}
+                </p>
+              ) : null}
               <div className="course-card-meta">
                 {course.teacher ? (
                   <span>

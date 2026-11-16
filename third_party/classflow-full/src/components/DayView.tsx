@@ -24,7 +24,7 @@ import {
   timeToMinutes,
   WEEKDAYS,
 } from "../lib/date";
-import { formatWeeks } from "../lib/schedule";
+import { formatWeeks, courseDisplayName } from "../lib/schedule";
 
 interface DayViewProps {
   semester: Semester;
@@ -36,6 +36,7 @@ interface DayViewProps {
   events: ScheduleEvent[];
   dayStatuses: Record<number, CalendarDayInfo | null>;
   selectedDay: number;
+  showAliases: boolean;
   now: Date;
   onSelectDay: (day: number) => void;
   onSelectCourse: (course: Session["course"]) => void;
@@ -69,6 +70,7 @@ export function DayView({
   events,
   dayStatuses,
   selectedDay,
+  showAliases,
   now,
   onSelectDay,
   onSelectCourse,
@@ -214,7 +216,9 @@ export function DayView({
                 </span>
                 <span className="day-course-body">
                   <span className="day-course-topline">
-                    <span className="day-course-name">{session.course.name}</span>
+                    <span className="day-course-name">
+                      {courseDisplayName(session.course, showAliases)}
+                    </span>
                     {ongoing ? <span className="live-badge">进行中</span> : null}
                   </span>
                   <span className="day-course-details">

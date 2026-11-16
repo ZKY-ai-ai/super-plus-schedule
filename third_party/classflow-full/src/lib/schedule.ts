@@ -58,6 +58,12 @@ export function normalizeTeacherKey(value: string): string {
   return value.trim().toLocaleLowerCase().replace(/\s+/g, "");
 }
 
+/** Prefer the user's alias when the alias switch is on and a value exists. */
+export function courseDisplayName(course: Pick<Course, "name" | "alias">, showAliases: boolean): string {
+  const alias = course.alias?.trim();
+  return showAliases && alias ? alias : course.name;
+}
+
 /**
  * Same-course matching uses both the course name and teacher. A blank teacher
  * on the existing course is treated as unknown, so it can be filled in later.

@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import { CalendarDays, CalendarPlus, Plus, Sparkles } from "lucide-react";
 import type { Course, LaidOutSession, Session, Semester } from "../types";
 import { toneColor } from "../types";
-import { formatWeeks, getPeriodNowProgress, groupSessionsByDay } from "../lib/schedule";
+import { courseDisplayName, formatWeeks, getPeriodNowProgress, groupSessionsByDay } from "../lib/schedule";
 import { getWeekdayNumber, WEEKDAYS } from "../lib/date";
 import type { CalendarDayInfo } from "../lib/holidays";
 
@@ -19,6 +19,7 @@ interface TimetableProps {
   sessions: Session[];
   dayStatuses: Record<number, CalendarDayInfo | null>;
   calendarSummary: { holidays: string[]; workdays: string[] };
+  showAliases: boolean;
   now: Date;
   onSelectCourse: (course: Course) => void;
   onPrevWeek: () => void;
@@ -51,6 +52,7 @@ export function Timetable({
   sessions,
   dayStatuses,
   calendarSummary,
+  showAliases,
   now,
   onSelectCourse,
   onPrevWeek,
@@ -244,10 +246,14 @@ export function Timetable({
                       style={courseBlockStyle(session)}
                       key={session.id}
                       onClick={() => onSelectCourse(session.course)}
-                      title={`${session.course.name}｜${session.course.location || "未填地点"}`}
+                      title={`${courseDisplayName(session.course, showAliases)}｜${
+                        session.course.location || "未填地点"
+                      }`}
                     >
                       <span className="course-block-top">
-                        <span className="course-block-name">{session.course.name}</span>
+                        <span className="course-block-name">
+                          {courseDisplayName(session.course, showAliases)}
+                        </span>
                         {conflict ? (
                           <span className="conflict-mark" title="时间冲突">
                             !

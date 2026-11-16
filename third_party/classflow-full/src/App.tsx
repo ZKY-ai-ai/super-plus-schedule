@@ -6,6 +6,7 @@ import {
   LayoutGrid,
   Plus,
   Printer,
+  Tag,
 } from "lucide-react";
 import type { AppPage, Course, ScheduleEvent } from "./types";
 import { dateKey } from "./lib/date";
@@ -325,6 +326,16 @@ export default function App() {
                         {viewStats.sessionCount} 节 · {viewStats.courseCount} 门
                       </span>
                       <button
+                        className={`icon-button ${prefs.showAliases ? "is-toggled" : ""}`}
+                        type="button"
+                        onClick={() => store.setShowAliases(!prefs.showAliases)}
+                        aria-label="显示课程别名"
+                        aria-pressed={prefs.showAliases}
+                        title={prefs.showAliases ? "正在显示课程别名" : "显示课程别名"}
+                      >
+                        <Tag size={17} />
+                      </button>
+                      <button
                         className="icon-button"
                         type="button"
                         onClick={() => setWallpaperOpen(true)}
@@ -357,6 +368,7 @@ export default function App() {
                     sessions={viewSessions}
                     dayStatuses={view.viewDayStatuses}
                     calendarSummary={view.calendarSummary}
+                    showAliases={prefs.showAliases}
                     now={now}
                     onSelectCourse={openCourseDetail}
                     onPrevWeek={() => view.goToWeek(view.week - 1)}
@@ -389,6 +401,7 @@ export default function App() {
               currentDayStatuses={view.currentDayStatuses}
               todayNumber={view.todayNumber}
               todayEvents={view.todayEvents}
+              showAliases={prefs.showAliases}
               onPrevWeek={() => view.goToWeek(view.week - 1)}
               onNextWeek={() => view.goToWeek(view.week + 1)}
               onToday={view.goToday}
@@ -424,6 +437,7 @@ export default function App() {
             <CourseLibrary
               courses={courses}
               semester={viewSemester}
+              showAliases={prefs.showAliases}
               onAddCourse={() => openEditor()}
               onSelectCourse={openCourseDetail}
               onEditCourse={(course) => openEditor({ course })}

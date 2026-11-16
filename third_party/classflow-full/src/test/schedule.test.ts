@@ -13,6 +13,7 @@ import {
   compressWeeks,
   formatWeeks,
   findMergeCourse,
+  courseDisplayName,
 } from "../lib/schedule";
 import { dateKey, getWeekDates } from "../lib/date";
 import type { Course, CourseSlot, Session } from "../types";
@@ -133,6 +134,13 @@ describe("schedule rules", () => {
       period: 1,
     });
     expect(getUsedMaxPeriod(timetable.courses)).toBe(10);
+  });
+
+  it("uses the course alias only when the switch is on", () => {
+    const aliasCourse = { ...course("数据结构与算法", []), alias: "数构" };
+    expect(courseDisplayName(aliasCourse, true)).toBe("数构");
+    expect(courseDisplayName(aliasCourse, false)).toBe("数据结构与算法");
+    expect(courseDisplayName(course("大学英语", []), true)).toBe("大学英语");
   });
 });
 

@@ -33,6 +33,7 @@ interface AgendaPageProps {
   currentDayStatuses: Record<number, CalendarDayInfo | null>;
   todayNumber: number;
   todayEvents: ScheduleEvent[];
+  showAliases: boolean;
   onPrevWeek: () => void;
   onNextWeek: () => void;
   onToday: () => void;
@@ -64,6 +65,7 @@ export function AgendaPage({
   currentDayStatuses,
   todayNumber,
   todayEvents,
+  showAliases,
   onPrevWeek,
   onNextWeek,
   onToday,
@@ -126,6 +128,7 @@ export function AgendaPage({
               events={selectedEvents}
               dayStatuses={dayStatuses}
               selectedDay={selectedDay}
+              showAliases={showAliases}
               now={now}
               onSelectDay={onSelectDay}
               onSelectCourse={onSelectCourse}
@@ -204,6 +207,7 @@ export function AgendaPage({
           days={currentDays}
           holiday={currentDayStatuses[todayNumber] ?? null}
           events={todayEvents}
+          showAliases={showAliases}
           onSelectCourse={onSelectCourse}
           onSelectEvent={onSelectEvent}
           onAddEvent={() => onAddEventAt("")}

@@ -53,6 +53,15 @@ describe("v2 schedule normalization", () => {
     expect(normalized?.timetables[0].courses[0].slots[0].weekEnd).toBe(7);
   });
 
+  it("keeps a trimmed course alias and drops blank aliases", () => {
+    const data = createDemoSchedule(new Date(2026, 10, 12));
+    data.timetables[0].courses[0].alias = "  数构  ";
+    data.timetables[0].courses[1].alias = "   ";
+    const normalized = normalizeSchedule({ data });
+    expect(normalized?.timetables[0].courses[0].alias).toBe("数构");
+    expect(normalized?.timetables[0].courses[1].alias).toBeUndefined();
+  });
+
   it("keeps at least two period profiles and one timetable", () => {
     const normalized = normalizeSchedule({
       version: 2,
