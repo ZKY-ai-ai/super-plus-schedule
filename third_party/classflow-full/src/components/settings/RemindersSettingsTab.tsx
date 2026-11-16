@@ -179,6 +179,20 @@ export function RemindersSettingsTab() {
         <span className="switch" aria-hidden="true" />
       </label>
 
+      <label className="toggle-row">
+        <span>
+          <strong>DDL 递进提醒</strong>
+          <small>任务截止前 24 小时、3 小时与 30 分钟各提醒一次。</small>
+        </span>
+        <input
+          type="checkbox"
+          checked={settings.taskReminders}
+          onChange={(event) => update({ taskReminders: event.target.checked })}
+          disabled={!settings.enabled}
+        />
+        <span className="switch" aria-hidden="true" />
+      </label>
+
       <p className="settings-note">
         网页版需要保持标签页在运行才能弹出通知；安装为 PWA 后由系统接管通知。
       </p>

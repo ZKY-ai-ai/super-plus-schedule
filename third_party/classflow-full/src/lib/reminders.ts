@@ -11,6 +11,8 @@ export interface ReminderSettings {
   tomorrowSummaryTime: string;
   /** Exam reminders at 7 days / 1 day / 2 hours before the start. */
   examReminders: boolean;
+  /** Deadline reminders at 24h / 3h / 30m before a task due time. */
+  taskReminders: boolean;
 }
 
 /** Keyed by reminder id, value is the ISO time it was sent. */
@@ -38,6 +40,7 @@ export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
   tomorrowSummary: true,
   tomorrowSummaryTime: "21:30",
   examReminders: true,
+  taskReminders: true,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -64,6 +67,7 @@ export function normalizeReminderSettings(raw: unknown): ReminderSettings {
       DEFAULT_REMINDER_SETTINGS.tomorrowSummaryTime,
     ),
     examReminders: object.examReminders === undefined ? true : object.examReminders === true,
+    taskReminders: object.taskReminders === undefined ? true : object.taskReminders === true,
   };
 }
 
@@ -229,6 +233,11 @@ export function describeSentKey(key: string): string {
   if (parts[0] === "exam") {
     const node = parts[3] === "7d" ? "考前一周" : parts[3] === "1d" ? "考前一天" : "考前两小时";
     return `${node}提醒 · ${parts[2] ?? ""}`;
+  }
+  if (parts[0] === "task") {
+    const node =
+      parts[3] === "24h" ? "24 小时" : parts[3] === "3h" ? "3 小时" : parts[3] === "30m" ? "30 分钟" : "前一天";
+    return `DDL ${node}提醒 · ${parts[2] ?? ""}`;
   }
   return key;
 }

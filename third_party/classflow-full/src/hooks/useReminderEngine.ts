@@ -11,6 +11,7 @@ import { buildSessions } from "../lib/schedule";
 import { periodsForDate } from "../lib/periods";
 import { isHolidayDate } from "../lib/holidays";
 import { loadExams, planExamReminders } from "../lib/exams";
+import { loadTasks, planTaskReminders } from "../lib/tasks";
 import {
   loadReminderSettings,
   loadSentLog,
@@ -82,6 +83,16 @@ export function useReminderEngine({ data, timetable, autoHolidays }: ReminderEng
             exams: loadExams(timetable.id),
             courseName: (courseId) =>
               timetable.courses.find((course) => course.id === courseId)?.name ?? "",
+            sent: sentRef.current,
+          }),
+        );
+      }
+      if (settings.taskReminders) {
+        planned.push(
+          ...planTaskReminders({
+            now,
+            timetableId: timetable.id,
+            tasks: loadTasks(timetable.id),
             sent: sentRef.current,
           }),
         );

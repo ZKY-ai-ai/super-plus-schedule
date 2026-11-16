@@ -1,5 +1,6 @@
 import { dayDiff, parseDateKey, timeToMinutes } from "./date";
 import { uid } from "./factory";
+import type { PlannedReminder, SentLog } from "./reminders";
 
 export interface Subtask {
   id: string;
@@ -271,4 +272,78 @@ export function parseTasksJson(source: string): { ok: boolean; tasks: Task[]; er
     return { ok: false, tasks: [], error: "没有找到带标题的任务。" };
   }
   return { ok: true, tasks };
+}
+
+function taskDue(task: Task): Date | null {
+  if (!DATE_RE.test(task.dueDate)) return null;
+  const base = parseDateKey(task.dueDate);
+  if (TIME_RE.test(task.dueTime)) {
+    const minutes = timeToMinutes(task.dueTime);
+    return new Date(
+      base.getFullYear(),
+      base.getMonth(),
+      base.getDate(),
+      Math.floor(minutes / 60),
+      minutes % 60,
+    );
+  }
+  return new Date(base.getFullYear(), base.getMonth(), base.getDate(), 23, 59);
+}
+
+interface TaskReminderNode {
+  id: string;
+  lead: string;
+  target: Date;
+  windowMinutes: number;
+}
+
+function nodesFor(due: Date, hasTime: boolean): TaskReminderNode[] {
+  if (hasTime) {
+    return [
+      { id: "24h", lead: "24 小时后截止", target: new Date(due.getTime() - 24 * 60 * 60_000), windowMinutes: 12 * 60 },
+      { id: "3h", lead: "3 小时后截止", target: new Date(due.getTime() - 3 * 60 * 60_000), windowMinutes: 120 },
+      { id: "30m", lead: "30 分钟后截止", target: new Date(due.getTime() - 30 * 60_000), windowMinutes: 30 },
+    ];
+  }
+  const evening = new Date(due.getFullYear(), due.getMonth(), due.getDate() - 1, 20, 0);
+  return [{ id: "1d", lead: "明天截止", target: evening, windowMinutes: 12 * 60 }];
+}
+
+export interface TaskReminderPlanInput {
+  now: Date;
+  timetableId: string;
+  tasks: Task[];
+  sent: SentLog;
+}
+
+/**
+ * Escalating deadline reminders: 24h / 3h / 30m before a timed deadline, or
+ * one evening-before notice when only a date is known.
+ */
+export function planTaskReminders(input: TaskReminderPlanInput): PlannedReminder[] {
+  const { now, tasks, sent } = input;
+  const planned: PlannedReminder[] = [];
+  for (const task of tasks) {
+    if (task.done) continue;
+    const due = taskDue(task);
+    if (!due || due.getTime() <= now.getTime()) continue;
+    const hasTime = TIME_RE.test(task.dueTime);
+    for (const node of nodesFor(due, hasTime)) {
+      if (now.getTime() < node.target.getTime()) continue;
+      if (now.getTime() - node.target.getTime() > node.windowMinutes * 60_000) continue;
+      const key = `task:${input.timetableId}:${task.id}:${node.id}`;
+      if (sent[key]) continue;
+      const remaining = subtaskProgress(task);
+      const pending = remaining.total - remaining.done;
+      const dueText = hasTime
+        ? `${task.dueDate.slice(5).replace("-", "/")} ${task.dueTime}`
+        : task.dueDate.slice(5).replace("-", "/");
+      planned.push({
+        key,
+        title: `DDL 提醒 · ${task.title}`,
+        body: `${node.lead}（${dueText}）${pending > 0 ? `，还有 ${pending} 个子任务未完成` : ""}。`,
+      });
+    }
+  }
+  return planned;
 }

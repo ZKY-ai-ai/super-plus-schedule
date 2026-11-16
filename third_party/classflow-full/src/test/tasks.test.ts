@@ -5,6 +5,7 @@ import {
   makeTask,
   normalizeTasks,
   parseTasksJson,
+  planTaskReminders,
   removeSubtask,
   subtaskProgress,
   taskBucket,
@@ -155,5 +156,67 @@ describe("task grouping and countdown", () => {
     });
     expect(taskCountdown(task("明天", "2026-11-17", "18:30"), now).text).toBe("明天 18:30");
     expect(taskCountdown(task("没日子", ""), now).tone).toBe("muted");
+  });
+});
+describe("deadline reminders", () => {
+  const plan = (now: Date, tasks = [
+    makeTask({
+      id: "t1",
+      title: "交实验报告",
+      dueDate: "2026-11-20",
+      dueTime: "18:00",
+      subtasks: [
+        { id: "s1", title: "写摘要", done: false },
+        { id: "s2", title: "画图", done: true },
+      ],
+    }),
+  ], sent = {}) =>
+    planTaskReminders({ now, timetableId: "tt-1", tasks, sent });
+
+  it("escalates at 24h, 3h and 30m before a timed deadline", () => {
+    const dayBefore = plan(new Date(2026, 10, 19, 20, 0));
+    expect(dayBefore.map((item) => item.key)).toEqual(["task:tt-1:t1:24h"]);
+    expect(dayBefore[0].title).toBe("DDL 提醒 · 交实验报告");
+    expect(dayBefore[0].body).toContain("24 小时后截止");
+    expect(dayBefore[0].body).toContain("还有 1 个子任务未完成");
+
+    const threeHours = plan(
+      new Date(2026, 10, 20, 15, 30),
+      undefined,
+      { "task:tt-1:t1:24h": "2026-11-19T12:00:00.000Z" },
+    );
+    expect(threeHours.map((item) => item.key)).toEqual(["task:tt-1:t1:3h"]);
+
+    const halfHour = plan(
+      new Date(2026, 10, 20, 17, 40),
+      undefined,
+      { "task:tt-1:t1:24h": "2026-11-19T12:00:00.000Z", "task:tt-1:t1:3h": "2026-11-20T07:00:00.000Z" },
+    );
+    expect(halfHour.map((item) => item.key)).toEqual(["task:tt-1:t1:30m"]);
+    expect(halfHour[0].body).toContain("30 分钟后截止");
+  });
+
+  it("reminds the evening before when only a date is known", () => {
+    const tasks = [makeTask({ id: "t2", title: "读书报告", dueDate: "2026-11-20" })];
+    const planned = plan(new Date(2026, 10, 19, 21, 0), tasks);
+    expect(planned.map((item) => item.key)).toEqual(["task:tt-1:t2:1d"]);
+    expect(planned[0].body).toContain("明天截止");
+    expect(planned[0].body).toContain("11/20");
+    expect(plan(new Date(2026, 10, 18, 21, 0), tasks)).toHaveLength(0);
+  });
+
+  it("skips done, undated and already-due tasks", () => {
+    const now = new Date(2026, 10, 20, 17, 40);
+    const base = { dueDate: "2026-11-20", dueTime: "18:00" };
+    expect(plan(now, [{ ...makeTask({ title: "已完成", ...base }), done: true }])).toHaveLength(0);
+    expect(plan(now, [makeTask({ title: "无日期" })])).toHaveLength(0);
+    expect(plan(now, [makeTask({ title: "已过期", dueDate: "2026-11-20", dueTime: "17:00" })])).toHaveLength(0);
+    expect(
+      plan(now, undefined, {
+        "task:tt-1:t1:24h": "2026-11-19T12:00:00.000Z",
+        "task:tt-1:t1:3h": "2026-11-20T07:00:00.000Z",
+        "task:tt-1:t1:30m": "2026-11-20T09:35:00.000Z",
+      }),
+    ).toHaveLength(0);
   });
 });
