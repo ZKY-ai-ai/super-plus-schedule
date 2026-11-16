@@ -10,6 +10,7 @@ interface PlanPageProps {
   onChangeTab: (tab: PlanTab) => void;
   now: Date;
   week: number;
+  term: string;
   dates: Date[];
   periods: Period[];
   sessions: Session[];
@@ -34,6 +35,7 @@ const TABS: Array<{ id: PlanTab; label: string; hint: string; icon: typeof Compa
 export function PlanPage({
   now,
   week,
+  term,
   dates,
   periods,
   sessions,
@@ -91,8 +93,12 @@ export function PlanPage({
         <StudyPanel
           now={now}
           week={week}
+          term={term}
           todaySessions={todaySessions}
           todayPeriods={todayPeriods}
+          weekSessions={sessions}
+          weekPeriods={periods}
+          weekDates={dates}
           courses={courses}
           events={events}
           preferences={preferences}

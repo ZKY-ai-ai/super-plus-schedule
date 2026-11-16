@@ -19,6 +19,7 @@ import type { Course, Period, ScheduleEvent, Session } from "../../types";
 import { toneColor } from "../../types";
 import { dateKey, formatDuration, minutesToTime, WEEKDAYS } from "../../lib/date";
 import { findDayGaps, type GapPreferences } from "../../lib/gaps";
+import { WeeklyShareCard } from "./WeeklyShareCard";
 import {
   DEFAULT_POMODORO,
   PRIORITY_LABELS,
@@ -46,8 +47,12 @@ import {
 interface StudyPanelProps {
   now: Date;
   week: number;
+  term: string;
   todaySessions: Session[];
   todayPeriods: Period[];
+  weekSessions: Session[];
+  weekPeriods: Period[];
+  weekDates: Date[];
   courses: Course[];
   events: ScheduleEvent[];
   preferences: GapPreferences;
@@ -88,8 +93,12 @@ function phaseMinutes(phase: PomodoroPhase): number {
 export function StudyPanel({
   now,
   week,
+  term,
   todaySessions,
   todayPeriods,
+  weekSessions,
+  weekPeriods,
+  weekDates,
   courses,
   events,
   preferences,
@@ -768,6 +777,17 @@ export function StudyPanel({
           </ul>
         )}
       </section>
+
+      <WeeklyShareCard
+        now={now}
+        week={week}
+        term={term}
+        weekDates={weekDates}
+        sessions={weekSessions}
+        periods={weekPeriods}
+        tasks={tasks}
+        logs={logs}
+      />
     </div>
   );
 }
