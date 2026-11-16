@@ -1,0 +1,206 @@
+/* ==========================================================================
+   F122 · 写入设备系统日历
+   ========================================================================== */
+
+.system-calendar-pane .system-calendar-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.system-calendar-pane .system-calendar-status-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+.system-calendar-pane .system-calendar-status-icon.is-ok {
+  color: var(--success);
+  border-color: var(--success-soft);
+  background: var(--success-soft);
+}
+
+.system-calendar-pane .system-calendar-status-icon.is-off {
+  color: var(--amber);
+  border-color: var(--amber-soft);
+  background: var(--amber-soft);
+}
+
+.system-calendar-pane .system-calendar-status-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.system-calendar-pane .system-calendar-status-copy strong {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.system-calendar-pane .system-calendar-status-copy small {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.system-calendar-pane .system-calendar-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface);
+  white-space: nowrap;
+}
+
+.system-calendar-pane .system-calendar-badge.is-ok {
+  color: var(--success);
+  border-color: var(--success-soft);
+  background: var(--success-soft);
+}
+
+.system-calendar-pane .system-calendar-badge.is-off {
+  color: var(--amber);
+  border-color: var(--amber-soft);
+  background: var(--amber-soft);
+}
+
+.system-calendar-pane .system-calendar-permission {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-3);
+}
+
+.system-calendar-pane .system-calendar-permission > div {
+  display: grid;
+  gap: 3px;
+}
+
+.system-calendar-pane .system-calendar-permission strong {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.system-calendar-pane .system-calendar-permission small {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.system-calendar-pane .system-calendar-form {
+  display: grid;
+  gap: 14px;
+}
+
+.system-calendar-pane .system-calendar-field {
+  margin: 0;
+}
+
+.system-calendar-pane .system-calendar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.system-calendar-pane .system-calendar-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.system-calendar-pane .system-calendar-summary span {
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.system-calendar-pane .system-calendar-summary strong {
+  font-family: var(--display);
+  font-size: 22px;
+  color: var(--ink);
+  line-height: 1.1;
+}
+
+.system-calendar-pane .system-calendar-fallback {
+  padding: 14px 16px;
+  border: 1px solid var(--amber-soft);
+  border-radius: var(--radius);
+  background: var(--amber-soft);
+}
+
+.system-calendar-pane .system-calendar-fallback p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--ink-2);
+}
+
+.system-calendar-pane .system-calendar-ics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.system-calendar-pane .system-calendar-ics small {
+  flex: 1;
+  min-width: 180px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.system-calendar-pane .is-spinning {
+  animation: system-calendar-spin 0.9s linear infinite;
+}
+
+@keyframes system-calendar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 520px) {
+  .system-calendar-pane .system-calendar-permission {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .system-calendar-pane .system-calendar-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .system-calendar-pane .system-calendar-actions .primary-button,
+  .system-calendar-pane .system-calendar-actions .secondary-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
