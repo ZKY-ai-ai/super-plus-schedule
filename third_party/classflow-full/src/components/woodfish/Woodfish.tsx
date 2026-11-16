@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   CSSProperties,
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
+  RefObject,
 } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import {
@@ -18,49 +19,21 @@ import {
 /** 手速进度条画到 10 次/秒就满了，再快也只算满格。 */
 const METER_FULL_SPEED = 10;
 const MERIT_LABELS = ["功德 +1", "烦恼 -1", "今日顺遂", "心平气和"];
+/** 四条横向泳道轮转，连点时飘字错开落点，避免叠成一团看不清。 */
+const MERIT_LANES = [32, 45, 58, 71];
+const MERIT_POOL = 6;
+const SPARK_POOL = 10;
+const SPARK_SIZES = [5, 3.5, 4.5];
 
-interface MeritFloat {
-  id: number;
-  x: number;
-  y: number;
-  label: string;
-}
-
-interface Spark {
-  id: number;
-  dx: number;
-  dy: number;
-  size: number;
+interface Mote {
+  left: number;
+  top: number;
   delay: number;
-  tone: number;
+  duration: number;
+  size: number;
 }
 
-/** 用敲击序号做种子，保证同一次敲击的火星在重渲染时不跳变。 */
-function makeSparks(seed: number): Spark[] {
-  const sparks: Spark[] = [];
-  for (let i = 0; i < 9; i++) {
-    const angle = (i / 9) * Math.PI * 2 + (((seed * 37 + i * 13) % 10) / 10) * 0.7;
-    const distance = 52 + ((seed * 53 + i * 29) % 48);
-    sparks.push({
-      id: i,
-      dx: Math.cos(angle) * distance,
-      dy: Math.sin(angle) * distance * 0.82 - 16,
-      size: 3 + ((seed * 17 + i * 7) % 4),
-      delay: i * 13,
-      tone: i % 3,
-    });
-  }
-  return sparks;
-}
-
-function speedMood(speed: number): { label: string; tone: string } {
-  if (speed < 0.5) return { label: "入定", tone: "calm" };
-  if (speed < 2.5) return { label: "匀速", tone: "steady" };
-  if (speed < 5) return { label: "疾风", tone: "fast" };
-  return { label: "狂敲", tone: "wild" };
-}
-
-const MOTES = [
+const MOTES: Mote[] = [
   { left: 12, top: 78, delay: 0, duration: 9, size: 3 },
   { left: 24, top: 88, delay: 2.4, duration: 11, size: 2 },
   { left: 38, top: 82, delay: 5.1, duration: 8, size: 3 },
@@ -71,72 +44,97 @@ const MOTES = [
   { left: 46, top: 94, delay: 7.8, duration: 13, size: 2 },
 ];
 
+function speedMood(speed: number): { label: string; tone: string } {
+  if (speed < 0.5) return { label: "入定", tone: "calm" };
+  if (speed < 2.5) return { label: "匀速", tone: "steady" };
+  if (speed < 5) return { label: "疾风", tone: "fast" };
+  return { label: "狂敲", tone: "wild" };
+}
+
 function formatCount(value: number): string {
   return value.toLocaleString("zh-CN");
 }
 
-function WoodenFishArt() {
+/**
+ * 木鱼本体：分层渐变 + 雕刻环 + 云纹 + 月牙口，木纹阴影用静态滤镜一次栅格化，
+ * 动画只跑 transform/opacity，不触发重绘。
+ */
+function WoodenFishArt({ mouthRef }: { mouthRef: RefObject<SVGGElement | null> }) {
   return (
-    <svg viewBox="0 0 240 200" role="img" aria-hidden="true" focusable="false">
+    <svg viewBox="0 0 260 210" role="img" aria-hidden="true" focusable="false">
       <defs>
-        <linearGradient id="woodfish-body" x1="56" y1="58" x2="198" y2="168" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#e2a768" />
-          <stop offset="0.5" stopColor="#b2743a" />
-          <stop offset="1" stopColor="#7c441d" />
-        </linearGradient>
-        <linearGradient id="woodfish-tail" x1="20" y1="50" x2="96" y2="146" gradientUnits="userSpaceOnUse">
+        <radialGradient id="wf-body" cx="0.36" cy="0.28" r="0.98">
+          <stop offset="0" stopColor="#ffdfae" />
+          <stop offset="0.35" stopColor="#f0b471" />
+          <stop offset="0.68" stopColor="#c98d4e" />
+          <stop offset="0.88" stopColor="#9a6430" />
+          <stop offset="1" stopColor="#6f411c" />
+        </radialGradient>
+        <radialGradient id="wf-sheen" cx="0.32" cy="0.16" r="0.5">
+          <stop offset="0" stopColor="#fff6e2" stopOpacity="0.5" />
+          <stop offset="1" stopColor="#fff6e2" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="wf-tail" x1="18" y1="60" x2="92" y2="150" gradientUnits="userSpaceOnUse">
           <stop offset="0" stopColor="#b5763c" />
           <stop offset="1" stopColor="#6e3b17" />
         </linearGradient>
-        <radialGradient id="woodfish-gloss" cx="0.33" cy="0.18" r="0.7">
-          <stop offset="0" stopColor="#ffe9c4" stopOpacity="0.8" />
-          <stop offset="1" stopColor="#ffe9c4" stopOpacity="0" />
+        <radialGradient id="wf-eye" cx="0.35" cy="0.3" r="0.9">
+          <stop offset="0" stopColor="#5a3216" />
+          <stop offset="0.55" stopColor="#2b1508" />
+          <stop offset="1" stopColor="#120701" />
         </radialGradient>
-        <radialGradient id="woodfish-slit" cx="0.5" cy="0.3" r="0.8">
-          <stop offset="0" stopColor="#241106" />
-          <stop offset="1" stopColor="#432312" />
+        <radialGradient id="wf-slit" cx="0.5" cy="0.2" r="1">
+          <stop offset="0" stopColor="#1d0c02" />
+          <stop offset="1" stopColor="#3d2010" />
         </radialGradient>
-        <filter id="woodfish-shadow" x="-50%" y="-120%" width="200%" height="340%">
-          <feGaussianBlur stdDeviation="4.5" />
+        <filter id="wf-blur" x="-60%" y="-200%" width="220%" height="500%">
+          <feGaussianBlur stdDeviation="5" />
         </filter>
       </defs>
 
-      <ellipse cx="128" cy="176" rx="66" ry="9" fill="#3a2412" opacity="0.3" filter="url(#woodfish-shadow)" />
+      {/* 地面投影 */}
+      <ellipse cx="150" cy="188" rx="78" ry="10" fill="#3a2412" opacity="0.28" filter="url(#wf-blur)" />
 
-      <g className="woodfish__tail">
-        <path
-          d="M82 118C58 112 32 92 18 58c-2-5 2-8 7-6 16 7 34 10 48 22 9 8 15 18 16 28 1 6-2 10-7 16Z"
-          fill="url(#woodfish-tail)"
-        />
-        <path
-          d="M80 122C62 124 44 118 30 104c14-2 30 0 42 8 4 3 6 6 8 10Z"
-          fill="#8a5226"
-          opacity="0.85"
-        />
-        <path d="M40 66c12 12 24 26 32 40" stroke="#5d3214" strokeWidth="2.4" strokeLinecap="round" opacity="0.45" fill="none" />
+      {/* 尾鳍：双层流线尾，藏在鱼身左后方 */}
+      <g transform="translate(0 14) scale(1.12)">
+        <g className="woodfish__tail">
+          <path
+            d="M82 118C58 112 32 92 18 58c-2-5 2-8 7-6 16 7 34 10 48 22 9 8 15 18 16 28 1 6-2 10-7 16Z"
+            fill="url(#wf-tail)"
+          />
+          <path d="M80 122C62 124 44 118 30 104c14-2 30 0 42 8 4 3 6 6 8 10Z" fill="#8a5226" opacity="0.85" />
+          <path d="M40 66c12 12 24 26 32 40" stroke="#5d3214" strokeWidth="2.4" strokeLinecap="round" opacity="0.45" fill="none" />
+        </g>
       </g>
 
-      <ellipse cx="128" cy="112" rx="70" ry="54" fill="url(#woodfish-body)" />
-      <ellipse cx="128" cy="112" rx="70" ry="54" fill="url(#woodfish-gloss)" />
+      {/* 鱼身：主体渐变 + 高光 */}
+      <ellipse cx="152" cy="116" rx="92" ry="70" fill="url(#wf-body)" />
+      <ellipse cx="152" cy="116" rx="92" ry="70" fill="url(#wf-sheen)" />
 
-      <path d="M64 138c16 19 44 28 71 24" stroke="#6b3a17" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.34" />
-      <path d="M78 126c12 10 28 15 44 14" stroke="#f3c78e" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.3" />
-      <path d="M92 150c16 8 36 10 53 5" stroke="#f0c088" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.22" />
-      <path d="M70 96c6-14 18-24 32-28" stroke="#8a5226" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.35" />
+      {/* 雕刻内环：暗线 + 错位亮线做出刻痕立体感 */}
+      <ellipse cx="152" cy="120" rx="64" ry="46" fill="none" stroke="#7c451d" strokeWidth="1.4" opacity="0.2" />
+      <ellipse cx="152" cy="121.2" rx="64" ry="46" fill="none" stroke="#f6cf9c" strokeWidth="0.9" opacity="0.18" />
 
-      <g className="woodfish__mouth">
-        <path
-          d="M120 74c24-6 50-2 68 9 2 1 2 3 0 4-19 5-43 1-60-8-4-2-7-3-8-5Z"
-          fill="url(#woodfish-slit)"
-        />
-        <path d="M131 79c18-2 37 1 49 7" stroke="#612f13" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.55" />
+      {/* 云纹与木纹 */}
+      <path d="M96 156c14 12 34 18 54 16" stroke="#6e3c18" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.3" />
+      <path d="M108 166c12 6 26 9 40 7" stroke="#f3c78e" strokeWidth="1.8" strokeLinecap="round" fill="none" opacity="0.3" />
+      <path d="M84 152c22 20 58 26 88 12" stroke="#ffdfae" strokeWidth="3.5" strokeLinecap="round" fill="none" opacity="0.22" />
+
+      {/* 月牙口：木鱼标志性开孔，细弧月牙顺着头部弧线走 */}
+      <g className="woodfish__mouth" ref={mouthRef}>
+        <path d="M144 68 Q176 56 208 78 Q176 70 144 68 Z" fill="url(#wf-slit)" />
+        <path d="M150 70 Q178 65.5 204 77" stroke="#612f13" strokeWidth="1.8" strokeLinecap="round" fill="none" opacity="0.6" />
+        <path d="M152 66.5 Q180 59.5 202 74.5" stroke="#ffb765" strokeWidth="1.1" strokeLinecap="round" fill="none" opacity="0.4" />
       </g>
 
+      {/* 眼睛：双层渐变 + 双高光 */}
       <g className="woodfish__eye">
-        <circle cx="106" cy="98" r="5.4" fill="#2b1508" />
-        <circle cx="107.8" cy="96.2" r="1.8" fill="#ffe9c9" opacity="0.92" />
+        <circle cx="118" cy="98" r="7" fill="url(#wf-eye)" />
+        <circle cx="118" cy="98" r="7" fill="none" stroke="#4a2810" strokeWidth="1.1" opacity="0.7" />
+        <circle cx="115.8" cy="95.5" r="2.2" fill="#fff3d9" opacity="0.95" />
+        <circle cx="121" cy="101" r="1" fill="#ffd98f" opacity="0.5" />
       </g>
-      <path d="M96 90c4-4 10-6 16-5" stroke="#6b3a17" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.4" />
+      <path d="M107 89c4-4 9-6 15-5" stroke="#6b3a17" strokeWidth="2.2" strokeLinecap="round" fill="none" opacity="0.42" />
     </svg>
   );
 }
@@ -145,24 +143,30 @@ function MalletArt() {
   return (
     <svg viewBox="0 0 120 120" role="img" aria-hidden="true" focusable="false">
       <defs>
-        <linearGradient id="woodfish-mallet-head" x1="14" y1="74" x2="66" y2="112" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#dca76a" />
+        <linearGradient id="wf-mallet-head" x1="14" y1="74" x2="66" y2="112" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#e6b276" />
           <stop offset="1" stopColor="#8f5626" />
         </linearGradient>
+        <linearGradient id="wf-mallet-stick" x1="99" y1="8" x2="55" y2="76" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#caa26b" />
+          <stop offset="1" stopColor="#96662f" />
+        </linearGradient>
       </defs>
-      <path d="M97 10 53 78" stroke="#a06b36" strokeWidth="9" strokeLinecap="round" />
-      <path d="M97 10 53 78" stroke="#d6a166" strokeWidth="3" strokeLinecap="round" opacity="0.6" />
+      <path d="M99 8 55 76" stroke="url(#wf-mallet-stick)" strokeWidth="9.5" strokeLinecap="round" />
+      <path d="M99 8 55 76" stroke="#ecc999" strokeWidth="2.6" strokeLinecap="round" opacity="0.55" />
       <g transform="rotate(-34 40 92)">
-        <rect x="14" y="74" width="52" height="36" rx="18" fill="url(#woodfish-mallet-head)" stroke="#6f3c18" strokeWidth="1.6" />
-        <path d="M25 84h30M25 100h30" stroke="#f2cd9b" strokeWidth="2.2" strokeLinecap="round" opacity="0.32" />
+        <rect x="12" y="72" width="56" height="40" rx="20" fill="url(#wf-mallet-head)" stroke="#6f3c18" strokeWidth="1.6" />
+        <ellipse cx="30" cy="82" rx="10" ry="6" fill="#ffe9c4" opacity="0.4" />
+        <path d="M22 86h36M22 100h36" stroke="#f2cd9b" strokeWidth="2.2" strokeLinecap="round" opacity="0.3" />
+        <path d="M12 84c8-5 16-6 24-5" stroke="#ffeecb" strokeWidth="1.6" strokeLinecap="round" opacity="0.4" fill="none" />
       </g>
     </svg>
   );
 }
 
-function AuraRing() {
+function AuraRing({ auraRef }: { auraRef: RefObject<SVGSVGElement | null> }) {
   return (
-    <svg className="woodfish__aura" viewBox="0 0 320 320" aria-hidden="true" focusable="false">
+    <svg className="woodfish__aura" ref={auraRef} viewBox="0 0 320 320" aria-hidden="true" focusable="false">
       <defs>
         <path
           id="woodfish-aura-path"
@@ -179,19 +183,40 @@ function AuraRing() {
 }
 
 export function Woodfish() {
-  const [stats, setStats] = useState<WoodfishStats>(() => loadWoodfish());
-  const statsRef = useRef(stats);
-  const [speed, setSpeed] = useState(0);
-  const tapsRef = useRef<number[]>([]);
-  const [strikes, setStrikes] = useState(0);
-  const [merits, setMerits] = useState<MeritFloat[]>([]);
-  const meritId = useRef(0);
-  const [interacted, setInteracted] = useState(false);
-  const audioRef = useRef<AudioContext | null>(null);
+  const statsRef = useRef<WoodfishStats | null>(null);
+  if (statsRef.current === null) statsRef.current = loadWoodfish();
 
-  const sparks = useMemo(() => makeSparks(strikes), [strikes]);
-  const energy = Math.min(1, speed / 8);
-  const mood = speedMood(speed);
+  const [soundOn, setSoundOn] = useState(statsRef.current.soundOn);
+
+  const tapsRef = useRef<number[]>([]);
+  const interactedRef = useRef(false);
+  const audioRef = useRef<AudioContext | null>(null);
+  const meritCursor = useRef(0);
+  const rateCache = useRef(new Map<Element, number>());
+
+  // 全部数值走 ref 直写 DOM，敲击与测速循环不触发 React 重渲染。
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const totalRef = useRef<HTMLElement | null>(null);
+  const dayRef = useRef<HTMLElement | null>(null);
+  const speedNumRef = useRef<HTMLSpanElement | null>(null);
+  const speedBarRef = useRef<HTMLSpanElement | null>(null);
+  const moodRef = useRef<HTMLSpanElement | null>(null);
+  const hintRef = useRef<HTMLParagraphElement | null>(null);
+  const auraRef = useRef<SVGSVGElement | null>(null);
+  const orbitRef = useRef<HTMLSpanElement | null>(null);
+  const bobRef = useRef<HTMLSpanElement | null>(null);
+  const squashRef = useRef<HTMLSpanElement | null>(null);
+  const mouthRef = useRef<SVGGElement | null>(null);
+  const malletRef = useRef<HTMLSpanElement | null>(null);
+  const trailRef = useRef<HTMLSpanElement | null>(null);
+  const ringARef = useRef<HTMLSpanElement | null>(null);
+  const ringBRef = useRef<HTMLSpanElement | null>(null);
+  const flashRef = useRef<HTMLSpanElement | null>(null);
+  const sparkRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const meritRefs = useRef<(HTMLSpanElement | null)[]>([]);
+
+  const prefersReducedMotion = () =>
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const playKnock = useCallback(() => {
     try {
@@ -236,35 +261,178 @@ export function Woodfish() {
     }
   }, []);
 
+  /** 常驻动画平滑变速：updatePlaybackRate 无缝衔接，不会像改 animation-duration 那样重启跳帧。 */
+  const setRate = (el: Element | null, rate: number) => {
+    if (!el) return;
+    const prev = rateCache.current.get(el);
+    if (prev !== undefined && Math.abs(prev - rate) < 0.04) return;
+    rateCache.current.set(el, rate);
+    for (const anim of el.getAnimations()) {
+      if (anim instanceof CSSAnimation) {
+        try {
+          anim.updatePlaybackRate(rate);
+        } catch {
+          // 动画刚好被移除时忽略。
+        }
+      }
+    }
+  };
+
+  /** 单元素补间：先取消上一次没放完的，让这一次完整重播；同一元素连击时新的覆盖旧的。 */
+  const replay = (
+    el: Element | null,
+    keyframes: Keyframe[],
+    options: KeyframeAnimationOptions,
+  ) => {
+    if (!el) return;
+    el.getAnimations().forEach((anim) => anim.cancel());
+    el.animate(keyframes, options);
+  };
+
+  /** 敲击冲击帧：木槌蓄力挥落 + 鱼身挤压回弹 + 双层声波 + 闪光 + 火星，全部 WAAPI 单次补间。 */
+  const playImpact = useCallback(() => {
+    if (prefersReducedMotion()) return;
+
+    replay(
+      malletRef.current,
+      [
+        { transform: "rotate(-16deg)" },
+        { transform: "rotate(-31deg)", offset: 0.22 },
+        { transform: "rotate(24deg)", offset: 0.46 },
+        { transform: "rotate(6deg)", offset: 0.7 },
+        { transform: "rotate(-16deg)" },
+      ],
+      { duration: 380, easing: "cubic-bezier(0.3, 0.8, 0.35, 1.1)" },
+    );
+
+    replay(
+      trailRef.current,
+      [
+        { opacity: 0, transform: "rotate(-24deg) scale(0.7)" },
+        { opacity: 0, transform: "rotate(-20deg) scale(0.8)", offset: 0.3 },
+        { opacity: 0.9, transform: "rotate(10deg) scale(1.1)", offset: 0.52 },
+        { opacity: 0, transform: "rotate(18deg) scale(1.25)" },
+      ],
+      { duration: 380, easing: "ease-out" },
+    );
+
+    replay(
+      squashRef.current,
+      [
+        { transform: "scale(1, 1) rotate(0deg)" },
+        { transform: "scale(1.07, 0.88) rotate(-2.4deg) translateY(6px)", offset: 0.28 },
+        { transform: "scale(0.95, 1.07) rotate(1.8deg) translateY(-4px)", offset: 0.56 },
+        { transform: "scale(1.02, 0.98) rotate(-0.6deg)", offset: 0.78 },
+        { transform: "scale(1, 1) rotate(0deg)" },
+      ],
+      { duration: 320, easing: "cubic-bezier(0.22, 0.9, 0.32, 1.25)" },
+    );
+
+    replay(
+      mouthRef.current,
+      [
+        { transform: "scaleY(1)" },
+        { transform: "scaleY(1.9)", offset: 0.35 },
+        { transform: "scaleY(1)" },
+      ],
+      { duration: 260, easing: "ease-out" },
+    );
+
+    replay(
+      ringARef.current,
+      [
+        { opacity: 0.9, transform: "translate(-50%, -50%) scale(0.45)" },
+        { opacity: 0, transform: "translate(-50%, -50%) scale(1.32)" },
+      ],
+      { duration: 640, easing: "cubic-bezier(0.16, 0.7, 0.3, 1)" },
+    );
+    replay(
+      ringBRef.current,
+      [
+        { opacity: 0.75, transform: "translate(-50%, -50%) scale(0.45)" },
+        { opacity: 0, transform: "translate(-50%, -50%) scale(1.32)" },
+      ],
+      { duration: 760, delay: 90, easing: "cubic-bezier(0.16, 0.7, 0.3, 1)" },
+    );
+
+    replay(
+      flashRef.current,
+      [
+        { opacity: 0.95, transform: "scale(0.4)" },
+        { opacity: 0, transform: "scale(1.5)" },
+      ],
+      { duration: 230, easing: "ease-out" },
+    );
+
+    // 火星方向每次敲击随机重排，避开固定轨迹的机械感。
+    const seedAngle = Math.random() * Math.PI * 2;
+    sparkRefs.current.forEach((el, i) => {
+      if (!el) return;
+      const angle = seedAngle + (i / SPARK_POOL) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+      const distance = 46 + Math.random() * 46;
+      const dx = Math.cos(angle) * distance;
+      const dy = Math.sin(angle) * distance * 0.8 - 14;
+      el.getAnimations().forEach((anim) => anim.cancel());
+      el.animate(
+        [
+          { opacity: 1, transform: "translate(0, 0) scale(1)" },
+          {
+            opacity: 0.9,
+            transform: `translate(${dx * 0.55}px, ${dy * 0.55}px) scale(0.85)`,
+            offset: 0.55,
+          },
+          { opacity: 0, transform: `translate(${dx}px, ${dy}px) scale(0.15)` },
+        ],
+        { duration: 520 + Math.random() * 160, delay: i * 12, easing: "cubic-bezier(0.15, 0.6, 0.3, 1)" },
+      );
+    });
+  }, []);
+
+  /** 功德飘字：复用固定池里的泳道节点，不增删 DOM。 */
+  const floatMerit = useCallback(() => {
+    if (prefersReducedMotion()) return;
+    const index = meritCursor.current % MERIT_POOL;
+    const cursor = meritCursor.current;
+    meritCursor.current += 1;
+    const el = meritRefs.current[index];
+    if (!el) return;
+    el.textContent = MERIT_LABELS[cursor % MERIT_LABELS.length];
+    el.style.left = `${MERIT_LANES[cursor % MERIT_LANES.length] + Math.random() * 4}%`;
+    el.style.top = `${26 + Math.random() * 6}%`;
+    replay(
+      el,
+      [
+        { opacity: 0, transform: "translate(-50%, 10px) scale(0.85)" },
+        { opacity: 1, transform: "translate(-50%, -6px) scale(1.06)", offset: 0.16 },
+        { opacity: 0, transform: "translate(-50%, -64px) scale(1)" },
+      ],
+      { duration: 820, easing: "cubic-bezier(0.2, 0.7, 0.3, 1)", fill: "forwards" },
+    );
+  }, []);
+
   const strike = useCallback(() => {
+    const stats = statsRef.current;
+    if (!stats) return;
     const now = Date.now();
-    const next = tapWoodfish(statsRef.current, new Date(now));
+    const next = tapWoodfish(stats, new Date(now));
     statsRef.current = next;
-    setStats(next);
     saveWoodfish(next);
+    if (totalRef.current) totalRef.current.textContent = formatCount(next.total);
+    if (dayRef.current) dayRef.current.textContent = formatCount(next.dayCount);
 
     const taps = pruneTaps(tapsRef.current, now);
     taps.push(now);
     tapsRef.current = taps;
-    setSpeed(tapSpeed(taps, now));
 
-    setStrikes((value) => value + 1);
-    setInteracted(true);
-    const id = ++meritId.current;
-    // 四条横向泳道轮转，连点时飘字错开落点，避免叠成一团看不清。
-    const lane = id % 4;
-    setMerits((current) => [
-      ...current.slice(-5),
-      {
-        id,
-        x: [32, 45, 58, 71][lane] + Math.random() * 4,
-        y: 28 + Math.random() * 5,
-        label: MERIT_LABELS[id % MERIT_LABELS.length],
-      },
-    ]);
+    if (!interactedRef.current) {
+      interactedRef.current = true;
+      hintRef.current?.classList.add("is-hidden");
+    }
 
+    playImpact();
+    floatMerit();
     if (next.soundOn) playKnock();
-  }, [playKnock]);
+  }, [playKnock, playImpact, floatMerit]);
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -278,27 +446,79 @@ export function Woodfish() {
   };
 
   const toggleSound = () => {
-    const next = { ...statsRef.current, soundOn: !statsRef.current.soundOn };
+    const stats = statsRef.current;
+    if (!stats) return;
+    const next = { ...stats, soundOn: !stats.soundOn };
     statsRef.current = next;
-    setStats(next);
+    setSoundOn(next.soundOn);
     saveWoodfish(next);
     if (next.soundOn) playKnock();
   };
 
+  // 首帧把存量数字写进自管节点。
   useEffect(() => {
-    // 每 120ms 刷新一次实时手速；窗口滑空后速度自然归零，同时处理跨天清零。
-    const timer = window.setInterval(() => {
+    const stats = statsRef.current;
+    if (!stats) return;
+    if (totalRef.current) totalRef.current.textContent = formatCount(stats.total);
+    if (dayRef.current) dayRef.current.textContent = formatCount(stats.dayCount);
+  }, []);
+
+  useEffect(() => {
+    // rAF 主循环：指数平滑的虚拟指针驱动仪表、光晕与动画速率，
+    // 只写 CSS 变量和 textContent，全程零 setState、零重渲染。
+    let frame = 0;
+    let shown = 0;
+    let lastText = "";
+    let lastMoodTone = "";
+
+    const setMood = (tone: string, label: string) => {
+      if (moodRef.current) {
+        moodRef.current.textContent = label;
+        moodRef.current.className = `woodfish__mood is-${tone}`;
+      }
+    };
+
+    const loop = () => {
       const now = Date.now();
       tapsRef.current = pruneTaps(tapsRef.current, now);
-      setSpeed(tapSpeed(tapsRef.current, now));
-      const rolled = rollWoodfishDay(statsRef.current, new Date(now));
+      const target = tapSpeed(tapsRef.current, now);
+      // 升得快、落得慢：起手立刻响应，停手优雅滑落。
+      shown += (target - shown) * (target > shown ? 0.5 : 0.16);
+      if (target === 0 && shown < 0.06) shown = 0;
+
+      const energy = Math.min(1, shown / 8);
+      rootRef.current?.style.setProperty("--wf-energy", energy.toFixed(3));
+
+      const text = shown.toFixed(1);
+      if (text !== lastText) {
+        lastText = text;
+        if (speedNumRef.current) speedNumRef.current.textContent = text;
+        if (speedBarRef.current) {
+          speedBarRef.current.style.width = `${Math.min(100, (shown / METER_FULL_SPEED) * 100)}%`;
+        }
+      }
+      const mood = speedMood(shown);
+      if (mood.tone !== lastMoodTone) {
+        lastMoodTone = mood.tone;
+        setMood(mood.tone, mood.label);
+      }
+
+      // 经文环 / 轨道环 / 浮沉节奏随手速无缝加速。
+      setRate(auraRef.current, 0.55 + energy * 2.45);
+      setRate(orbitRef.current, 0.6 + energy * 1.8);
+      setRate(bobRef.current, 0.85 + energy * 1.6);
+
+      const rolled = rollWoodfishDay(statsRef.current as WoodfishStats, new Date(now));
       if (rolled !== statsRef.current) {
         statsRef.current = rolled;
-        setStats(rolled);
         saveWoodfish(rolled);
+        if (dayRef.current) dayRef.current.textContent = formatCount(rolled.dayCount);
       }
-    }, 120);
-    return () => window.clearInterval(timer);
+
+      frame = requestAnimationFrame(loop);
+    };
+    frame = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {
@@ -309,15 +529,8 @@ export function Woodfish() {
     };
   }, []);
 
-  const meterWidth = Math.min(100, (speed / METER_FULL_SPEED) * 100);
-  const rootStyle = {
-    "--wf-energy": energy.toFixed(3),
-    "--wf-spin": `${(16 - energy * 11).toFixed(2)}s`,
-    "--wf-bob": `${(3.4 - energy * 1.7).toFixed(2)}s`,
-  } as CSSProperties;
-
   return (
-    <div className="woodfish" style={rootStyle}>
+    <div className="woodfish" ref={rootRef}>
       <header className="woodfish__head">
         <h3>敲木鱼</h3>
         <p>功德 +1 · 烦恼 -1</p>
@@ -326,31 +539,33 @@ export function Woodfish() {
       <div className="woodfish__stats" role="group" aria-label="敲木鱼统计">
         <div className="woodfish__stat">
           <span className="woodfish__stat-label">总计次数</span>
-          <strong className="woodfish__stat-value">{formatCount(stats.total)}</strong>
+          <strong className="woodfish__stat-value" ref={totalRef} />
         </div>
         <div className="woodfish__stat">
           <span className="woodfish__stat-label">当日次数</span>
-          <strong className="woodfish__stat-value">{formatCount(stats.dayCount)}</strong>
+          <strong className="woodfish__stat-value" ref={dayRef} />
         </div>
         <div className="woodfish__stat woodfish__stat--speed">
           <span className="woodfish__stat-label">
             点击速度
-            <span className={`woodfish__mood is-${mood.tone}`}>{mood.label}</span>
+            <span className="woodfish__mood is-calm" ref={moodRef}>
+              入定
+            </span>
           </span>
           <strong className="woodfish__stat-value">
-            {speed.toFixed(1)}
+            <span ref={speedNumRef}>0.0</span>
             <small>次/秒</small>
           </strong>
           <span className="woodfish__meter" aria-hidden="true">
-            <span style={{ width: `${meterWidth}%` }} />
+            <span ref={speedBarRef} style={{ width: "0%" }} />
           </span>
         </div>
       </div>
 
       <div className="woodfish__stage">
         <span className="woodfish__glow" aria-hidden="true" />
-        <AuraRing />
-        <span className="woodfish__orbit" aria-hidden="true" />
+        <AuraRing auraRef={auraRef} />
+        <span className="woodfish__orbit" ref={orbitRef} aria-hidden="true" />
 
         <span className="woodfish__smoke woodfish__smoke--a" aria-hidden="true" />
         <span className="woodfish__smoke woodfish__smoke--b" aria-hidden="true" />
@@ -375,12 +590,11 @@ export function Woodfish() {
           ))}
         </span>
 
-        {strikes > 0 ? (
-          <span key={`rings-${strikes}`} className="woodfish__rings" aria-hidden="true">
-            <span className="woodfish__ring" />
-            <span className="woodfish__ring woodfish__ring--late" />
-          </span>
-        ) : null}
+        {/* 常驻声波与冲击层：节点只建一次，每次敲击用 WAAPI 重播 */}
+        <span className="woodfish__rings" aria-hidden="true">
+          <span className="woodfish__ring" ref={ringARef} />
+          <span className="woodfish__ring woodfish__ring--late" ref={ringBRef} />
+        </span>
 
         <button
           type="button"
@@ -389,58 +603,47 @@ export function Woodfish() {
           onPointerDown={handlePointerDown}
           onClick={handleClick}
         >
-          <span className="woodfish__fish-bob">
-            <span key={`fish-${strikes}`} className={`woodfish__fish${strikes > 0 ? " is-struck" : ""}`}>
-              <WoodenFishArt />
+          <span className="woodfish__fish-bob" ref={bobRef}>
+            <span className="woodfish__fish">
+              <span className="woodfish__fish-squash" ref={squashRef}>
+                <WoodenFishArt mouthRef={mouthRef} />
+              </span>
             </span>
           </span>
         </button>
 
-        <span
-          key={`mallet-${strikes}`}
-          className={`woodfish__mallet${strikes > 0 ? " is-striking" : ""}`}
-          aria-hidden="true"
-        >
+        <span className="woodfish__mallet" ref={malletRef} aria-hidden="true">
+          <span className="woodfish__trail" ref={trailRef} />
           <MalletArt />
         </span>
 
-        {strikes > 0 ? (
-          <span key={`burst-${strikes}`} className="woodfish__burst" aria-hidden="true">
-            <span className="woodfish__flash" />
-            {sparks.map((spark) => (
-              <span
-                key={spark.id}
-                className={`woodfish__spark is-tone-${spark.tone}`}
-                style={
-                  {
-                    "--dx": `${spark.dx}px`,
-                    "--dy": `${spark.dy}px`,
-                    width: spark.size,
-                    height: spark.size,
-                    animationDelay: `${spark.delay}ms`,
-                  } as CSSProperties
-                }
-              />
-            ))}
-          </span>
-        ) : null}
+        <span className="woodfish__burst" aria-hidden="true">
+          <span className="woodfish__flash" ref={flashRef} />
+          {Array.from({ length: SPARK_POOL }, (_, i) => (
+            <span
+              key={i}
+              className={`woodfish__spark is-tone-${i % 3}`}
+              ref={(el) => {
+                sparkRefs.current[i] = el;
+              }}
+              style={{ width: SPARK_SIZES[i % 3], height: SPARK_SIZES[i % 3] }}
+            />
+          ))}
+        </span>
 
         <div className="woodfish__merits" aria-hidden="true">
-          {merits.map((merit) => (
+          {Array.from({ length: MERIT_POOL }, (_, i) => (
             <span
-              key={merit.id}
+              key={i}
               className="woodfish__merit"
-              style={{ left: `${merit.x}%`, top: `${merit.y}%` }}
-              onAnimationEnd={() =>
-                setMerits((current) => current.filter((item) => item.id !== merit.id))
-              }
-            >
-              {merit.label}
-            </span>
+              ref={(el) => {
+                meritRefs.current[i] = el;
+              }}
+            />
           ))}
         </div>
 
-        <p className={`woodfish__hint${interacted ? " is-hidden" : ""}`} aria-hidden="true">
+        <p className="woodfish__hint" ref={hintRef} aria-hidden="true">
           轻点木鱼
         </p>
       </div>
@@ -450,10 +653,10 @@ export function Woodfish() {
           type="button"
           className="woodfish__sound"
           onClick={toggleSound}
-          aria-pressed={stats.soundOn}
+          aria-pressed={soundOn}
         >
-          {stats.soundOn ? <Volume2 size={14} /> : <VolumeX size={14} />}
-          {stats.soundOn ? "声音开" : "声音关"}
+          {soundOn ? <Volume2 size={14} /> : <VolumeX size={14} />}
+          {soundOn ? "声音开" : "声音关"}
         </button>
         <p className="woodfish__caption">
           敲击次数只保存在本机，点击速度是最近 1.5 秒的实时手速。
