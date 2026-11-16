@@ -3,9 +3,10 @@ import { CalendarPlus, Plus, Sparkles } from "lucide-react";
 import type { CSSProperties } from "react";
 import type { Course, Session, Semester } from "../types";
 import { toneColor } from "../types";
-import { courseDisplayName, formatWeeks, groupSessionsByDay } from "../lib/schedule";
+import { courseDisplayName, conflictSessionIds, findSessionConflicts, formatWeeks, groupSessionsByDay } from "../lib/schedule";
 import { getWeekdayNumber, WEEKDAYS } from "../lib/date";
 import type { CalendarDayInfo } from "../lib/holidays";
+import { ConflictBar } from "./ConflictBar";
 
 interface TimetableListProps {
   semester: Semester;
@@ -41,6 +42,8 @@ export function TimetableList({
   onAddCourse,
 }: TimetableListProps) {
   const byDay = useMemo(() => groupSessionsByDay(sessions), [sessions]);
+  const conflicts = useMemo(() => findSessionConflicts(sessions), [sessions]);
+  const conflictIds = useMemo(() => conflictSessionIds(conflicts), [conflicts]);
   const todayNumber = getWeekdayNumber(now);
 
   if (courses.length === 0) {
@@ -80,6 +83,8 @@ export function TimetableList({
         </div>
       ) : null}
 
+      <ConflictBar conflicts={conflicts} showAliases={showAliases} />
+
       {days.map((day) => {
         const info = WEEKDAYS[day - 1];
         const date = dates[day - 1];
@@ -112,9 +117,10 @@ export function TimetableList({
                 {daySessions.map((session) => {
                   const first = semester.periods[session.start - 1];
                   const last = semester.periods[session.end - 1];
+                  const conflict = conflictIds.has(session.id);
                   return (
                     <button
-                      className="tt-list-item"
+                      className={`tt-list-item ${conflict ? "is-conflict" : ""}`}
                       type="button"
                       key={session.id}
                       style={{ "--tone": toneColor(session.course.tone) } as CSSProperties}
@@ -126,8 +132,15 @@ export function TimetableList({
                       </span>
                       <span className="tt-list-rule" aria-hidden="true" />
                       <span className="tt-list-copy">
-                        <span className="tt-list-name">
-                          {courseDisplayName(session.course, showAliases)}
+                        <span className="tt-list-title">
+                          <span className="tt-list-name">
+                            {courseDisplayName(session.course, showAliases)}
+                          </span>
+                          {conflict ? (
+                            <span className="conflict-mark" title="时间冲突">
+                              !
+                            </span>
+                          ) : null}
                         </span>
                         <span className="tt-list-meta">
                           {session.course.location || "地点待定"}

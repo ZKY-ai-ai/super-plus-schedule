@@ -3,9 +3,10 @@ import type { CSSProperties } from "react";
 import { CalendarDays, CalendarPlus, Plus, Sparkles } from "lucide-react";
 import type { Course, LaidOutSession, Session, Semester } from "../types";
 import { toneColor } from "../types";
-import { courseDisplayName, formatWeeks, getPeriodNowProgress, groupSessionsByDay } from "../lib/schedule";
+import { courseDisplayName, conflictSessionIds, findSessionConflicts, formatWeeks, getPeriodNowProgress, groupSessionsByDay } from "../lib/schedule";
 import { getWeekdayNumber, WEEKDAYS } from "../lib/date";
 import type { CalendarDayInfo } from "../lib/holidays";
+import { ConflictBar } from "./ConflictBar";
 
 const ROW_HEIGHT = 58;
 
@@ -65,6 +66,8 @@ export function Timetable({
   const swipeStart = useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const suppressClick = useRef(false);
   const byDay = useMemo(() => groupSessionsByDay(sessions), [sessions]);
+  const conflicts = useMemo(() => findSessionConflicts(sessions), [sessions]);
+  const conflictIds = useMemo(() => conflictSessionIds(conflicts), [conflicts]);
   const todayNumber = getWeekdayNumber(now);
   const showNow = week === currentWeek && days.includes(todayNumber);
   const nowProgress = getPeriodNowProgress(semester.periods, now);
@@ -235,7 +238,7 @@ export function Timetable({
                     nowProgress !== null &&
                     nowProgress.period >= session.start &&
                     nowProgress.period <= session.end;
-                  const conflict = session.columns > 1;
+                  const conflict = conflictIds.has(session.id);
                   const single = session.start === session.end;
                   return (
                     <button
@@ -317,6 +320,8 @@ export function Timetable({
           </div>
         </div>
       ) : null}
+
+      <ConflictBar conflicts={conflicts} showAliases={showAliases} />
 
       {sessions.length === 0 ? (
         <div className="week-empty">

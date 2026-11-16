@@ -14,6 +14,8 @@ import {
   formatWeeks,
   findMergeCourse,
   courseDisplayName,
+  findSessionConflicts,
+  conflictSessionIds,
 } from "../lib/schedule";
 import { dateKey, getWeekDates } from "../lib/date";
 import type { Course, CourseSlot, Session } from "../types";
@@ -141,6 +143,18 @@ describe("schedule rules", () => {
     expect(courseDisplayName(aliasCourse, true)).toBe("数构");
     expect(courseDisplayName(aliasCourse, false)).toBe("数据结构与算法");
     expect(courseDisplayName(course("大学英语", []), true)).toBe("大学英语");
+  });
+
+  it("reports overlapping sessions but not back-to-back classes", () => {
+    const tight = findSessionConflicts([
+      session("a", 1, 2),
+      { ...session("b", 2, 3), day: 1 },
+      { ...session("c", 4, 5), day: 1 },
+      { ...session("d", 1, 2), day: 2 },
+    ]);
+    expect(tight).toHaveLength(1);
+    expect(tight[0]).toMatchObject({ day: 1, start: 2, end: 2 });
+    expect([...conflictSessionIds(tight)].sort()).toEqual(["a", "b"]);
   });
 });
 

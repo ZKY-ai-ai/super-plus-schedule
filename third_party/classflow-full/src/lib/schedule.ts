@@ -190,6 +190,48 @@ export function groupSessionsByDay(sessions: Session[]): Record<number, LaidOutS
   return result;
 }
 
+export interface SessionConflict {
+  day: number;
+  start: number;
+  end: number;
+  a: Session;
+  b: Session;
+}
+
+/** Pairs of sessions that share at least one period on the same day. */
+export function findSessionConflicts(sessions: Session[]): SessionConflict[] {
+  const conflicts: SessionConflict[] = [];
+  for (let day = 1; day <= 7; day += 1) {
+    const daySessions = sessionsForDay(sessions, day).sort(
+      (a, b) => a.start - b.start || a.end - b.end,
+    );
+    for (let index = 0; index < daySessions.length; index += 1) {
+      const a = daySessions[index];
+      for (let next = index + 1; next < daySessions.length; next += 1) {
+        const b = daySessions[next];
+        if (b.start > a.end) break;
+        conflicts.push({
+          day,
+          start: Math.max(a.start, b.start),
+          end: Math.min(a.end, b.end),
+          a,
+          b,
+        });
+      }
+    }
+  }
+  return conflicts;
+}
+
+export function conflictSessionIds(conflicts: SessionConflict[]): Set<string> {
+  const ids = new Set<string>();
+  for (const conflict of conflicts) {
+    ids.add(conflict.a.id);
+    ids.add(conflict.b.id);
+  }
+  return ids;
+}
+
 export function weeklyCourseCount(sessions: Session[]): number {
   return new Set(sessions.map((session) => session.course.id)).size;
 }
