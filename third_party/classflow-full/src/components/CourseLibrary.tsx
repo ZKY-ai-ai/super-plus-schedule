@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { MapPin, Pencil, Plus, Search, User } from "lucide-react";
+import { FileText, MapPin, Pencil, Plus, Search, User } from "lucide-react";
 import type { CSSProperties } from "react";
 import type { Course, Period, Semester } from "../types";
 import { toneColor } from "../types";
@@ -18,6 +18,7 @@ interface CourseLibraryProps {
   showAliases: boolean;
   hiddenCourseIds: Set<string>;
   onAddCourse: () => void;
+  onTextImport: () => void;
   onSelectCourse: (course: Course) => void;
   onEditCourse: (course: Course) => void;
   onRestoreCourse: (courseId: string) => void;
@@ -33,6 +34,7 @@ export function CourseLibrary({
   showAliases,
   hiddenCourseIds,
   onAddCourse,
+  onTextImport,
   onSelectCourse,
   onEditCourse,
   onRestoreCourse,
@@ -64,10 +66,16 @@ export function CourseLibrary({
           <h1>课程库</h1>
           <p>把每一门课收好，课表自然会清楚起来。</p>
         </div>
-        <button className="primary-button" type="button" onClick={onAddCourse}>
-          <Plus size={16} />
-          新建课程
-        </button>
+        <div className="library-head-actions">
+          <button className="secondary-button" type="button" onClick={onTextImport}>
+            <FileText size={15} />
+            文本建课
+          </button>
+          <button className="primary-button" type="button" onClick={onAddCourse}>
+            <Plus size={16} />
+            新建课程
+          </button>
+        </div>
       </header>
 
       <div className="library-summary">

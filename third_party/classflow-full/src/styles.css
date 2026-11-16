@@ -10113,3 +10113,135 @@ html[data-theme="whale"] .week-pick.is-selected span {
   border-radius: 4px;
   background: color-mix(in srgb, var(--olive, #718a4b) 14%, transparent);
 }
+
+/* ---- 文本建课（甲 · F017） ---- */
+.library-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.library-head-actions .primary-button,
+.library-head-actions .secondary-button {
+  margin: 0;
+}
+
+.text-import-hint {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.7;
+}
+
+.text-import-field {
+  display: grid;
+  gap: 6px;
+}
+
+.text-import-field > span {
+  color: var(--ink-2);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+.text-import-field textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10px;
+  line-height: 1.8;
+  resize: vertical;
+}
+
+.text-import-field textarea:focus {
+  outline: none;
+  border-color: var(--coral);
+}
+
+.text-import-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.text-import-summary {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.text-import-errors {
+  display: grid;
+  gap: 4px;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  list-style: none;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--coral) 10%, transparent);
+  color: var(--coral-deep);
+  font-size: 8.5px;
+  line-height: 1.6;
+}
+
+.text-import-errors li {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.text-import-errors svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.text-import-preview {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  max-height: 230px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.text-import-preview > li {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.text-import-course-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.text-import-course-head strong {
+  font-size: 10.5px;
+}
+
+.text-import-course-head span {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.text-import-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 6px;
+}
+
+.text-import-slots em {
+  color: var(--ink-2);
+  font-size: 8.5px;
+  font-style: normal;
+}

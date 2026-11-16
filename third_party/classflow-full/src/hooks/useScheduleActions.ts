@@ -26,9 +26,13 @@ import {
   createBlankTimetable,
   createInitialData,
   getActiveTimetable,
+  makeCourse,
+  makeSlot,
+  nextTone,
   uid,
 } from "../lib/factory";import { createTemplateCourses, instantiateTemplate } from "../lib/templates";
 import type { TimetableTemplateId } from "../lib/templates";
+import type { ParsedCourseSeed } from "../lib/textImport";
 import { normalizeCourseNameKey, normalizeTeacherKey } from "../lib/schedule";
 import { downloadScheduleIcs, downloadScheduleJson, readScheduleFile } from "../lib/transfer";
 import {
@@ -90,8 +94,83 @@ export function useScheduleActions({
     notify(editing ? "课程已更新。" : "已加入课表。");
   };
 
-  const requestDeleteCourse = (course: Course): Promise<boolean> =>
-    askConfirm({
+  const addTextCourses = (seeds: ParsedCourseSeed[]): { courses: number; slots: number } => {
+    let addedCourses = 0;
+    let addedSlots = 0;
+    updateActiveTimetable((current) => {
+      const nextCourses = [...current.courses];
+      const maxPeriod = Math.max(1, current.semester.periods.length);
+      const totalWeeks = Math.max(1, Math.min(current.semester.totalWeeks, 30));
+      const now = new Date().toISOString();
+
+      for (const seed of seeds) {
+        const slots = seed.slots.map((slot) =>
+          makeSlot(
+            {
+              day: Math.min(Math.max(slot.day, 1), 7),
+              start: Math.min(Math.max(slot.start, 1), maxPeriod),
+              end: Math.min(Math.max(slot.end, slot.start), maxPeriod),
+              weekStart: Math.min(Math.max(slot.weekStart, 1), totalWeeks),
+              weekEnd: Math.min(Math.max(slot.weekEnd, slot.weekStart), totalWeeks),
+              pattern: slot.pattern,
+            },
+            totalWeeks,
+          ),
+        );
+        const key = `${normalizeCourseNameKey(seed.name)}|${normalizeTeacherKey(seed.teacher)}`;
+        const existingIndex = nextCourses.findIndex(
+          (course) =>
+            `${normalizeCourseNameKey(course.name)}|${normalizeTeacherKey(course.teacher)}` === key,
+        );
+        if (existingIndex >= 0) {
+          const existing = nextCourses[existingIndex];
+          const known = new Set(
+            existing.slots.map(
+              (slot) =>
+                `${slot.day}|${slot.start}|${slot.end}|${slot.weekStart}|${slot.weekEnd}|${slot.pattern}`,
+            ),
+          );
+          const fresh = slots.filter(
+            (slot) =>
+              !known.has(
+                `${slot.day}|${slot.start}|${slot.end}|${slot.weekStart}|${slot.weekEnd}|${slot.pattern}`,
+              ),
+          );
+          if (fresh.length > 0) {
+            nextCourses[existingIndex] = {
+              ...existing,
+              location: existing.location || seed.location,
+              slots: [...existing.slots, ...fresh],
+              updatedAt: now,
+            };
+            addedSlots += fresh.length;
+          }
+          continue;
+        }
+        nextCourses.push(
+          makeCourse({
+            name: seed.name,
+            teacher: seed.teacher,
+            location: seed.location,
+            tone: nextTone(nextCourses),
+            slots,
+          }),
+        );
+        addedCourses += 1;
+        addedSlots += slots.length;
+      }
+
+      return { ...current, courses: nextCourses };
+    });
+    if (addedCourses > 0 || addedSlots > 0) {
+      notify(`已从文本加入 ${addedCourses} 门课、${addedSlots} 个时间段。`);
+    } else {
+      notify("这些课程已经全部在课表里了。", "info");
+    }
+    return { courses: addedCourses, slots: addedSlots };
+  };
+
+  const requestDeleteCourse = (course: Course): Promise<boolean> =>    askConfirm({
       title: "删除这门课？",
       message: `“${course.name}”的所有上课时间会一起删除，这个操作无法撤销。`,
       confirmLabel: "删除课程",
@@ -582,6 +661,7 @@ export function useScheduleActions({
 
   return {
     saveCourse,
+    addTextCourses,
     requestDeleteCourse,
     saveEvent,
     requestDeleteEvent,

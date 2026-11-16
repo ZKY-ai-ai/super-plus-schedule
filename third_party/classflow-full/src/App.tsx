@@ -34,6 +34,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Timetable } from "./components/Timetable";
 import { ImportPreviewDialog } from "./components/ImportPreviewDialog";
 import { SessionOverrideDialog } from "./components/SessionOverrideDialog";
+import { TextImportDialog } from "./components/TextImportDialog";
 import { TimetableList } from "./components/TimetableList";
 import { TimetableManager } from "./components/TimetableManager";
 import { Toast } from "./components/Toast";
@@ -80,6 +81,7 @@ export default function App() {
   const [eventSeed, setEventSeed] = useState<EventSeed | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [sessionMenu, setSessionMenu] = useState<{ session: Session; week: number } | null>(null);
+  const [textImportOpen, setTextImportOpen] = useState(false);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const toastId = useRef(0);
@@ -485,6 +487,7 @@ export default function App() {
                 )
               }
               onAddCourse={() => openEditor()}
+              onTextImport={() => setTextImportOpen(true)}
               onSelectCourse={openCourseDetail}
               onEditCourse={(course) => openEditor({ course })}
               onRestoreCourse={actions.restoreCourse}
@@ -549,6 +552,17 @@ export default function App() {
             notify(result.message, result.ok ? "success" : "info");
             setDraftRevision((value) => value + 1);
             setImportPreview(null);
+          }}
+        />
+      ) : null}
+
+      {textImportOpen ? (
+        <TextImportDialog
+          semester={viewSemester}
+          onClose={() => setTextImportOpen(false)}
+          onImport={(seeds) => {
+            actions.addTextCourses(seeds);
+            setTextImportOpen(false);
           }}
         />
       ) : null}
