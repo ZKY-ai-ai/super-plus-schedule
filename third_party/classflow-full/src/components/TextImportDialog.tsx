@@ -14,6 +14,7 @@ const SAMPLE = [
 
 interface TextImportDialogProps {
   semester: Semester;
+  initialText?: string;
   onClose: () => void;
   onImport: (seeds: ParsedCourseSeed[]) => void;
 }
@@ -30,8 +31,8 @@ function slotLabel(slot: ParsedCourseSeed["slots"][number]): string {
   return `${weekdayLabel(slot.day)} ${periods} · ${weeks}${pattern}`;
 }
 
-export function TextImportDialog({ semester, onClose, onImport }: TextImportDialogProps) {
-  const [text, setText] = useState("");
+export function TextImportDialog({ semester, initialText = "", onClose, onImport }: TextImportDialogProps) {
+  const [text, setText] = useState(initialText);
   const parsed = useMemo(
     () => parseCourseText(text, semester.totalWeeks),
     [text, semester.totalWeeks],

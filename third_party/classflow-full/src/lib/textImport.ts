@@ -45,7 +45,8 @@ const WEEK_RANGE_RE = /第?\s*(\d{1,2})\s*[-–~至]\s*(\d{1,2})\s*周([单双])
 const WEEK_SINGLE_RE = /第?\s*(\d{1,2})\s*周\s*([单双])?/;
 const TEACHER_RE = /(?:@|(?:老师|教师)[:：])\s*([^\s,，;；|]+)/;
 const LOCATION_RE =
-  /(?:地点|教室)[:：]\s*([^\s,，;；|]+)|([^\s,，;；|]*(?:楼|室|馆|场|中心|机房|实验)[^\s,，;；|]*)/;
+  /(?:地点|教室)[:：]\s*([^,，;；|]+)/;
+const LOCATION_FALLBACK_RE = /([^\s,，;；|]*(?:楼|室|馆|场|中心|机房|实验)[^\s,，;；|]*)/;
 
 /**
  * Parse a pasted timetable such as:
@@ -124,10 +125,10 @@ export function parseCourseText(input: string, totalWeeks = 20): TextParseResult
       }
 
       let location = "";
-      const locationMatch = rest.match(LOCATION_RE);
+      const locationMatch = rest.match(LOCATION_RE) ?? rest.match(LOCATION_FALLBACK_RE);
       if (locationMatch) {
-        location = (locationMatch[1] ?? locationMatch[2] ?? "").trim();
-        rest = rest.replace(LOCATION_RE, " ");
+        location = (locationMatch[1] ?? "").trim();
+        rest = rest.replace(locationMatch[0], " ");
       } else {
         const numeric = rest
           .split(/[\s,，;；|]+/)

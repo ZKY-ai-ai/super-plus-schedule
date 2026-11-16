@@ -1,0 +1,104 @@
+.timetable-share-modal {
+  width: min(920px, 94vw);
+}
+
+.timetable-share-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  max-height: 48vh;
+  padding: 12px;
+  overflow: auto;
+  background: #eee9dc;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.timetable-share-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  box-shadow: 0 8px 22px rgba(58, 52, 38, 0.14);
+}
+
+.timetable-share-loading,
+.timetable-share-error {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.timetable-share-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timetable-share-loading svg {
+  animation: timetable-share-spin 0.9s linear infinite;
+}
+
+.timetable-share-error {
+  color: var(--danger, #9c4332);
+}
+
+@keyframes timetable-share-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.timetable-share-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 9px 12px;
+  color: var(--accent-ink, #7c4637);
+  font-size: 13px;
+  background: var(--accent-soft, #f6e7df);
+  border-radius: 10px;
+}
+
+.timetable-share-notice button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.timetable-share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.timetable-share-hint {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+@media (max-width: 640px) {
+  .timetable-share-modal {
+    width: 100%;
+  }
+
+  .timetable-share-preview {
+    max-height: 38vh;
+    padding: 8px;
+  }
+
+  .timetable-share-actions .small-button {
+    flex: 1 1 calc(50% - 8px);
+    justify-content: center;
+  }
+}

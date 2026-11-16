@@ -7,6 +7,7 @@ import {
   FileSpreadsheet,
   LayoutTemplate,
   Printer,
+  Share2,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -21,6 +22,7 @@ interface DataSettingsTabProps {
   onExportIcs: () => Promise<ExportResult & { count: number }>;
   onImportFile: (file: File) => Promise<ImportResult>;
   onOpenExcelImport: () => void;
+  onOpenTimetableShare: () => void;
   onApplyDraft: (draft: ImportDraft) => Promise<ImportResult>;
   onDiscardDraft: () => void;
   onSaveTemplate: (name: string) => ImportResult;
@@ -59,6 +61,7 @@ export function DataSettingsTab({
   onExportIcs,
   onImportFile,
   onOpenExcelImport,
+  onOpenTimetableShare,
   onApplyDraft,
   onDiscardDraft,
   onSaveTemplate,
@@ -231,6 +234,15 @@ export function DataSettingsTab({
           <span>
             <strong>Excel 映射导入</strong>
             <small>XLSX · 自选列映射、班次筛选后并入当前课表</small>
+          </span>
+        </button>
+        <button className="data-card" type="button" onClick={onOpenTimetableShare}>
+          <span className="data-card-icon">
+            <Share2 size={18} />
+          </span>
+          <span>
+            <strong>分享本周课表</strong>
+            <small>PNG 长图、文字 / Markdown 与导入链接</small>
           </span>
         </button>
         {!native ? (

@@ -12,7 +12,8 @@ import {
   Undo2,
 } from "lucide-react";
 import type { AppPage, Course, ImportDraft, ScheduleEvent, Session } from "./types";
-import { dateKey } from "./lib/date";
+import { dateKey, formatWeekRange } from "./lib/date";
+import { readCourseShareFromHash } from "./lib/courseShare";
 import { wallpaperStyle } from "./lib/wallpaper";
 import { isNativeApp } from "./lib/nativeFile";
 import { useClock } from "./hooks/useClock";
@@ -38,6 +39,7 @@ import { Timetable } from "./components/Timetable";
 import { ImportPreviewDialog } from "./components/ImportPreviewDialog";
 import { SessionOverrideDialog } from "./components/SessionOverrideDialog";
 import { TextImportDialog } from "./components/TextImportDialog";
+import { TimetableShareDialog } from "./components/TimetableShareDialog";
 import { TimetableList } from "./components/TimetableList";
 import { TimetableManager } from "./components/TimetableManager";
 import { Toast } from "./components/Toast";
@@ -93,6 +95,8 @@ export default function App() {
   const [sessionMenu, setSessionMenu] = useState<{ session: Session; week: number } | null>(null);
   const [textImportOpen, setTextImportOpen] = useState(false);
   const [excelImportOpen, setExcelImportOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharedCourseText, setSharedCourseText] = useState("");
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const toastId = useRef(0);
@@ -129,6 +133,18 @@ export default function App() {
     setToast({ id: toastId.current, message, tone });
   }, []);
   const closeToast = useCallback(() => setToast(null), []);
+
+  useEffect(() => {
+    const shared = readCourseShareFromHash(window.location.hash);
+    if (!shared) return;
+    setSharedCourseText(shared);
+    setTextImportOpen(true);
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${window.location.search}`,
+    );
+  }, []);
 
   const askConfirm = useCallback(
     (payload: ConfirmRequest): Promise<boolean> =>
@@ -751,12 +767,32 @@ export default function App() {
 
       {textImportOpen ? (
         <TextImportDialog
+          key={sharedCourseText || "text-import"}
           semester={viewSemester}
-          onClose={() => setTextImportOpen(false)}
+          initialText={sharedCourseText}
+          onClose={() => {
+            setTextImportOpen(false);
+            setSharedCourseText("");
+          }}
           onImport={(seeds) => {
             actions.addTextCourses(seeds);
             setTextImportOpen(false);
+            setSharedCourseText("");
           }}
+        />
+      ) : null}
+
+      {shareOpen ? (
+        <TimetableShareDialog
+          timetable={timetable}
+          week={week}
+          dateRange={formatWeekRange(viewDates)}
+          weekDates={viewDates}
+          days={viewDays}
+          sessions={viewSessions}
+          periods={viewPeriods}
+          showAliases={prefs.showAliases}
+          onClose={() => setShareOpen(false)}
         />
       ) : null}
 
@@ -832,6 +868,10 @@ export default function App() {
           onOpenExcelImport={() => {
             setSettingsOpen(false);
             setExcelImportOpen(true);
+          }}
+          onOpenTimetableShare={() => {
+            setSettingsOpen(false);
+            setShareOpen(true);
           }}
         />
       ) : null}

@@ -97,6 +97,7 @@ interface SettingsModalProps {
   onRenameProfile: (id: string, name: string) => void;
   onChangeTheme: (theme: Theme) => void;
   onOpenExcelImport: () => void;
+  onOpenTimetableShare: () => void;
 }
 
 interface Notice {
@@ -169,6 +170,7 @@ export function SettingsModal({
   onRenameProfile,
   onChangeTheme,
   onOpenExcelImport,
+  onOpenTimetableShare,
 }: SettingsModalProps) {
   const active = data.timetables.find((item) => item.id === data.activeTimetableId) ?? data.timetables[0];
   const calendarOverrides = active.calendarOverrides ?? [];
@@ -1017,6 +1019,7 @@ tab === "ai" ? (
                 onExportIcs={onExportIcs}
                 onImportFile={onImportFile}
                 onOpenExcelImport={onOpenExcelImport}
+                onOpenTimetableShare={onOpenTimetableShare}
                 onApplyDraft={onApplyImportDraft}
                 onDiscardDraft={onDiscardImportDraft}
                 onSaveTemplate={onSaveTemplate}
