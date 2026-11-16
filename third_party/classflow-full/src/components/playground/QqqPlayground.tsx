@@ -25,6 +25,7 @@ precision highp float;
 varying vec2 vUv;
 uniform float uTime;
 uniform float uAspect;
+uniform vec4 uRipples[8];
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -55,38 +56,58 @@ float fbm(vec2 p) {
 void main() {
   vec2 uv = vUv;
   vec2 p = vec2(uv.x * uAspect, uv.y);
+
+  vec2 rippleShift = vec2(0.0);
+  float rippleLight = 0.0;
+  for (int i = 0; i < 8; i++) {
+    vec4 rp = uRipples[i];
+    if (rp.w <= 0.001) continue;
+    float age = uTime - rp.z;
+    if (age < 0.0 || age > 3.2) continue;
+    vec2 delta = p - vec2(rp.x * uAspect, rp.y);
+    float d = length(delta) + 0.0001;
+    float phase = d * 52.0 - age * 18.0;
+    float swell = sin(phase) * exp(-d * 6.0) * exp(-age * 2.2) * rp.w;
+    float fine = sin(d * 120.0 - age * 30.0) * exp(-d * 10.0) * exp(-age * 2.8) * rp.w;
+    float crest = pow(max(sin(phase), 0.0), 3.0) * exp(-d * 5.0) * exp(-age * 1.8) * rp.w;
+    rippleShift += (delta / d) * (swell * 0.012 + fine * 0.005);
+    rippleLight += crest * 0.3 + abs(fine) * 0.05;
+  }
+
   float t = uTime * 0.05;
   vec2 flow = vec2(t * 1.2, -t * 0.75);
 
-  vec2 q = p * 1.75 + flow;
+  vec2 q = (p + rippleShift) * 2.4 + flow;
   float warp = fbm(q * 0.8 + vec2(t * 0.5, -t * 0.35));
-  q += (warp - 0.5) * 1.05;
+  q += (warp - 0.5) * 0.68;
 
-  float n1 = fbm(q * 1.9 + vec2(t * 1.7, -t * 0.9));
-  float n2 = fbm(q * 3.4 - vec2(t * 1.1, t * 0.6));
+  float n1 = fbm(q * 2.4 + vec2(t * 1.7, -t * 0.9));
+  float n2 = fbm(q * 4.2 - vec2(t * 1.1, t * 0.6));
 
   float v1 = 1.0 - abs(sin(q.x * 2.4 + q.y * 1.7 + n1 * 3.1 + t * 2.1));
-  v1 = pow(v1, 8.0);
+  v1 = pow(v1, 45.0);
   float v2 = 1.0 - abs(sin(q.y * 3.1 - q.x * 2.2 + n2 * 2.5 - t * 1.7));
-  v2 = pow(v2, 11.0);
+  v2 = pow(v2, 60.0);
   float v3 = 1.0 - abs(sin((q.x + q.y) * 1.8 + n1 * 3.6 + t * 1.2));
-  v3 = pow(v3, 15.0);
-  float caustic = v1 * 0.62 + v2 * 0.44 + v3 * 0.30;
+  v3 = pow(v3, 80.0);
+  float caustic = v1 * 1.05 + v2 * 0.70 + v3 * 0.48;
 
-  float depth = fbm(p * 1.1 + vec2(uTime * 0.012, -uTime * 0.008));
-  vec3 deep = vec3(0.03, 0.30, 0.68);
-  vec3 mid = vec3(0.09, 0.47, 0.88);
-  vec3 shallow = vec3(0.18, 0.60, 0.96);
+  float depth = fbm(p * 1.6 + vec2(uTime * 0.012, -uTime * 0.008));
+  vec3 deep = vec3(0.05, 0.36, 0.75);
+  vec3 mid = vec3(0.10, 0.50, 0.90);
+  vec3 shallow = vec3(0.30, 0.68, 0.98);
   vec3 color = mix(deep, mid, smoothstep(0.10, 0.92, depth));
   color = mix(color, shallow, smoothstep(0.60, 1.05, depth) * 0.6);
 
   float glow = fbm(p * 2.4 + vec2(uTime * 0.02, uTime * 0.015));
   color += vec3(0.08, 0.32, 0.66) * glow * 0.24;
-  color = mix(color, vec3(0.84, 0.97, 1.0), caustic * 0.78);
+  color = mix(color, vec3(0.84, 0.97, 1.0), caustic * 0.9);
+  color += vec3(0.86, 0.97, 1.0) * max(rippleLight, 0.0) * 0.9;
+  color *= 1.0 + rippleLight * 0.45;
 
   vec2 centered = uv - 0.5;
   float vignette = smoothstep(0.95, 0.26, length(centered * vec2(0.85, 1.35)));
-  color *= mix(0.74, 1.0, vignette);
+  color *= mix(0.82, 1.0, vignette);
 
   gl_FragColor = vec4(color, 1.0);
 }
@@ -104,7 +125,7 @@ function compileShader(gl: WebGLRenderingContext, type: number, source: string) 
   return shader;
 }
 
-function WaterCanvas() {
+function WaterCanvas({ inputRef }: { inputRef: { current: WaterInput } }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fallback, setFallback] = useState(false);
 
@@ -149,6 +170,7 @@ function WaterCanvas() {
     const positionLocation = gl.getAttribLocation(program, "aPosition");
     const timeLocation = gl.getUniformLocation(program, "uTime");
     const aspectLocation = gl.getUniformLocation(program, "uAspect");
+    const rippleLocation = gl.getUniformLocation(program, "uRipples");
     gl.useProgram(program);
     gl.enableVertexAttribArray(positionLocation);
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
@@ -158,6 +180,8 @@ function WaterCanvas() {
     let frame = 0;
     let startedAt = performance.now();
     let pausedAt = 0;
+    const activeRipples: { x: number; y: number; start: number; strength: number }[] = [];
+    const rippleData = new Float32Array(32);
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
@@ -172,9 +196,36 @@ function WaterCanvas() {
 
     const draw = (now: number) => {
       const seconds = reducedMotion ? 8 : (now - startedAt) / 1000;
+      const pending = inputRef.current?.points;
+      if (pending && pending.length) {
+        for (const point of pending) {
+          const startAt = (point.t - startedAt) / 1000;
+          if (startAt >= 0 && startAt <= seconds + 0.05) {
+            if (activeRipples.length >= 8) {
+              const oldest = activeRipples[0];
+              oldest.start = Math.min(oldest.start, startAt - 1.4);
+            }
+            activeRipples.push({ x: point.x, y: point.y, start: startAt, strength: point.strength });
+          }
+        }
+        pending.length = 0;
+      }
+      for (let i = activeRipples.length - 1; i >= 0; i--) {
+        if (seconds - activeRipples[i].start > 3.2) activeRipples.splice(i, 1);
+      }
+      while (activeRipples.length > 8) activeRipples.shift();
+      rippleData.fill(0);
+      for (let i = 0; i < activeRipples.length; i++) {
+        const ripple = activeRipples[i];
+        rippleData[i * 4] = ripple.x;
+        rippleData[i * 4 + 1] = ripple.y;
+        rippleData[i * 4 + 2] = ripple.start;
+        rippleData[i * 4 + 3] = ripple.strength;
+      }
       gl.useProgram(program);
       gl.uniform1f(timeLocation, seconds);
       gl.uniform1f(aspectLocation, canvas.width / Math.max(1, canvas.height));
+      gl.uniform4fv(rippleLocation, rippleData);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       if (!reducedMotion) frame = window.requestAnimationFrame(draw);
     };
@@ -232,44 +283,46 @@ function WaterCanvas() {
 
 function RubberDuck() {
   return (
-    <svg viewBox="0 0 120 120" role="img" aria-hidden="true" focusable="false">
+    <svg viewBox="0 0 160 160" role="img" aria-hidden="true" focusable="false">
       <defs>
-        <linearGradient id="qqq-duck-body" x1="30" y1="24" x2="86" y2="104" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#ffe070" />
-          <stop offset="0.55" stopColor="#ffbe38" />
-          <stop offset="1" stopColor="#f2920f" />
+        <linearGradient id="qqq-duck-body" x1="54" y1="34" x2="106" y2="118" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#ffe985" />
+          <stop offset="0.52" stopColor="#ffd537" />
+          <stop offset="1" stopColor="#f6b31a" />
         </linearGradient>
-        <linearGradient id="qqq-duck-beak" x1="90" y1="54" x2="112" y2="70" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#ffa528" />
-          <stop offset="1" stopColor="#e97f0a" />
+        <linearGradient id="qqq-duck-beak" x1="104" y1="72" x2="130" y2="90" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#ffbb52" />
+          <stop offset="1" stopColor="#f0820f" />
         </linearGradient>
-        <radialGradient id="qqq-duck-gloss" cx="0.3" cy="0.22" r="0.6">
-          <stop offset="0" stopColor="#fffbe0" stopOpacity="0.9" />
-          <stop offset="1" stopColor="#fffbe0" stopOpacity="0" />
+        <radialGradient id="qqq-duck-gloss" cx="0.34" cy="0.2" r="0.62">
+          <stop offset="0" stopColor="#fffdf0" stopOpacity="0.92" />
+          <stop offset="1" stopColor="#fffdf0" stopOpacity="0" />
         </radialGradient>
+        <filter id="qqq-duck-shadow" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="3.4" />
+        </filter>
       </defs>
-      <ellipse cx="60" cy="108" rx="29" ry="6" fill="#062554" opacity="0.28" />
+      <ellipse cx="84" cy="130" rx="31" ry="7.5" fill="#6f8cb4" opacity="0.38" filter="url(#qqq-duck-shadow)" />
+      <circle cx="50" cy="86" r="11.5" fill="url(#qqq-duck-body)" />
+      <ellipse cx="76" cy="94" rx="40" ry="27" fill="url(#qqq-duck-body)" />
+      <circle cx="90" cy="56" r="31" fill="url(#qqq-duck-body)" />
       <path
-        d="M18 77c-9-11-4-24 10-28 3-17 19-29 37-26 19 3 32 18 31 34 15 5 18 25 4 34-19 12-68 12-82-2-4-4-4-8 0-12Z"
-        fill="url(#qqq-duck-body)"
-      />
-      <path
-        d="M38 34c9-8 23-9 32-3-8-1-16 2-22 8-4 4-8 10-9 16-7-6-8-15-1-21Z"
+        d="M64 62c1-17 14-30 30-30 8 0 15 3 20 8-6-3-13-4-20-2-12 3-20 12-23 24-1 4-1 8 0 11-5-3-7-7-7-11Z"
         fill="url(#qqq-duck-gloss)"
       />
       <path
-        d="M29 79c9 8 26 12 43 10 10-1 18-4 24-8-2 12-16 20-34 20-16 0-29-8-33-22Z"
-        fill="#e2a015"
-        opacity="0.55"
+        d="M50 106c14 6 33 6 47 1 5-2 9-5 12-8-1 10-10 17-22 19-16 2-30-4-37-12Z"
+        fill="#ee9c12"
+        opacity="0.45"
       />
-      <circle cx="79" cy="53" r="5.2" fill="#2a2113" />
-      <circle cx="80.8" cy="51" r="1.7" fill="#fffdf4" opacity="0.92" />
+      <circle cx="102" cy="52" r="7" fill="#241d12" />
+      <circle cx="104" cy="49.4" r="2.3" fill="#fffdf4" opacity="0.95" />
       <path
-        d="M89 58c8-2 16 1 16 6 0 5-8 8-16 6-3-3-3-9 0-12Z"
+        d="M110 67c12-2 27 2 28 10 1 8-12 13-27 10-4-5-5-15-1-20Z"
         fill="url(#qqq-duck-beak)"
       />
-      <path d="M90 64c4 1 9 1.4 14 1.2" stroke="#b9670c" strokeWidth="1.6" strokeLinecap="round" opacity="0.65" />
-      <path d="M53 83c5 2 11 2 16 1" stroke="#d89612" strokeWidth="3" strokeLinecap="round" opacity="0.7" />
+      <path d="M113 78c7 2 16 2 23 1" stroke="#cf6c09" strokeWidth="1.8" strokeLinecap="round" opacity="0.6" />
+      <path d="M56 97c11 4 27 4 38 0" stroke="#e7a516" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.55" />
     </svg>
   );
 }
@@ -282,6 +335,17 @@ interface Ripple {
   delay: number;
 }
 
+interface WaterPoint {
+  x: number;
+  y: number;
+  t: number;
+  strength: number;
+}
+
+interface WaterInput {
+  points: WaterPoint[];
+}
+
 interface DragState {
   pointerId: number;
   lastX: number;
@@ -289,7 +353,6 @@ interface DragState {
   startX: number;
   startY: number;
   moved: boolean;
-  lastRippleAt: number;
 }
 
 export function QqqPlayground() {
@@ -297,6 +360,9 @@ export function QqqPlayground() {
   const duckRef = useRef<HTMLButtonElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const rippleId = useRef(0);
+  const waterInput = useRef<WaterInput>({ points: [] });
+  const waterDragging = useRef(false);
+  const lastWaterAt = useRef(0);
 
   const [position, setPosition] = useState<DuckPosition>({ x: 50, y: 49 });
   const [tilt, setTilt] = useState(0);
@@ -310,6 +376,45 @@ export function QqqPlayground() {
     const id = ++rippleId.current;
     setRipples((current) => [...current.slice(-7), { id, x, y, size, delay }]);
   }, []);
+
+  const pushWater = useCallback((clientX: number, clientY: number, strength: number) => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const x = (clientX - rect.left) / rect.width;
+    const y = (clientY - rect.top) / rect.height;
+    if (x < 0 || x > 1 || y < 0 || y > 1) return;
+    const points = waterInput.current.points;
+    points.push({ x, y: 1 - y, t: performance.now(), strength });
+    if (points.length > 48) points.splice(0, points.length - 48);
+  }, []);
+
+  const handleStagePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    waterDragging.current = true;
+    lastWaterAt.current = 0;
+    pushWater(event.clientX, event.clientY, 1);
+    const target = event.target as HTMLElement | null;
+    if (!target?.closest(".qqq-playground__duck")) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+  };
+
+  const handleStagePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!waterDragging.current) return;
+    const now = performance.now();
+    if (now - lastWaterAt.current < 55) return;
+    lastWaterAt.current = now;
+    pushWater(event.clientX, event.clientY, 0.85);
+  };
+
+  const handleStagePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    waterDragging.current = false;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
 
   const celebrate = useCallback(() => {
     setTilt(0);
@@ -329,7 +434,6 @@ export function QqqPlayground() {
       startX: event.clientX,
       startY: event.clientY,
       moved: false,
-      lastRippleAt: 0,
     };
     setDragging(true);
   };
@@ -354,12 +458,6 @@ export function QqqPlayground() {
     setPosition(next);
     setTilt(duckTiltFromDelta(dx, dy));
     setInteracted(true);
-
-    const now = performance.now();
-    if (now - drag.lastRippleAt > 260) {
-      drag.lastRippleAt = now;
-      addRipple(next.x, next.y, 0);
-    }
   };
 
   const finishDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -374,7 +472,6 @@ export function QqqPlayground() {
       celebrate();
     } else {
       setInteracted(true);
-      addRipple(position.x, position.y, 0);
     }
   };
 
@@ -421,16 +518,20 @@ export function QqqPlayground() {
     <div className="qqq-playground">
       <header className="qqq-playground__head">
         <h3>QQQ 游乐场</h3>
-        <p>海阔凭鱼跃，天高任鸟飞</p>
+        <p>海阔凭鸭跃、天高任鸟飞</p>
       </header>
 
       <div
         ref={stageRef}
         className={`qqq-playground__stage${dragging ? " is-dragging" : ""}`}
         role="group"
-        aria-label="QQQ 游乐场水面。小黄鸭可以拖动，点一下让它站直。"
+        aria-label="QQQ 游乐场水面。滑过水面会泛起涟漪，小黄鸭可以拖动，点一下让它站直。"
+        onPointerDown={handleStagePointerDown}
+        onPointerMove={handleStagePointerMove}
+        onPointerUp={handleStagePointerUp}
+        onPointerCancel={handleStagePointerUp}
       >
-        <WaterCanvas />
+        <WaterCanvas inputRef={waterInput} />
 
         <div className="qqq-playground__ripples" aria-hidden="true">
           {ripples.map((ripple) => (
@@ -469,12 +570,12 @@ export function QqqPlayground() {
         </button>
 
         <p className={`qqq-playground__hint${interacted ? " is-hidden" : ""}`} aria-hidden="true">
-          拖动小鸭 · 点一下让它站直
+          拖动小鸭 · 划过水面
         </p>
       </div>
 
       <p className="qqq-playground__caption">
-        一个没有成绩、没有 DDL 的角落。鸭子喜欢被拖到水面亮一点的地方。
+        一个没有成绩、没有 DDL 的角落。拖一拖鸭子，或者划一划水面。
       </p>
     </div>
   );
