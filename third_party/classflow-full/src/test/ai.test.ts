@@ -167,6 +167,15 @@ describe("natural-language schedule answers", () => {
     const remaining = answerScheduleQuestion("今天还有几节课", snapshot, NOW);
     expect(remaining.intent).toBe("remaining");
     expect(remaining.text).toContain("还有 1 节");
+
+    const nearly = answerScheduleQuestion("今天还剩几节", snapshot, NOW);
+    expect(nearly.intent).toBe("remaining");
+    expect(nearly.text).toContain("还有 1 节");
+
+    const later = new Date("2026-11-16T20:00:00+08:00");
+    const done = answerScheduleQuestion("今天还剩几节", snapshot, later);
+    expect(done.intent).toBe("remaining");
+    expect(done.text).toContain("上完");
   });
 
   it("answers course questions with a short alias", () => {

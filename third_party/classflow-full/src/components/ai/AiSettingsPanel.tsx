@@ -91,6 +91,13 @@ export function AiSettingsPanel({
     onNotify?.("AI 设置已保存在本机。");
   };
 
+  const addMemoryEntry = () => {
+    const value = memoryInput.trim();
+    if (!value) return;
+    onAddMemory(value);
+    setMemoryInput("");
+  };
+
   return (
     <div className="ai-settings">
       <section className="ai-settings-section">
@@ -234,33 +241,31 @@ export function AiSettingsPanel({
             <p>只保存你主动说「记住」的内容，可随时逐条删除。</p>
           </div>
         </div>
-        <form
-          className="ai-memory-add"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const value = memoryInput.trim();
-            if (!value) return;
-            onAddMemory(value);
-            setMemoryInput("");
-          }}
-        >
+        <div className="ai-memory-add">
           <input
             className="field-input"
             maxLength={200}
             value={memoryInput}
             onChange={(event) => setMemoryInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                addMemoryEntry();
+              }
+            }}
             placeholder="例如：周三下午没空，别排复习"
             aria-label="新增一条记忆"
           />
           <button
             className="secondary-button"
-            type="submit"
+            type="button"
+            onClick={addMemoryEntry}
             disabled={memoryInput.trim().length === 0}
           >
             <Plus size={14} />
             添加
           </button>
-        </form>
+        </div>
         {memory.length === 0 ? (
           <p className="ai-inline-hint">
             还没有记忆。在对话里说「记住我周三下午没空」，或在这里手动添加。

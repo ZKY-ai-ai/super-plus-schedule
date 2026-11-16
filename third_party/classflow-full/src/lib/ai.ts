@@ -505,7 +505,7 @@ export function answerScheduleQuestion(
   if (/下一节|下节|接下来|还要上|后面.*课/.test(text)) {
     return answerNext(snapshot, now);
   }
-  if (/还有.*[几多]|剩下|剩余|没上完/.test(text)) {
+  if (/还剩|还有.*[几多]|剩下|剩余|没上完/.test(text)) {
     return answerRemaining(snapshot, now);
   }
   if (/几门|多少门|几节课|多少节课|课程数|共.*节/.test(text) && !/第\s*\S+\s*周/.test(text)) {
