@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { GraduationCap } from "lucide-react";
+import { CalendarClock, GraduationCap, Plus, Trash2 } from "lucide-react";
 import type { Course } from "../../types";
 import {
   formatScore,
@@ -11,27 +11,75 @@ import {
   type GradeRecord,
   type GradeSettings,
 } from "../../lib/grades";
+import {
+  EXAM_TYPES,
+  describeExam,
+  examCountdown,
+  examTypeLabel,
+  isExamUpcoming,
+  loadExams,
+  makeExam,
+  saveExams,
+  sortExams,
+  type Exam,
+  type ExamType,
+} from "../../lib/exams";
+import { dateKey } from "../../lib/date";
 
 interface GradesSettingsTabProps {
   timetableId: string;
   courses: Course[];
 }
 
+type TypeFilter = ExamType | "all";
+
 export function GradesSettingsTab({ timetableId, courses }: GradesSettingsTabProps) {
   const [records, setRecords] = useState<GradeRecord[]>(() => loadGrades(timetableId));
   const [settings, setSettings] = useState<GradeSettings>(() => loadGradeSettings());
+  const [exams, setExams] = useState<Exam[]>(() => loadExams(timetableId));
+  const [filter, setFilter] = useState<TypeFilter>("all");
+  const [draft, setDraft] = useState(() => ({
+    title: "",
+    courseId: "",
+    type: "final" as ExamType,
+    date: dateKey(new Date()),
+    startTime: "",
+    endTime: "",
+    location: "",
+    seat: "",
+  }));
   const [error, setError] = useState("");
 
   const recordMap = useMemo(
     () => new Map(records.map((record) => [record.courseId, record])),
     [records],
   );
+  const courseNames = useMemo(
+    () => new Map(courses.map((course) => [course.id, course.name])),
+    [courses],
+  );
   const entered = records.filter((record) => record.score !== null).length;
   const failed = records.filter((record) => isFailed(record)).length;
+
+  const now = new Date();
+  const sortedExams = sortExams(exams);
+  const upcoming = sortedExams.filter(
+    (exam) => isExamUpcoming(exam, now) && (filter === "all" || exam.type === filter),
+  );
+  const past = sortedExams.filter((exam) => !isExamUpcoming(exam, now)).reverse();
 
   const persist = (next: GradeRecord[]) => {
     setRecords(next);
     if (!saveGrades(timetableId, next)) {
+      setError("保存失败，浏览器可能禁用了本地存储。");
+    } else {
+      setError("");
+    }
+  };
+
+  const persistExams = (next: Exam[]) => {
+    setExams(next);
+    if (!saveExams(timetableId, next)) {
       setError("保存失败，浏览器可能禁用了本地存储。");
     } else {
       setError("");
@@ -57,6 +105,34 @@ export function GradesSettingsTab({ timetableId, courses }: GradesSettingsTabPro
     saveGradeSettings(next);
   };
 
+  const addExam = () => {
+    const title = draft.title.trim() || courseNames.get(draft.courseId) || "";
+    if (!title) {
+      setError("请填写考试名称，或先选择课程。");
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.date)) {
+      setError("请选择考试日期。");
+      return;
+    }
+    const exam = makeExam({
+      title,
+      courseId: draft.courseId || null,
+      type: draft.type,
+      date: draft.date,
+      startTime: draft.startTime,
+      endTime: draft.endTime,
+      location: draft.location,
+      seat: draft.seat,
+    });
+    persistExams([...exams.filter((item) => item.id !== exam.id), exam]);
+    setDraft((current) => ({ ...current, title: "", location: "", seat: "" }));
+  };
+
+  const removeExam = (id: string) => {
+    persistExams(exams.filter((exam) => exam.id !== id));
+  };
+
   return (
     <section
       className="settings-pane grades-pane"
@@ -67,12 +143,188 @@ export function GradesSettingsTab({ timetableId, courses }: GradesSettingsTabPro
       }}
     >
       <div className="settings-pane-head">
-        <p className="eyebrow">GRADES</p>
+        <p className="eyebrow">EXAMS &amp; GRADES</p>
         <h3>考试与成绩</h3>
-        <p>记录每门课的成绩；低于 60 分会标红提醒。成绩只保存在本机。</p>
+        <p>记录考试时间、地点与座位号，考前按 7 天 / 1 天 / 2 小时自动提醒；成绩只保存在本机。</p>
       </div>
 
       {error ? <p className="form-error">{error}</p> : null}
+
+      <h4 className="settings-subhead">
+        <CalendarClock size={15} /> 考试安排
+      </h4>
+
+      <div className="exam-filter" role="tablist" aria-label="按考核类型筛选">
+        {(["all", ...EXAM_TYPES.map((item) => item.id)] as TypeFilter[]).map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={filter === id}
+            className={`exam-filter-chip ${filter === id ? "is-active" : ""}`}
+            onClick={() => setFilter(id)}
+          >
+            {id === "all" ? "全部" : examTypeLabel(id)}
+          </button>
+        ))}
+      </div>
+
+      {upcoming.length === 0 ? (
+        <div className="task-empty">
+          <GraduationCap size={18} />
+          <span>{filter === "all" ? "暂无待考考试，添加一场考试试试。" : "该类型暂无待考考试。"}</span>
+        </div>
+      ) : (
+        <ul className="exam-list">
+          {upcoming.map((exam) => {
+            const countdown = examCountdown(exam, now);
+            return (
+              <li className="exam-row" key={exam.id}>
+                <span className={`exam-type exam-type--${exam.type}`}>{examTypeLabel(exam.type)}</span>
+                <span className="exam-main">
+                  <strong>{courseNames.get(exam.courseId ?? "") || exam.title}</strong>
+                  <small>{describeExam(exam)}</small>
+                </span>
+                <span className={`exam-countdown exam-countdown--${countdown.tone}`}>
+                  {countdown.text}
+                </span>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={`删除考试 ${exam.title}`}
+                  onClick={() => removeExam(exam.id)}
+                >
+                  <Trash2 size={15} />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <div className="exam-form">
+        <div className="exam-form-grid">
+          <label className="field">
+            <span className="field-label">课程</span>
+            <select
+              className="field-input"
+              value={draft.courseId}
+              onChange={(event) => setDraft({ ...draft, courseId: event.target.value })}
+            >
+              <option value="">不关联课程</option>
+              {courses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span className="field-label">考试名称</span>
+            <input
+              className="field-input"
+              value={draft.title}
+              onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+              placeholder="留空则使用课程名"
+              maxLength={80}
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">类型</span>
+            <select
+              className="field-input"
+              value={draft.type}
+              onChange={(event) => setDraft({ ...draft, type: event.target.value as ExamType })}
+            >
+              {EXAM_TYPES.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span className="field-label">日期</span>
+            <input
+              className="field-input"
+              type="date"
+              value={draft.date}
+              onChange={(event) => setDraft({ ...draft, date: event.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">开始</span>
+            <input
+              className="field-input"
+              type="time"
+              value={draft.startTime}
+              onChange={(event) => setDraft({ ...draft, startTime: event.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">结束</span>
+            <input
+              className="field-input"
+              type="time"
+              value={draft.endTime}
+              disabled={!draft.startTime}
+              onChange={(event) => setDraft({ ...draft, endTime: event.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">地点</span>
+            <input
+              className="field-input"
+              value={draft.location}
+              onChange={(event) => setDraft({ ...draft, location: event.target.value })}
+              placeholder="教学楼 / 教室"
+              maxLength={80}
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">座位号</span>
+            <input
+              className="field-input"
+              value={draft.seat}
+              onChange={(event) => setDraft({ ...draft, seat: event.target.value })}
+              placeholder="可选"
+              maxLength={40}
+            />
+          </label>
+        </div>
+        <button className="primary-button exam-add" type="button" onClick={addExam}>
+          <Plus size={15} /> 添加考试
+        </button>
+      </div>
+
+      {past.length > 0 ? (
+        <details className="exam-past">
+          <summary>已结束的考试 · {past.length}</summary>
+          <ul className="exam-list">
+            {past.map((exam) => (
+              <li className="exam-row is-past" key={exam.id}>
+                <span className={`exam-type exam-type--${exam.type}`}>{examTypeLabel(exam.type)}</span>
+                <span className="exam-main">
+                  <strong>{courseNames.get(exam.courseId ?? "") || exam.title}</strong>
+                  <small>{describeExam(exam)}</small>
+                </span>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={`删除考试 ${exam.title}`}
+                  onClick={() => removeExam(exam.id)}
+                >
+                  <Trash2 size={15} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+
+      <h4 className="settings-subhead">
+        <GraduationCap size={15} /> 学期成绩
+      </h4>
 
       <label className="toggle-row grade-privacy">
         <span>

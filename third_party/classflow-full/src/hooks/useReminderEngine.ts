@@ -10,6 +10,7 @@ import {
 import { buildSessions } from "../lib/schedule";
 import { periodsForDate } from "../lib/periods";
 import { isHolidayDate } from "../lib/holidays";
+import { loadExams, planExamReminders } from "../lib/exams";
 import {
   loadReminderSettings,
   loadSentLog,
@@ -73,6 +74,18 @@ export function useReminderEngine({ data, timetable, autoHolidays }: ReminderEng
         tomorrowPeriods: tomorrow.periods,
         sent: sentRef.current,
       });
+      if (settings.examReminders) {
+        planned.push(
+          ...planExamReminders({
+            now,
+            timetableId: timetable.id,
+            exams: loadExams(timetable.id),
+            courseName: (courseId) =>
+              timetable.courses.find((course) => course.id === courseId)?.name ?? "",
+            sent: sentRef.current,
+          }),
+        );
+      }
       if (planned.length === 0) return;
 
       const next = { ...sentRef.current };

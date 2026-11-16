@@ -165,6 +165,20 @@ export function RemindersSettingsTab() {
         </div>
       </div>
 
+      <label className="toggle-row reminder-lead">
+        <span>
+          <strong>考试提醒</strong>
+          <small>在考试前 7 天、1 天与 2 小时各提醒一次。</small>
+        </span>
+        <input
+          type="checkbox"
+          checked={settings.examReminders}
+          onChange={(event) => update({ examReminders: event.target.checked })}
+          disabled={!settings.enabled}
+        />
+        <span className="switch" aria-hidden="true" />
+      </label>
+
       <p className="settings-note">
         网页版需要保持标签页在运行才能弹出通知；安装为 PWA 后由系统接管通知。
       </p>

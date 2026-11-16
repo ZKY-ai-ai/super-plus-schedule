@@ -9573,3 +9573,163 @@ html[data-theme="whale"] .week-pick.is-selected span {
   color: var(--faint);
   font-size: 8.5px;
 }
+
+/* ---- Exam schedule in the grades tab (乙) ---- */
+.settings-subhead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 20px 0 10px;
+  color: var(--ink-2);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.exam-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.exam-filter-chip {
+  padding: 3px 9px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: transparent;
+  font-size: 8.5px;
+  cursor: pointer;
+}
+
+.exam-filter-chip.is-active {
+  color: var(--ink);
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+}
+
+.exam-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.exam-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.exam-row.is-past {
+  opacity: 0.6;
+}
+
+.exam-type {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  color: var(--ink-2);
+  border-radius: 99px;
+  background: var(--surface-2);
+  font-size: 7.5px;
+  white-space: nowrap;
+}
+
+.exam-type--final {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.exam-type--midterm {
+  color: var(--coral-deep);
+  background: var(--coral-soft);
+}
+
+.exam-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.exam-main strong {
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: 9.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-main small {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-countdown {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: 99px;
+  font-size: 7.5px;
+  white-space: nowrap;
+}
+
+.exam-countdown--danger {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.exam-countdown--warn {
+  color: var(--coral-deep);
+  background: var(--coral-soft);
+}
+
+.exam-countdown--normal {
+  color: var(--ink-2);
+  background: var(--surface-2);
+}
+
+.exam-countdown--muted {
+  color: var(--faint);
+  background: var(--surface-2);
+}
+
+.exam-form {
+  padding: 12px;
+  margin-top: 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+}
+
+.exam-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.exam-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.exam-past {
+  margin-top: 12px;
+}
+
+.exam-past summary {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 9px;
+  cursor: pointer;
+}
