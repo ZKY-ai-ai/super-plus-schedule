@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  addSubtask,
   groupTasks,
   makeTask,
   normalizeTasks,
   parseTasksJson,
+  removeSubtask,
+  subtaskProgress,
   taskBucket,
   taskCountdown,
+  toggleSubtask,
 } from "../lib/tasks";
 
 describe("task normalization", () => {
@@ -62,6 +66,43 @@ describe("task normalization", () => {
     expect(ok.tasks[0].title).toBe("实验报告");
     expect(parseTasksJson("{oops").ok).toBe(false);
     expect(parseTasksJson("[]").error).toBe("没有找到带标题的任务。");
+  });
+
+  it("normalizes subtasks and keeps ids unique", () => {
+    const [task] = normalizeTasks([
+      {
+        title: "实验报告",
+        subtasks: [
+          { id: "s1", title: " 写摘要 ", done: true },
+          { id: "s1", title: "重复" },
+          { title: "" },
+          { title: "画图", done: "yes" },
+        ],
+      },
+    ]);
+    expect(task.subtasks).toHaveLength(2);
+    expect(task.subtasks[0]).toEqual({ id: "s1", title: "写摘要", done: true });
+    expect(task.subtasks[1].title).toBe("画图");
+    expect(task.subtasks[1].done).toBe(false);
+  });
+});
+
+describe("subtask editing", () => {
+  it("adds, toggles and removes subtasks", () => {
+    const task = makeTask({ title: "实验报告" });
+    expect(subtaskProgress(task)).toEqual({ done: 0, total: 0 });
+
+    const withOne = addSubtask(task, "  写摘要  ");
+    expect(withOne.subtasks).toHaveLength(1);
+    expect(withOne.subtasks[0].title).toBe("写摘要");
+    expect(subtaskProgress(withOne)).toEqual({ done: 0, total: 1 });
+
+    const done = toggleSubtask(withOne, withOne.subtasks[0].id);
+    expect(done.subtasks[0].done).toBe(true);
+    expect(subtaskProgress(done)).toEqual({ done: 1, total: 1 });
+
+    expect(addSubtask(withOne, "   ").subtasks).toHaveLength(1);
+    expect(removeSubtask(withOne, withOne.subtasks[0].id).subtasks).toHaveLength(0);
   });
 });
 

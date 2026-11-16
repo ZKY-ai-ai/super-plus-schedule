@@ -1,15 +1,19 @@
 import { useMemo, useState } from "react";
-import { ClipboardList, FileJson, Plus, Trash2 } from "lucide-react";
+import { ClipboardList, FileJson, ListChecks, Plus, Trash2 } from "lucide-react";
 import type { Course } from "../../types";
 import { useClock } from "../../hooks/useClock";
 import {
+  addSubtask,
   describeDue,
   groupTasks,
   loadTasks,
   makeTask,
   parseTasksJson,
+  removeSubtask,
   saveTasks,
+  subtaskProgress,
   taskCountdown,
+  toggleSubtask,
   type Task,
   type TaskBucket,
 } from "../../lib/tasks";
@@ -42,6 +46,8 @@ export function TasksSettingsTab({ timetableId, courses }: TasksSettingsTabProps
   const [dueTime, setDueTime] = useState("");
   const [importText, setImportText] = useState("");
   const [notice, setNotice] = useState<TaskNotice | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [subtaskDrafts, setSubtaskDrafts] = useState<Record<string, string>>({});
 
   const courseName = useMemo(() => {
     const map = new Map(courses.map((course) => [course.id, course.name]));
@@ -88,6 +94,26 @@ export function TasksSettingsTab({ timetableId, courses }: TasksSettingsTabProps
     persist(tasks.filter((task) => task.id !== id));
   };
 
+  const updateTask = (id: string, updater: (task: Task) => Task) => {
+    persist(tasks.map((task) => (task.id === id ? updater(task) : task)));
+  };
+
+  const toggleExpanded = (id: string) => {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const submitSubtask = (taskId: string) => {
+    const draft = (subtaskDrafts[taskId] ?? "").trim();
+    if (!draft) return;
+    updateTask(taskId, (task) => addSubtask(task, draft));
+    setSubtaskDrafts((current) => ({ ...current, [taskId]: "" }));
+  };
+
   const handleImport = () => {
     const result = parseTasksJson(importText);
     if (!result.ok) {
@@ -103,6 +129,7 @@ export function TasksSettingsTab({ timetableId, courses }: TasksSettingsTabProps
             dueDate: task.dueDate,
             dueTime: task.dueTime,
             note: task.note,
+            subtasks: task.subtasks,
           })
         : task,
     );
@@ -117,6 +144,8 @@ export function TasksSettingsTab({ timetableId, courses }: TasksSettingsTabProps
   const renderTask = (task: Task, muted = false) => {
     const countdown = taskCountdown(task, now);
     const linked = courseName(task.courseId);
+    const progress = subtaskProgress(task);
+    const isOpen = expanded.has(task.id);
     return (
       <div className={`task-item ${muted ? "is-done" : ""}`} key={task.id}>
         <label className="task-check">
@@ -135,6 +164,69 @@ export function TasksSettingsTab({ timetableId, courses }: TasksSettingsTabProps
             <span>{describeDue(task)}</span>
             {task.note ? <span className="task-note">{task.note}</span> : null}
           </span>
+          {!muted || isOpen ? (
+            <div className="task-subtasks">
+              <button
+                type="button"
+                className="task-subtask-toggle"
+                aria-expanded={isOpen}
+                onClick={() => toggleExpanded(task.id)}
+              >
+                <ListChecks size={12} />
+                子任务 {progress.done}/{progress.total}
+              </button>
+              {isOpen ? (
+                <div className="task-subtask-panel">
+                  {task.subtasks.map((subtask) => (
+                    <div className="task-subtask" key={subtask.id}>
+                      <label className="task-subtask-check">
+                        <input
+                          type="checkbox"
+                          checked={subtask.done}
+                          onChange={() => updateTask(task.id, (item) => toggleSubtask(item, subtask.id))}
+                        />
+                        <span className={subtask.done ? "is-done" : ""}>{subtask.title}</span>
+                      </label>
+                      <button
+                        type="button"
+                        className="icon-button task-subtask-delete"
+                        aria-label={`删除子任务「${subtask.title}」`}
+                        onClick={() => updateTask(task.id, (item) => removeSubtask(item, subtask.id))}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  <div className="task-subtask-add">
+                    <input
+                      className="field-input"
+                      value={subtaskDrafts[task.id] ?? ""}
+                      onChange={(event) =>
+                        setSubtaskDrafts((current) => ({ ...current, [task.id]: event.target.value }))
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          submitSubtask(task.id);
+                        }
+                      }}
+                      placeholder="添加子任务，回车确认"
+                      maxLength={80}
+                    />
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => submitSubtask(task.id)}
+                      disabled={!(subtaskDrafts[task.id] ?? "").trim()}
+                    >
+                      添加
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         {muted ? null : (
           <span className={`task-badge task-badge--${countdown.tone}`}>{countdown.text}</span>

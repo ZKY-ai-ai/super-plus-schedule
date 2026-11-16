@@ -1,6 +1,12 @@
 import { dayDiff, parseDateKey, timeToMinutes } from "./date";
 import { uid } from "./factory";
 
+export interface Subtask {
+  id: string;
+  title: string;
+  done: boolean;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -11,6 +17,7 @@ export interface Task {
   dueTime: string;
   note: string;
   done: boolean;
+  subtasks: Subtask[];
   createdAt: string;
   updatedAt: string;
 }
@@ -42,6 +49,57 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function text(value: unknown, max: number): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+export function normalizeSubtasks(raw: unknown): Subtask[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const subtasks: Subtask[] = [];
+  raw.slice(0, 50).forEach((item, index) => {
+    if (!isRecord(item)) return;
+    const title = text(item.title, 80);
+    if (!title) return;
+    const id = text(item.id, 80) || `subtask-${index + 1}`;
+    if (seen.has(id)) return;
+    seen.add(id);
+    subtasks.push({ id, title, done: item.done === true });
+  });
+  return subtasks;
+}
+
+export function subtaskProgress(task: Task): { done: number; total: number } {
+  return {
+    done: task.subtasks.filter((subtask) => subtask.done).length,
+    total: task.subtasks.length,
+  };
+}
+
+export function addSubtask(task: Task, title: string): Task {
+  const trimmed = title.trim().slice(0, 80);
+  if (!trimmed) return task;
+  return {
+    ...task,
+    subtasks: [...task.subtasks, { id: uid("subtask"), title: trimmed, done: false }],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function toggleSubtask(task: Task, subtaskId: string): Task {
+  return {
+    ...task,
+    subtasks: task.subtasks.map((subtask) =>
+      subtask.id === subtaskId ? { ...subtask, done: !subtask.done } : subtask,
+    ),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function removeSubtask(task: Task, subtaskId: string): Task {
+  return {
+    ...task,
+    subtasks: task.subtasks.filter((subtask) => subtask.id !== subtaskId),
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function todayStart(now: Date): Date {
@@ -76,6 +134,7 @@ export function normalizeTasks(raw: unknown): Task[] {
       dueTime,
       note: text(item.note, 300),
       done: item.done === true,
+      subtasks: normalizeSubtasks(item.subtasks),
       createdAt: text(item.createdAt, 40) || now,
       updatedAt: text(item.updatedAt, 40) || now,
     });
@@ -89,6 +148,7 @@ export function makeTask(input: {
   dueDate?: string;
   dueTime?: string;
   note?: string;
+  subtasks?: Subtask[];
   id?: string;
 }): Task {
   const now = new Date().toISOString();
@@ -100,6 +160,7 @@ export function makeTask(input: {
     dueTime: input.dueTime && TIME_RE.test(input.dueTime) ? input.dueTime : "",
     note: input.note?.trim().slice(0, 300) ?? "",
     done: false,
+    subtasks: normalizeSubtasks(input.subtasks ?? []),
     createdAt: now,
     updatedAt: now,
   };

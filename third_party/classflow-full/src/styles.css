@@ -9951,3 +9951,79 @@ html[data-theme="whale"] .week-pick.is-selected span {
   flex: 0 0 auto;
   text-align: right;
 }
+
+/* ---- Task subtasks (乙) ---- */
+.task-subtasks {
+  margin-top: 3px;
+}
+
+.task-subtask-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: transparent;
+  font-size: 7.5px;
+  cursor: pointer;
+}
+
+.task-subtask-toggle:hover {
+  color: var(--ink-2);
+  border-color: var(--line-strong);
+}
+
+.task-subtask-panel {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  margin-top: 5px;
+  border-left: 2px solid var(--line);
+  border-radius: 0 8px 8px 0;
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+
+.task-subtask {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-subtask-check {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+  font-size: 8.5px;
+  cursor: pointer;
+}
+
+.task-subtask-check span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-subtask-check span.is-done {
+  color: var(--faint);
+  text-decoration: line-through;
+}
+
+.task-subtask-delete {
+  flex: 0 0 auto;
+  opacity: 0.45;
+}
+
+.task-subtask-add {
+  display: flex;
+  gap: 6px;
+}
+
+.task-subtask-add .field-input {
+  flex: 1;
+  min-width: 0;
+}
