@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { normalizeSchedule } from "../lib/storage";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  clearImportDraft,
+  loadImportDraft,
+  normalizeSchedule,
+  saveImportDraft,
+} from "../lib/storage";
 import { createDemoSchedule, createInitialData } from "../lib/factory";
 
 describe("v2 schedule normalization", () => {
@@ -73,5 +78,49 @@ describe("v2 schedule normalization", () => {
     expect(normalized?.timetables).toHaveLength(1);
     expect(normalized?.activeTimetableId).toBe(normalized?.timetables[0].id);
     expect(createInitialData().periodProfiles).toHaveLength(2);
+  });
+});
+
+describe("import drafts", () => {
+  beforeEach(() => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, String(value));
+      },
+      removeItem: (key: string) => {
+        store.delete(key);
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("round-trips a draft and drops embedded wallpaper images", () => {
+    const data = createDemoSchedule(new Date(2026, 10, 12));
+    data.timetables[0].wallpaper = {
+      preset: "custom",
+      dataUrl: "data:image/png;base64,abc",
+      dim: 20,
+    };
+    const saved = saveImportDraft({
+      id: "draft-1",
+      fileName: "我的备份.json",
+      createdAt: "2026-11-16T10:00:00.000Z",
+      data,
+      message: "已读取 1 套课表。",
+    });
+    expect(saved?.data.timetables[0].wallpaper.dataUrl).toBe("");
+    expect(saved?.data.timetables[0].wallpaper.preset).toBe("paper");
+
+    const loaded = loadImportDraft();
+    expect(loaded?.fileName).toBe("我的备份.json");
+    expect(loaded?.data.timetables[0].courses.length).toBeGreaterThan(0);
+
+    clearImportDraft();
+    expect(loadImportDraft()).toBeNull();
   });
 });

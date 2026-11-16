@@ -2,6 +2,7 @@ import { normalizePeriodRules } from "./periods";
 import type {
   Course,
   CourseSlot,
+  ImportDraft,
   Period,
   PeriodProfile,
   Preferences,
@@ -38,6 +39,7 @@ export const DATA_KEY = "kexu:data:v2";
 export const LEGACY_DATA_KEY = "kexu:data:v1";
 export const PREFS_KEY = "kexu:prefs:v1";
 export const DEFAULT_VIEW_KEY = "kexu:prefs:week-default:v1";
+export const IMPORT_DRAFT_KEY = "kexu:import-draft:v1";
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -469,6 +471,67 @@ export function resetAllStorage(): void {
     localStorage.removeItem(DATA_KEY);
     localStorage.removeItem(LEGACY_DATA_KEY);
     localStorage.removeItem(PREFS_KEY);
+    localStorage.removeItem(IMPORT_DRAFT_KEY);
+  } catch {
+    // Ignore storage access failures.
+  }
+}
+
+function stripWallpaperImages(data: ScheduleData): ScheduleData {
+  return {
+    ...data,
+    timetables: data.timetables.map((timetable) =>
+      timetable.wallpaper.dataUrl
+        ? {
+            ...timetable,
+            wallpaper: {
+              ...timetable.wallpaper,
+              preset: timetable.wallpaper.preset === "custom" ? "paper" : timetable.wallpaper.preset,
+              dataUrl: "",
+            },
+          }
+        : timetable,
+    ),
+  };
+}
+
+export function saveImportDraft(draft: ImportDraft): ImportDraft | null {
+  const safe: ImportDraft = {
+    ...draft,
+    fileName: text(draft.fileName, 120, "导入备份"),
+    message: text(draft.message, 200, "备份已读取。"),
+    data: stripWallpaperImages(draft.data),
+  };
+  try {
+    localStorage.setItem(IMPORT_DRAFT_KEY, JSON.stringify(safe));
+    return safe;
+  } catch {
+    return null;
+  }
+}
+
+export function loadImportDraft(): ImportDraft | null {
+  try {
+    const raw = localStorage.getItem(IMPORT_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const data = normalizeSchedule(parsed.data);
+    if (!data) return null;
+    return {
+      id: text(parsed.id, 80) || "import-draft",
+      fileName: text(parsed.fileName, 120, "导入备份"),
+      createdAt: text(parsed.createdAt, 40) || new Date().toISOString(),
+      data,
+      message: text(parsed.message, 200, "备份已读取。"),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function clearImportDraft(): void {
+  try {
+    localStorage.removeItem(IMPORT_DRAFT_KEY);
   } catch {
     // Ignore storage access failures.
   }

@@ -1,5 +1,6 @@
 import type {
   Course,
+  ImportDraft,
   ImportResult,
   PeriodProfile,
   PeriodRule,
@@ -22,11 +23,16 @@ import {
   createBlankTimetable,
   createInitialData,
   getActiveTimetable,
+  uid,
 } from "../lib/factory";
 import { createTemplateCourses } from "../lib/templates";
 import type { TimetableTemplateId } from "../lib/templates";
 import { downloadScheduleIcs, downloadScheduleJson, readScheduleFile } from "../lib/transfer";
-import { normalizeSchedule } from "../lib/storage";
+import {
+  clearImportDraft,
+  normalizeSchedule,
+  saveImportDraft,
+} from "../lib/storage";
 import type { ToastTone } from "../components/Toast";
 import type { ScheduleStore } from "./useScheduleStore";
 import type { WeekView } from "./useWeekView";
@@ -343,12 +349,47 @@ export function useScheduleActions({
       tone: "danger",
     });
     if (!confirmed) {
-      return { ok: false, message: "已取消导入，当前课表未改变。" };
+      const saved = saveImportDraft({
+        id: uid("draft"),
+        fileName: file.name,
+        createdAt: new Date().toISOString(),
+        data: next,
+        message: result.message,
+      });
+      return {
+        ok: false,
+        message: saved
+          ? "已取消导入，这份备份已留作草稿，可在「数据与备份」里继续。"
+          : "已取消导入，当前课表未改变；本机空间不足，草稿未能保存。",
+      };
     }
+    clearImportDraft();
     applyImportedData(next);
     onOpenTimetable();
     notify(result.message);
     return { ok: true, message: result.message };
+  };
+
+  const applyImportDraft = async (draft: ImportDraft): Promise<ImportResult> => {
+    const confirmed = await askConfirm({
+      title: "继续导入这份备份？",
+      message: `「${draft.fileName}」将替换当前的 ${data.timetables.length} 套课表。\n建议先导出现有备份。`,
+      confirmLabel: "导入并替换",
+      tone: "danger",
+    });
+    if (!confirmed) {
+      return { ok: false, message: "已取消，导入草稿仍然保留。" };
+    }
+    clearImportDraft();
+    applyImportedData(draft.data);
+    onOpenTimetable();
+    notify(`已导入「${draft.fileName}」。`);
+    return { ok: true, message: `已导入「${draft.fileName}」。` };
+  };
+
+  const discardImportDraft = () => {
+    clearImportDraft();
+    notify("已丢弃导入草稿。");
   };
 
   return {
@@ -368,5 +409,7 @@ export function useScheduleActions({
     exportJson,
     exportIcs,
     importFile,
+    applyImportDraft,
+    discardImportDraft,
   };
 }
