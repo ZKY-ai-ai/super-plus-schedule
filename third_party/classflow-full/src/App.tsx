@@ -80,7 +80,7 @@ import { Topbar } from "./components/Topbar";
 import { WallpaperModal } from "./components/WallpaperModal";
 import { WeekHero } from "./components/WeekHero";
 import { WeekPickerModal } from "./components/WeekPickerModal";
-import { GapBoard } from "./components/planner/GapBoard";
+import { PlanPage } from "./components/planner/PlanPage";
 import { loadGapPreferences, type GapPreferences } from "./lib/gaps";
 
 interface ConfirmState {
@@ -866,16 +866,20 @@ export default function App() {
               onSelectEvent={(event) => openEventEditor({ event })}
             />
           ) : page === "plan" ? (
-            <GapBoard
+            <PlanPage
               now={now}
               week={week}
               dates={viewDates}
               periods={viewPeriods}
               sessions={viewSessions}
-              onSelectCourse={openCourseDetail}
-              onAddCourse={() => openEditor()}
+              todaySessions={currentSessions}
+              todayPeriods={currentPeriods}
+              courses={courses}
+              events={events}
               preferences={gapPrefs}
               onChangePreferences={setGapPrefs}
+              onSelectCourse={openCourseDetail}
+              onAddCourse={() => openEditor()}
             />
           ) : page === "profile" ? (
             <ProfilePage
