@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   Bell,
   CalendarDays,
+  CalendarRange,
   Check,
   ClipboardList,
   Clock,
@@ -33,6 +34,7 @@ import { PeriodGenerator } from "./settings/PeriodGenerator";
 import { GradesSettingsTab } from "./settings/GradesSettingsTab";
 import { RemindersSettingsTab } from "./settings/RemindersSettingsTab";
 import { SystemCalendarPanel } from "./settings/SystemCalendarPanel";
+import { GoogleCalendarPanel } from "./settings/GoogleCalendarPanel";
 import { TasksSettingsTab } from "./settings/TasksSettingsTab";
 import {
   MAX_PERIODS,
@@ -70,6 +72,7 @@ type SettingsTab =
   | "grades"
   | "reminders"
   | "calendar"
+  | "google-calendar"
   | "data"
   | "ai";
 
@@ -123,6 +126,7 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Database }> = [
   { id: "grades", label: "考试与成绩", icon: GraduationCap },
   { id: "reminders", label: "上课提醒", icon: Bell },
   { id: "calendar", label: "系统日历", icon: CalendarDays },
+  { id: "google-calendar", label: "Google 日历", icon: CalendarRange },
   { id: "data", label: "数据与备份", icon: Database },
   { id: "ai", label: "笔记与 AI", icon: Sparkles },
 ];
@@ -1030,6 +1034,13 @@ tab === "ai" ? (
                 timetable={active}
                 periodProfiles={data.periodProfiles}
                 autoHolidays={autoHolidays}
+              />
+            ) : null}
+
+            {tab === "google-calendar" ? (
+              <GoogleCalendarPanel
+                timetable={active}
+                periodProfiles={data.periodProfiles}
               />
             ) : null}
 
