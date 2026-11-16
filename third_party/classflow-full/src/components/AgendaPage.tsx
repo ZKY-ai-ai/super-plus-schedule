@@ -4,11 +4,10 @@ import {
   collectUpcomingExams,
   collectWeekTasks,
   formatExamWhen,
-  formatTaskDue,
 } from "../lib/agenda";
 import { dateKey as toDateKey, formatWeekRange, WEEKDAYS } from "../lib/date";
 import { examCountdown, examTypeLabel, type Exam } from "../lib/exams";
-import { taskUrgency, type PlannerTask } from "../lib/stats";
+import { describeDue, taskBucket, type Task } from "../lib/tasks";
 import type {
   Period,
   ScheduleEvent,
@@ -42,7 +41,7 @@ interface AgendaPageProps {
   todayNumber: number;
   todayEvents: ScheduleEvent[];
   showAliases: boolean;
-  tasks?: PlannerTask[];
+  tasks?: Task[];
   exams?: Exam[];
   onPrevWeek: () => void;
   onNextWeek: () => void;
@@ -231,7 +230,7 @@ export function AgendaPage({
               {weekTasks.length > 0 ? (
                 <div className="agenda-event-list">
                   {weekTasks.map((task) => {
-                    const overdue = taskUrgency(task, now).tier === "overdue";
+                    const overdue = taskBucket(task, now) === "overdue";
                     const courseName = task.courseId ? courseNames.get(task.courseId) : undefined;
                     return (
                       <div
@@ -245,7 +244,7 @@ export function AgendaPage({
                         </span>
                         <span className="agenda-task-due">
                           {overdue ? <em>逾期</em> : null}
-                          <time>{formatTaskDue(task)}</time>
+                          <time>{describeDue(task)}</time>
                         </span>
                       </div>
                     );

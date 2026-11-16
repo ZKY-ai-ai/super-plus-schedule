@@ -1,29 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { collectUpcomingExams, collectWeekTasks } from "../lib/agenda";
 import { makeExam } from "../lib/exams";
-import type { PlannerTask } from "../lib/stats";
+import { makeTask } from "../lib/tasks";
 
 const NOW = new Date(2026, 10, 16, 8, 0);
 const WEEK_START = "2026-11-16";
 const WEEK_END = "2026-11-22";
 
-function task(id: string, title: string, due?: string, done = false): PlannerTask {
-  return {
-    id,
-    title,
-    due,
-    priority: "normal",
-    done,
-    createdAt: "2026-11-01T00:00:00.000Z",
-  };
-}
-
 describe("collectWeekTasks", () => {
   it("keeps overdue tasks and tasks due inside the week, sorted by deadline", () => {
     const tasks = [
-      task("week-end", "周日交报告", "2026-11-22"),
-      task("overdue", "补交实验", "2026-11-14"),
-      task("today", "今晚复习", "2026-11-16T20:00:00"),
+      makeTask({ id: "week-end", title: "周日交报告", dueDate: "2026-11-22" }),
+      makeTask({ id: "overdue", title: "补交实验", dueDate: "2026-11-14" }),
+      makeTask({ id: "today", title: "今晚复习", dueDate: "2026-11-16", dueTime: "20:00" }),
     ];
     expect(collectWeekTasks(tasks, NOW, WEEK_START, WEEK_END).map((item) => item.id)).toEqual([
       "overdue",
@@ -34,17 +23,17 @@ describe("collectWeekTasks", () => {
 
   it("drops completed, undated and next-week tasks", () => {
     const tasks = [
-      task("done", "已完成的作业", "2026-11-17", true),
-      task("undated", "随便看看"),
-      task("next-week", "下周一交", "2026-11-23"),
+      { ...makeTask({ id: "done", title: "已完成的作业", dueDate: "2026-11-17" }), done: true },
+      makeTask({ id: "undated", title: "随便看看" }),
+      makeTask({ id: "next-week", title: "下周一交", dueDate: "2026-11-23" }),
     ];
     expect(collectWeekTasks(tasks, NOW, WEEK_START, WEEK_END)).toEqual([]);
   });
 
   it("includes deadlines on both week boundaries", () => {
     const tasks = [
-      task("start", "周一截止", WEEK_START),
-      task("end", "周日截止", WEEK_END),
+      makeTask({ id: "start", title: "周一截止", dueDate: WEEK_START }),
+      makeTask({ id: "end", title: "周日截止", dueDate: WEEK_END }),
     ];
     expect(collectWeekTasks(tasks, NOW, WEEK_START, WEEK_END).map((item) => item.id)).toEqual([
       "start",
@@ -52,8 +41,13 @@ describe("collectWeekTasks", () => {
     ]);
   });
 
-  it("treats an invalid due date as undated", () => {
-    expect(collectWeekTasks([task("bad", "坏日期", "not-a-date")], NOW, WEEK_START, WEEK_END)).toEqual([]);
+  it("keeps a timed deadline that already passed today as overdue", () => {
+    const tasks = [
+      makeTask({ id: "passed", title: "早八作业", dueDate: "2026-11-16", dueTime: "07:00" }),
+    ];
+    expect(collectWeekTasks(tasks, NOW, WEEK_START, WEEK_END).map((item) => item.id)).toEqual([
+      "passed",
+    ]);
   });
 });
 
