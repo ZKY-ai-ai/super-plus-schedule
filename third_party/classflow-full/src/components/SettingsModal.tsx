@@ -7,6 +7,7 @@ import {
   Clock,
   Pencil,
   Plus,
+  Sparkles,
   X,
   Database,
   Download,
@@ -40,9 +41,11 @@ import {
 } from "../lib/date";
 import { getUsedMaxPeriod, weeksForSlot } from "../lib/schedule";
 import { isNativeApp, type ExportResult } from "../lib/nativeFile";
+import { loadAiSettings, saveAiSettings, type AiSettings } from "../lib/ai";
+import { AiSettingsPanel } from "./ai/AiSettingsPanel";
 import { WhaleMascot } from "./WhaleMascot";
 
-type SettingsTab = "term" | "periods" | "data";
+type SettingsTab = "term" | "periods" | "data" | "ai";
 
 interface SettingsModalProps {
   data: ScheduleData;
@@ -74,6 +77,7 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Database }> = [
   { id: "term", label: "学期与视图", icon: CalendarDays },
   { id: "periods", label: "作息时间", icon: Clock },
   { id: "data", label: "数据与备份", icon: Database },
+  { id: "ai", label: "笔记与 AI", icon: Sparkles },
 ];
 
 function deliveryMessage(delivery: ExportResult["delivery"], filename: string): string {
@@ -157,6 +161,7 @@ export function SettingsModal({
   const [profileName, setProfileName] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [aiSettings, setAiSettings] = useState<AiSettings>(() => loadAiSettings());
   const fileRef = useRef<HTMLInputElement>(null);
   const native = isNativeApp();
   const currentProfile = data.periodProfiles.find((profile) => profile.id === profileId);
@@ -258,6 +263,7 @@ export function SettingsModal({
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
+    if (tab === "ai") return;
     const name = draft.name.trim();
     if (!name) {
       setError("学期名称不能为空。");
@@ -386,17 +392,27 @@ export function SettingsModal({
       title="设置"
       onClose={onClose}
       footer={
-        <>
-          <p className="modal-foot-note">所有内容只保存在本机</p>
-          <span className="modal-foot-spacer" />
-          <button className="secondary-button" type="button" onClick={onClose}>
-            取消
-          </button>
-          <button className="primary-button" type="submit" form="settings-form">
-            <Check size={16} />
-            保存设置
-          </button>
-        </>
+        tab === "ai" ? (
+          <>
+            <p className="modal-foot-note">聊天与密钥只保存在本机</p>
+            <span className="modal-foot-spacer" />
+            <button className="primary-button" type="button" onClick={onClose}>
+              完成
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="modal-foot-note">所有内容只保存在本机</p>
+            <span className="modal-foot-spacer" />
+            <button className="secondary-button" type="button" onClick={onClose}>
+              取消
+            </button>
+            <button className="primary-button" type="submit" form="settings-form">
+              <Check size={16} />
+              保存设置
+            </button>
+          </>
+        )
       }
     >
       <form id="settings-form" className="settings-form" onSubmit={handleSubmit}>
@@ -904,6 +920,29 @@ export function SettingsModal({
                     </button>
                   </div>
                 </div>
+              </section>
+            ) : null}
+
+            {tab === "ai" ? (
+              <section className="settings-pane">
+                <div className="settings-pane-head">
+                  <p className="eyebrow">NOTES & AI</p>
+                  <h3>笔记与 AI 助手</h3>
+                  <p>
+                    本地规则零配置可用；需要自由聊天时再接入兼容 OpenAI 的服务。
+                    笔记、聊天记录与密钥都只保存在这台设备。
+                  </p>
+                </div>
+                <AiSettingsPanel
+                  settings={aiSettings}
+                  onSave={(next) => {
+                    saveAiSettings(next);
+                    setAiSettings(next);
+                    setError("");
+                    setNotice({ tone: "success", message: "AI 设置已保存在本机。" });
+                  }}
+                  onNotify={(message, tone) => setNotice({ tone: tone ?? "success", message })}
+                />
               </section>
             ) : null}
           </div>
