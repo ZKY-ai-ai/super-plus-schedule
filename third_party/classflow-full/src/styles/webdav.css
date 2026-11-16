@@ -1,0 +1,380 @@
+/* --------------------------------------------------------------------------
+   WebDAV 备份
+   -------------------------------------------------------------------------- */
+
+.webdav-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.webdav-security {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 12px;
+  border: 1px solid color-mix(in srgb, var(--amber) 28%, var(--line));
+  border-radius: 10px;
+  background: var(--amber-soft);
+  color: var(--ink-2);
+  font-size: 9.5px;
+  line-height: 1.7;
+}
+
+.webdav-security svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--amber);
+}
+
+.webdav-pane .inline-notice {
+  margin-bottom: 0;
+}
+
+.webdav-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.webdav-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.webdav-field--wide {
+  grid-column: 1 / -1;
+}
+
+.webdav-field > label {
+  color: var(--ink-2);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.webdav-field input,
+.webdav-field select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.webdav-field--wide input {
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+
+.webdav-field input::placeholder {
+  color: var(--faint);
+}
+
+.webdav-field input:focus-visible,
+.webdav-field select:focus-visible,
+.webdav-interval select:focus-visible {
+  border-color: var(--coral);
+  outline: 2px solid color-mix(in srgb, var(--coral) 24%, transparent);
+  outline-offset: 1px;
+}
+
+.webdav-field small {
+  color: var(--muted);
+  font-size: 8.5px;
+  line-height: 1.55;
+}
+
+.webdav-password-row {
+  position: relative;
+  display: flex;
+}
+
+.webdav-password-row input {
+  padding-right: 42px;
+}
+
+.webdav-eye {
+  position: absolute;
+  top: 50%;
+  right: 3px;
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  transform: translateY(-50%);
+}
+
+.webdav-eye:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.webdav-form-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.webdav-form-actions .primary-button,
+.webdav-form-actions .secondary-button,
+.webdav-toolbar .primary-button,
+.webdav-toolbar .secondary-button,
+.webdav-toolbar .danger-ghost-button {
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 11px;
+}
+
+.webdav-auto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.webdav-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.webdav-switch input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--coral);
+}
+
+.webdav-interval {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 9.5px;
+}
+
+.webdav-interval select {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+  font-size: 10px;
+}
+
+.webdav-interval select:disabled {
+  opacity: 0.55;
+}
+
+.webdav-auto-hint {
+  flex: 1 1 100%;
+  color: var(--muted);
+  font-size: 8.5px;
+  line-height: 1.6;
+}
+
+.webdav-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.webdav-backups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.webdav-backups-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.webdav-backups-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink-2);
+  font-size: 10px;
+}
+
+.webdav-backups-title svg {
+  color: var(--coral);
+}
+
+.webdav-empty {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 0;
+  padding: 10px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 9px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.webdav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.webdav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.webdav-item-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.webdav-item-main strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.webdav-item-main small {
+  color: var(--muted);
+  font-size: 8.5px;
+}
+
+.webdav-restore {
+  flex: 0 0 auto;
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  font-size: 10px !important;
+}
+
+.webdav-hint {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 2px solid var(--line-strong);
+  color: var(--muted);
+  font-size: 8.5px;
+  line-height: 1.7;
+}
+
+.webdav-hint strong {
+  color: var(--ink-2);
+}
+
+.webdav-spin {
+  animation: webdav-spin 850ms linear infinite;
+}
+
+@keyframes webdav-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 760px) {
+  .webdav-form {
+    grid-template-columns: 1fr;
+  }
+
+  .webdav-field--wide,
+  .webdav-form-actions {
+    grid-column: auto;
+  }
+
+  .webdav-form-actions {
+    justify-content: stretch;
+  }
+
+  .webdav-form-actions button {
+    flex: 1;
+  }
+
+  .webdav-toolbar button {
+    flex: 1 1 calc(50% - 8px);
+  }
+
+  .webdav-item {
+    flex-wrap: wrap;
+  }
+
+  .webdav-item-main {
+    flex-basis: 100%;
+  }
+
+  .webdav-restore {
+    width: 100%;
+  }
+
+  .webdav-auto {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 430px) {
+  .webdav-toolbar button {
+    flex-basis: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .webdav-spin {
+    animation: none;
+  }
+}
