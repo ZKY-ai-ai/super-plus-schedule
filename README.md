@@ -134,7 +134,7 @@ docs/                 原创性与合规说明、大赛作品帖草稿
 ## 大赛信息
 
 - 赛事：2026 Qoder 高校创造力大赛（AI 大模型赛），StudyHack 赛道
-- 源码仓库：https://github.com/2084751723-star/super-plus-schedule
+- 源码仓库：https://github.com/ZKY-ai-ai/super-plus-schedule
 - 开发工具：Qoder（设计、实现、验证、部署全流程）
 - 部署：Qoder Sites 公开访问
 - 作品帖：天池论坛（草稿见 [docs/天池作品帖草稿.md](docs/天池作品帖草稿.md)）
