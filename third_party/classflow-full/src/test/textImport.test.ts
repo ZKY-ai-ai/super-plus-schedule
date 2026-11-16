@@ -40,7 +40,16 @@ describe("parseCourseText", () => {
     expect(result.courses[0].location).toBe("外语楼302");
   });
 
-  it("merges repeated courses into one entry with several slots", () => {    const result = parseCourseText(
+  it("does not read a week range as a weekday", () => {
+    const result = parseCourseText("线性代数 周二 1-8周 3-4节");
+    expect(result.errors).toEqual([]);
+    expect(result.courses[0].slots).toEqual([
+      { day: 2, start: 3, end: 4, weekStart: 1, weekEnd: 8, pattern: "all" },
+    ]);
+  });
+
+  it("merges repeated courses into one entry with several slots", () => {
+    const result = parseCourseText(
       ["体育 周一 3-4节 体育馆 1-16周", "体育 周三 3-4节 体育馆 1-16周"].join("\n"),
     );
     expect(result.courses).toHaveLength(1);

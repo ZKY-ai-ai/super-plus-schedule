@@ -37,7 +37,8 @@ const DAY_MAP: Record<string, number> = {
   "7": 7,
 };
 
-const DAY_RE = /(?:周|星期)\s*([一二三四五六日天1-7])/g;
+// A weekday prefix never follows digits; "1-16周 3-4节" is a week range, not 周3.
+const DAY_RE = /(?<![\d\-–~至])(?:周|星期)\s*([一二三四五六日天1-7])/g;
 const PERIOD_RANGE_RE = /第?\s*(\d{1,2})\s*[-–~至]\s*(\d{1,2})\s*节/;
 const PERIOD_SINGLE_RE = /第\s*(\d{1,2})\s*节/;
 const WEEK_RANGE_RE = /第?\s*(\d{1,2})\s*[-–~至]\s*(\d{1,2})\s*周([单双])?/;

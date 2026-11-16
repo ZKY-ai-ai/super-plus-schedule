@@ -83,6 +83,7 @@ interface SettingsModalProps {
   onRemoveCalendarOverride: (id: string) => void;
   onRenameProfile: (id: string, name: string) => void;
   onChangeTheme: (theme: Theme) => void;
+  onOpenExcelImport: () => void;
 }
 
 interface Notice {
@@ -153,6 +154,7 @@ export function SettingsModal({
   onRemoveCalendarOverride,
   onRenameProfile,
   onChangeTheme,
+  onOpenExcelImport,
 }: SettingsModalProps) {
   const active = data.timetables.find((item) => item.id === data.activeTimetableId) ?? data.timetables[0];
   const calendarOverrides = active.calendarOverrides ?? [];
@@ -969,6 +971,7 @@ export function SettingsModal({
                 onExportJson={onExportJson}
                 onExportIcs={onExportIcs}
                 onImportFile={onImportFile}
+                onOpenExcelImport={onOpenExcelImport}
                 onApplyDraft={onApplyImportDraft}
                 onDiscardDraft={onDiscardImportDraft}
                 onSaveTemplate={onSaveTemplate}

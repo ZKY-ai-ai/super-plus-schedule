@@ -4,6 +4,7 @@ import {
   Database,
   Download,
   FileClock,
+  FileSpreadsheet,
   LayoutTemplate,
   Printer,
   Trash2,
@@ -19,6 +20,7 @@ interface DataSettingsTabProps {
   onExportJson: () => Promise<ExportResult>;
   onExportIcs: () => Promise<ExportResult & { count: number }>;
   onImportFile: (file: File) => Promise<ImportResult>;
+  onOpenExcelImport: () => void;
   onApplyDraft: (draft: ImportDraft) => Promise<ImportResult>;
   onDiscardDraft: () => void;
   onSaveTemplate: (name: string) => ImportResult;
@@ -56,6 +58,7 @@ export function DataSettingsTab({
   onExportJson,
   onExportIcs,
   onImportFile,
+  onOpenExcelImport,
   onApplyDraft,
   onDiscardDraft,
   onSaveTemplate,
@@ -219,6 +222,15 @@ export function DataSettingsTab({
           <span>
             <strong>导入课表</strong>
             <small>课序 JSON 备份、ICS 日历、CSV 表格或课程文本</small>
+          </span>
+        </button>
+        <button className="data-card" type="button" onClick={onOpenExcelImport}>
+          <span className="data-card-icon">
+            <FileSpreadsheet size={18} />
+          </span>
+          <span>
+            <strong>Excel 映射导入</strong>
+            <small>XLSX · 自选列映射、班次筛选后并入当前课表</small>
           </span>
         </button>
         {!native ? (

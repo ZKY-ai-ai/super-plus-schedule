@@ -28,6 +28,7 @@ import { AgendaPage } from "./components/AgendaPage";
 import { MobileTabBar } from "./components/MobileTabBar";
 import { ProfilePage } from "./components/ProfilePage";
 import { ConfirmDialog } from "./components/ConfirmDialog";
+import { ExcelImportDialog } from "./components/ExcelImportDialog";
 import { DesktopPet } from "./components/DesktopPet";
 import { EventEditor } from "./components/EventEditor";
 import type { EventSeed } from "./components/EventEditor";
@@ -84,6 +85,7 @@ export default function App() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [sessionMenu, setSessionMenu] = useState<{ session: Session; week: number } | null>(null);
   const [textImportOpen, setTextImportOpen] = useState(false);
+  const [excelImportOpen, setExcelImportOpen] = useState(false);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const toastId = useRef(0);
@@ -609,6 +611,14 @@ export default function App() {
         />
       ) : null}
 
+      {excelImportOpen ? (
+        <ExcelImportDialog
+          totalWeeks={semester.totalWeeks}
+          onClose={() => setExcelImportOpen(false)}
+          onImport={actions.addTextCourses}
+        />
+      ) : null}
+
       {sessionMenu ? (
         <SessionOverrideDialog
           key={sessionMenu.session.id}
@@ -670,6 +680,10 @@ export default function App() {
           onRemoveCalendarOverride={actions.removeCalendarOverride}
           onRenameProfile={actions.renamePeriodProfile}
           onChangeTheme={store.setTheme}
+          onOpenExcelImport={() => {
+            setSettingsOpen(false);
+            setExcelImportOpen(true);
+          }}
         />
       ) : null}
 

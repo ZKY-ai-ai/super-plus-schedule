@@ -10353,3 +10353,130 @@ html[data-theme="whale"] .week-pick.is-selected span {
   color: var(--faint);
   font-size: 8.5px;
 }
+
+.excel-import-modal {
+  width: min(680px, calc(100vw - 32px));
+}
+
+.excel-import {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.excel-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 34px 20px;
+  border: 1px dashed var(--line-strong, var(--line));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  text-align: center;
+}
+
+.excel-drop svg {
+  color: var(--muted);
+}
+
+.excel-drop p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  max-width: 380px;
+}
+
+.excel-file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.excel-file-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.excel-sheet-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.excel-sheet-tabs button {
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.excel-sheet-tabs button.is-active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.excel-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.excel-mapping {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+
+.excel-required {
+  margin-left: 4px;
+  color: var(--coral);
+  font-style: normal;
+  font-size: 8px;
+}
+
+.excel-summary {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.excel-errors {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--coral);
+  font-size: 8.5px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+@media (max-width: 640px) {
+  .excel-options,
+  .excel-mapping {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
