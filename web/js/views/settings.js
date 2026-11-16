@@ -235,7 +235,7 @@ export function renderSettings(root, nav) {
   /* ---------- 关于 ---------- */
   root.append(el('div', { class: 'card' },
     el('h3', {}, '关于课隙 CourseGap'),
-    el('p', { class: 'small muted' }, 'v1.0 · 原创开源项目（Mulan PSL v2 木兰宽松许可证）· 为 2026 Qoder 高校创造力大赛 StudyHack 赛道开发。'),
+    el('p', { class: 'small muted' }, 'v1.0 · 原创开源项目（Apache-2.0 许可证）· 为 2026 Qoder 高校创造力大赛 StudyHack 赛道开发。'),
     el('p', { class: 'small muted mt' }, '功能设计参考了 Sleepy、拾光课程表、ClassFlow、Course_Planner、Gapwise、StudyDesk、StudySync、AirCourse、qq-reminder 等开源项目的公开文档（仅借鉴思路，未复制代码）。完整致谢与许可证核验见项目仓库 README。'),
     el('p', { class: 'small muted mt' }, '隐私：无账号、无追踪、无云端同步；全部数据存于本机浏览器。配置 AI 后仅向你填写的接口发送必要数据。')));
 }
