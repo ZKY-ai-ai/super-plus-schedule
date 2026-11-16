@@ -44,21 +44,22 @@ export function useWeekView({ data, prefs, timetable, now }: WeekViewParams) {
     () => getWeekDates(semester.startDate, currentWeek),
     [semester.startDate, currentWeek],
   );
+  const calendarOverrides = timetable.calendarOverrides;
   const viewDays = useMemo(
-    () => getVisibleDays(semester.showWeekends, viewDates, prefs.autoHolidays),
-    [semester.showWeekends, viewDates, prefs.autoHolidays],
+    () => getVisibleDays(semester.showWeekends, viewDates, prefs.autoHolidays, calendarOverrides),
+    [semester.showWeekends, viewDates, prefs.autoHolidays, calendarOverrides],
   );
   const currentDays = useMemo(
-    () => getVisibleDays(semester.showWeekends, currentDates, prefs.autoHolidays),
-    [semester.showWeekends, currentDates, prefs.autoHolidays],
+    () => getVisibleDays(semester.showWeekends, currentDates, prefs.autoHolidays, calendarOverrides),
+    [semester.showWeekends, currentDates, prefs.autoHolidays, calendarOverrides],
   );
   const viewDayStatuses = useMemo(
-    () => getDayStatusMap(viewDates, prefs.autoHolidays),
-    [viewDates, prefs.autoHolidays],
+    () => getDayStatusMap(viewDates, prefs.autoHolidays, calendarOverrides),
+    [viewDates, prefs.autoHolidays, calendarOverrides],
   );
   const currentDayStatuses = useMemo(
-    () => getDayStatusMap(currentDates, prefs.autoHolidays),
-    [currentDates, prefs.autoHolidays],
+    () => getDayStatusMap(currentDates, prefs.autoHolidays, calendarOverrides),
+    [currentDates, prefs.autoHolidays, calendarOverrides],
   );
   const rawViewSessions = useMemo(
     () => buildSessions(timetable.courses, week, timetable.overrides),
@@ -69,12 +70,18 @@ export function useWeekView({ data, prefs, timetable, now }: WeekViewParams) {
     [timetable.courses, timetable.overrides, currentWeek],
   );
   const viewSessions = useMemo(
-    () => filterHolidaySessions(rawViewSessions, viewDates, prefs.autoHolidays),
-    [rawViewSessions, viewDates, prefs.autoHolidays],
+    () => filterHolidaySessions(rawViewSessions, viewDates, prefs.autoHolidays, calendarOverrides),
+    [rawViewSessions, viewDates, prefs.autoHolidays, calendarOverrides],
   );
   const currentSessions = useMemo(
-    () => filterHolidaySessions(rawCurrentSessions, currentDates, prefs.autoHolidays),
-    [rawCurrentSessions, currentDates, prefs.autoHolidays],
+    () =>
+      filterHolidaySessions(
+        rawCurrentSessions,
+        currentDates,
+        prefs.autoHolidays,
+        calendarOverrides,
+      ),
+    [rawCurrentSessions, currentDates, prefs.autoHolidays, calendarOverrides],
   );
   const viewPeriods = useMemo(
     () => periodsForDate(timetable, data.periodProfiles, viewDates[viewDates.length - 1] ?? new Date()),
@@ -97,8 +104,8 @@ export function useWeekView({ data, prefs, timetable, now }: WeekViewParams) {
     [currentSessions, currentPeriods],
   );
   const calendarSummary = useMemo(
-    () => getCalendarSummary(viewDates, prefs.autoHolidays),
-    [viewDates, prefs.autoHolidays],
+    () => getCalendarSummary(viewDates, prefs.autoHolidays, calendarOverrides),
+    [viewDates, prefs.autoHolidays, calendarOverrides],
   );
   const selectedDate = viewDates[selectedDay - 1] ?? viewDates[0];
   const selectedEvents = selectedDate

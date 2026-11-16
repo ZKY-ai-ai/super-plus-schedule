@@ -71,6 +71,21 @@ describe("v2 schedule normalization", () => {
     expect(normalized?.timetables[0].courses[1].alias).toBeUndefined();
   });
 
+  it("keeps valid custom calendar days and drops duplicates", () => {
+    const data = createDemoSchedule(new Date(2026, 10, 12));
+    data.timetables[0].calendarOverrides = [
+      { id: "c1", date: "2026-11-20", kind: "holiday", name: "校庆" },
+      { id: "c2", date: "2026-11-20", kind: "workday", name: "重复" },
+      { id: "c3", date: "2026-11-22", kind: "workday", name: "" },
+      { id: "c4", date: "not-a-date", kind: "holiday", name: "错误" },
+    ];
+    const normalized = normalizeSchedule({ data });
+    expect(normalized?.timetables[0].calendarOverrides).toEqual([
+      { id: "c1", date: "2026-11-20", kind: "holiday", name: "校庆" },
+      { id: "c3", date: "2026-11-22", kind: "workday", name: "补课日" },
+    ]);
+  });
+
   it("keeps at least two period profiles and one timetable", () => {
     const normalized = normalizeSchedule({
       version: 2,

@@ -73,6 +73,12 @@ interface SettingsModalProps {
   onPrint: () => void;
   onClearData: () => void;
   onToggleAutoHolidays: (value: boolean) => void;
+  onSetCalendarOverride: (
+    date: string,
+    kind: "holiday" | "workday",
+    name: string,
+  ) => ImportResult;
+  onRemoveCalendarOverride: (id: string) => void;
   onRenameProfile: (id: string, name: string) => void;
   onChangeTheme: (theme: Theme) => void;
 }
@@ -141,10 +147,13 @@ export function SettingsModal({
   onPrint,
   onClearData,
   onToggleAutoHolidays,
+  onSetCalendarOverride,
+  onRemoveCalendarOverride,
   onRenameProfile,
   onChangeTheme,
 }: SettingsModalProps) {
   const active = data.timetables.find((item) => item.id === data.activeTimetableId) ?? data.timetables[0];
+  const calendarOverrides = active.calendarOverrides ?? [];
   const [tab, setTab] = useState<SettingsTab>("term");
   const [draft, setDraft] = useState<Semester>(() => ({
     ...active.semester,
@@ -171,6 +180,9 @@ export function SettingsModal({
   const [profileName, setProfileName] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [overrideDate, setOverrideDate] = useState("");
+  const [overrideKind, setOverrideKind] = useState<"holiday" | "workday">("holiday");
+  const [overrideName, setOverrideName] = useState("");
   const currentProfile = data.periodProfiles.find((profile) => profile.id === profileId);
   const maxPeriodForProfile = (id: string): number => {
     const related = data.timetables.filter((timetable) => timetable.periodProfileId === id);
@@ -186,6 +198,23 @@ export function SettingsModal({
     maxWeek > draft.totalWeeks
       ? `已有课程安排到第 ${maxWeek} 周，总周数不能少于 ${maxWeek}。`
       : "";
+  const semesterStart = parseDateKey(draft.startDate);
+  const semesterEndDate = dateKey(
+    new Date(
+      semesterStart.getFullYear(),
+      semesterStart.getMonth(),
+      semesterStart.getDate() + draft.totalWeeks * 7 - 1,
+    ),
+  );
+  const handleAddCalendarOverride = () => {
+    const result = onSetCalendarOverride(overrideDate, overrideKind, overrideName);
+    if (!result.ok) {
+      setNotice({ tone: "error", message: result.message });
+      return;
+    }
+    setOverrideDate("");
+    setOverrideName("");
+  };
 
   const updatePeriodRule = (id: string, patch: Partial<PeriodRule>) => {
     setError("");
@@ -543,6 +572,80 @@ export function SettingsModal({
                   />
                   <span className="switch" aria-hidden="true" />
                 </label>
+
+                <div className="calendar-override-box">
+                  <div className="calendar-override-head">
+                    <strong>逐日调整</strong>
+                    <small>把教学周里的某一天单独设为放假或补课，优先于内置日历。</small>
+                  </div>
+                  <div className="calendar-override-form">
+                    <input
+                      className="field-input"
+                      type="date"
+                      value={overrideDate}
+                      min={draft.startDate}
+                      max={semesterEndDate}
+                      onChange={(event) => setOverrideDate(event.target.value)}
+                      aria-label="调整日期"
+                    />
+                    <select
+                      className="field-input"
+                      value={overrideKind}
+                      onChange={(event) =>
+                        setOverrideKind(event.target.value === "workday" ? "workday" : "holiday")
+                      }
+                      aria-label="日期类型"
+                    >
+                      <option value="holiday">放假</option>
+                      <option value="workday">补课</option>
+                    </select>
+                    <input
+                      className="field-input"
+                      value={overrideName}
+                      maxLength={20}
+                      placeholder="名称（可选）"
+                      onChange={(event) => setOverrideName(event.target.value)}
+                      aria-label="日期名称"
+                    />
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      disabled={!overrideDate}
+                      onClick={handleAddCalendarOverride}
+                    >
+                      <Plus size={14} />
+                      添加
+                    </button>
+                  </div>
+                  {calendarOverrides.length > 0 ? (
+                    <ul className="calendar-override-list">
+                      {calendarOverrides.map((override) => (
+                        <li key={override.id}>
+                          <span className={`day-status-tag is-${override.kind}`}>
+                            {override.kind === "holiday" ? "休" : "班"}
+                          </span>
+                          <span>
+                            <strong>{override.date}</strong>
+                            <small>
+                              {formatDateWithWeekday(parseDateKey(override.date))} ·{" "}
+                              {override.name}
+                            </small>
+                          </span>
+                          <button
+                            className="ghost-button"
+                            type="button"
+                            aria-label={`删除 ${override.date} 的调整`}
+                            onClick={() => onRemoveCalendarOverride(override.id)}
+                          >
+                            <X size={14} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="calendar-override-empty">还没有自定义日期。</p>
+                  )}
+                </div>
 
                 <div className="term-preview">
                   <span className="term-preview-label">第 1 周从</span>

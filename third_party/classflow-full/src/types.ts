@@ -108,6 +108,16 @@ export interface ScheduleEvent {
   updatedAt: string;
 }
 
+export type CalendarOverrideKind = "holiday" | "workday";
+
+/** A single day that overrides the built-in holiday calendar for this timetable. */
+export interface CalendarOverride {
+  id: string;
+  date: string;
+  kind: CalendarOverrideKind;
+  name: string;
+}
+
 export interface Timetable {
   id: string;
   name: string;
@@ -117,6 +127,7 @@ export interface Timetable {
   courses: Course[];
   events: ScheduleEvent[];
   overrides: SessionOverride[];
+  calendarOverrides: CalendarOverride[];
   wallpaper: Wallpaper;
   createdAt: string;
   updatedAt: string;

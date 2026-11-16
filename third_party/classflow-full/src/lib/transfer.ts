@@ -118,7 +118,7 @@ export function buildIcs(
         const periodStart = periods[slot.start - 1];
         const periodEnd = periods[slot.end - 1];
         if (!periodStart || !periodEnd) continue;
-        if (autoHolidays && isHolidayDate(date)) continue;
+        if (autoHolidays && isHolidayDate(date, active.calendarOverrides ?? [])) continue;
         const description = [
           course.name,
           course.teacher ? `教师：${course.teacher}` : "",

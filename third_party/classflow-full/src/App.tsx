@@ -624,6 +624,8 @@ export default function App() {
           onPrint={printTimetable}
           onClearData={() => void actions.clearAll()}
           onToggleAutoHolidays={setAutoHolidays}
+          onSetCalendarOverride={actions.setCalendarOverride}
+          onRemoveCalendarOverride={actions.removeCalendarOverride}
           onRenameProfile={actions.renamePeriodProfile}
           onChangeTheme={store.setTheme}
         />

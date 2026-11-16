@@ -50,10 +50,12 @@ export function useReminderEngine({ data, timetable, autoHolidays }: ReminderEng
           timetable.semester.totalWeeks,
         );
         const periods = periodsForDate(timetable, data.periodProfiles, date);
-        if (autoHolidays && isHolidayDate(date)) return { sessions: [], periods };
+        if (autoHolidays && isHolidayDate(date, timetable.calendarOverrides ?? [])) {
+          return { sessions: [], periods };
+        }
         const weekday = getWeekdayNumber(date);
         return {
-          sessions: buildSessions(timetable.courses, week).filter(
+          sessions: buildSessions(timetable.courses, week, timetable.overrides).filter(
             (session) => session.day === weekday,
           ),
           periods,

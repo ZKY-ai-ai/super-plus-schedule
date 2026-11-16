@@ -268,6 +268,7 @@ export function createBlankTimetable(
     courses: [],
     events: [],
     overrides: [],
+    calendarOverrides: [],
     wallpaper: createDefaultWallpaper(),
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -336,6 +337,10 @@ export function cloneTimetable(source: Timetable, name: string): Timetable {
         ? slotIdMap.get(`${override.courseId}:${override.slotId}`) ?? override.slotId
         : "",
       createdAt: timestamp,
+    })),
+    calendarOverrides: (source.calendarOverrides ?? []).map((override) => ({
+      ...override,
+      id: uid("calendar"),
     })),
     wallpaper: cloneWallpaper(source.wallpaper),
     createdAt: timestamp,
@@ -471,6 +476,7 @@ export function createDemoSchedule(now = new Date()): ScheduleData {
     courses,
     events: [],
     overrides: [],
+    calendarOverrides: [],
     wallpaper: createDefaultWallpaper(),
     createdAt: timestamp,
     updatedAt: timestamp,

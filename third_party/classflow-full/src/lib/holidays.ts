@@ -1,4 +1,4 @@
-import type { Session } from "../types";
+import type { CalendarOverride, Session } from "../types";
 import { dateKey, parseDateKey } from "./date";
 
 export type CalendarDayKind = "holiday" | "workday";
@@ -83,25 +83,43 @@ function buildCalendar(): Map<string, CalendarDayInfo> {
 
 const CALENDAR = buildCalendar();
 
-export function getCalendarInfo(date: Date | string): CalendarDayInfo | null {
+export function getCalendarInfo(
+  date: Date | string,
+  overrides: CalendarOverride[] = [],
+): CalendarDayInfo | null {
   const key = typeof date === "string" ? date : dateKey(date);
+  const custom = overrides.find((override) => override.date === key);
+  if (custom) {
+    return custom.kind === "holiday"
+      ? { kind: "holiday", name: custom.name || "自定义放假", short: "休" }
+      : { kind: "workday", name: custom.name || "补课日", short: "班" };
+  }
   return CALENDAR.get(key) ?? null;
 }
 
-export function isHolidayDate(date: Date | string): boolean {
-  return getCalendarInfo(date)?.kind === "holiday";
+export function isHolidayDate(
+  date: Date | string,
+  overrides: CalendarOverride[] = [],
+): boolean {
+  return getCalendarInfo(date, overrides)?.kind === "holiday";
 }
 
-export function isWorkdayDate(date: Date | string): boolean {
-  return getCalendarInfo(date)?.kind === "workday";
+export function isWorkdayDate(
+  date: Date | string,
+  overrides: CalendarOverride[] = [],
+): boolean {
+  return getCalendarInfo(date, overrides)?.kind === "workday";
 }
 
 /**
  * A day that can carry classes: anything except an official holiday, including
  * make-up workdays that fall on a weekend.
  */
-export function isClassDay(date: Date | string): boolean {
-  return !isHolidayDate(date);
+export function isClassDay(
+  date: Date | string,
+  overrides: CalendarOverride[] = [],
+): boolean {
+  return !isHolidayDate(date, overrides);
 }
 
 /**
@@ -114,11 +132,12 @@ export function filterHolidaySessions(
   sessions: Session[],
   weekDates: Date[],
   enabled: boolean,
+  overrides: CalendarOverride[] = [],
 ): Session[] {
   if (!enabled) return sessions;
   return sessions.filter((session) => {
     const date = weekDates[session.day - 1];
-    return !date || !isHolidayDate(date);
+    return !date || !isHolidayDate(date, overrides);
   });
 }
 
@@ -130,12 +149,13 @@ export function getVisibleDays(
   showWeekends: boolean,
   weekDates: Date[],
   autoHolidays: boolean,
+  overrides: CalendarOverride[] = [],
 ): number[] {
   const days = showWeekends ? [1, 2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5];
   if (!autoHolidays) return days;
   for (const day of [6, 7]) {
     const date = weekDates[day - 1];
-    if (date && isWorkdayDate(date) && !days.includes(day)) days.push(day);
+    if (date && isWorkdayDate(date, overrides) && !days.includes(day)) days.push(day);
   }
   return days.sort((a, b) => a - b);
 }
@@ -143,16 +163,21 @@ export function getVisibleDays(
 export function getDayStatusMap(
   weekDates: Date[],
   autoHolidays: boolean,
+  overrides: CalendarOverride[] = [],
 ): Record<number, CalendarDayInfo | null> {
   const map: Record<number, CalendarDayInfo | null> = {};
   for (let day = 1; day <= 7; day += 1) {
     const date = weekDates[day - 1];
-    map[day] = autoHolidays && date ? getCalendarInfo(date) : null;
+    map[day] = autoHolidays && date ? getCalendarInfo(date, overrides) : null;
   }
   return map;
 }
 
-export function getCalendarSummary(weekDates: Date[], autoHolidays: boolean): {
+export function getCalendarSummary(
+  weekDates: Date[],
+  autoHolidays: boolean,
+  overrides: CalendarOverride[] = [],
+): {
   holidays: string[];
   workdays: string[];
 } {
@@ -160,7 +185,7 @@ export function getCalendarSummary(weekDates: Date[], autoHolidays: boolean): {
   const holidays = new Set<string>();
   const workdays = new Set<string>();
   for (const date of weekDates) {
-    const info = getCalendarInfo(date);
+    const info = getCalendarInfo(date, overrides);
     if (info?.kind === "holiday") holidays.add(info.name);
     if (info?.kind === "workday") workdays.add(info.name);
   }

@@ -659,6 +659,38 @@ export function useScheduleActions({
     notify("这次单次调整已撤销。");
   };
 
+  const setCalendarOverride = (
+    date: string,
+    kind: "holiday" | "workday",
+    name: string,
+  ): ImportResult => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return { ok: false, message: "请选择正确的日期。" };
+    }
+    updateActiveTimetable((current) => ({
+      ...current,
+      calendarOverrides: [
+        ...(current.calendarOverrides ?? []).filter((item) => item.date !== date),
+        {
+          id: uid("calendar"),
+          date,
+          kind,
+          name: name.trim() || (kind === "holiday" ? "自定义放假" : "补课日"),
+        },
+      ].sort((a, b) => a.date.localeCompare(b.date)),
+    }));
+    notify(kind === "holiday" ? `${date} 已标记为放假。` : `${date} 已标记为补课日。`);
+    return { ok: true, message: "" };
+  };
+
+  const removeCalendarOverride = (id: string) => {
+    updateActiveTimetable((current) => ({
+      ...current,
+      calendarOverrides: (current.calendarOverrides ?? []).filter((item) => item.id !== id),
+    }));
+    notify("已恢复默认的节假日安排。");
+  };
+
   return {
     saveCourse,
     addTextCourses,
@@ -691,5 +723,7 @@ export function useScheduleActions({
     restoreCourse,
     restoreSession,
     removeOverride,
+    setCalendarOverride,
+    removeCalendarOverride,
   };
 }

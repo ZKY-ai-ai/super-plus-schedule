@@ -63,4 +63,28 @@ describe("Chinese holiday calendar", () => {
     expect(isClassDay("2026-09-20")).toBe(true);
     expect(isClassDay("2026-11-12")).toBe(true);
   });
+
+  it("lets custom overrides beat the built-in calendar", () => {
+    const overrides = [
+      { id: "o1", date: "2026-11-12", kind: "holiday" as const, name: "校庆" },
+      { id: "o2", date: "2026-10-01", kind: "workday" as const, name: "补课" },
+      { id: "o3", date: "2026-11-15", kind: "workday" as const, name: "周末补课" },
+    ];
+    expect(getCalendarInfo("2026-11-12", overrides)).toMatchObject({
+      kind: "holiday",
+      name: "校庆",
+      short: "休",
+    });
+    expect(getCalendarInfo("2026-10-01", overrides)).toMatchObject({
+      kind: "workday",
+      short: "班",
+    });
+    expect(isClassDay("2026-11-12", overrides)).toBe(false);
+    expect(isClassDay("2026-10-01", overrides)).toBe(true);
+
+    const dates = getWeekDates("2026-11-09", 1);
+    const sessions = [session(4)];
+    expect(filterHolidaySessions(sessions, dates, true, overrides)).toHaveLength(0);
+    expect(getVisibleDays(false, dates, true, overrides)).toEqual([1, 2, 3, 4, 5, 7]);
+  });
 });

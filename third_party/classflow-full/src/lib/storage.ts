@@ -1,5 +1,6 @@
 import { normalizePeriodRules } from "./periods";
 import type {
+  CalendarOverride,
   Course,
   CourseSlot,
   CourseTemplate,
@@ -292,6 +293,27 @@ function normalizeOverrides(value: unknown): SessionOverride[] {
   return overrides;
 }
 
+function normalizeCalendarOverrides(value: unknown): CalendarOverride[] {
+  if (!Array.isArray(value)) return [];
+  const overrides: CalendarOverride[] = [];
+  const dates = new Set<string>();
+  value.slice(0, 120).forEach((item, index) => {
+    if (!isRecord(item)) return;
+    const date = text(item.date, 10);
+    if (!DATE_RE.test(date) || dates.has(date)) return;
+    const kind = item.kind;
+    if (kind !== "holiday" && kind !== "workday") return;
+    dates.add(date);
+    overrides.push({
+      id: text(item.id, 80) || uid(`calendar-${index + 1}`),
+      date,
+      kind,
+      name: text(item.name, 20) || (kind === "holiday" ? "自定义放假" : "补课日"),
+    });
+  });
+  return overrides.sort((a, b) => a.date.localeCompare(b.date));
+}
+
 function normalizeTimetable(
   value: unknown,
   profiles: PeriodProfile[],
@@ -338,6 +360,7 @@ function normalizeTimetable(
     courses,
     events,
     overrides: normalizeOverrides(value.overrides),
+    calendarOverrides: normalizeCalendarOverrides(value.calendarOverrides),
     wallpaper: normalizeWallpaper(value.wallpaper),
     createdAt: text(value.createdAt, 40) || now,
     updatedAt: text(value.updatedAt, 40) || now,
@@ -376,6 +399,7 @@ function normalizeLegacyTimetable(candidate: Record<string, unknown>): Timetable
     courses,
     events: [],
     overrides: [],
+    calendarOverrides: [],
     wallpaper: createDefaultWallpaper(),
     createdAt: now,
     updatedAt: now,

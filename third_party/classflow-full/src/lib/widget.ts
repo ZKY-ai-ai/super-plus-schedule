@@ -65,7 +65,7 @@ export function buildWidgetPayload(
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
     const position = getTermPosition(semester.startDate, semester.totalWeeks, date);
     const weekday = getWeekdayNumber(date);
-    const info = autoHolidays ? getCalendarInfo(date) : null;
+    const info = autoHolidays ? getCalendarInfo(date, active.calendarOverrides ?? []) : null;
     const weekDates = getWeekDates(semester.startDate, position.week);
     const periods = periodsForDate(active, data.periodProfiles, date);
     let classes: WidgetClass[] = [];
@@ -75,6 +75,7 @@ export function buildWidgetPayload(
         buildSessions(active.courses, position.week, active.overrides),
         weekDates,
         autoHolidays,
+        active.calendarOverrides ?? [],
       )
         .filter((session) => session.day === weekday)
         .sort((a, b) => a.start - b.start);
