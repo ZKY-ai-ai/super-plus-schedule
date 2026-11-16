@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { CalendarDays, CalendarPlus, Plus, Sparkles } from "lucide-react";
-import type { Course, LaidOutSession, Session, Semester } from "../types";
-import { toneColor } from "../types";
-import { formatWeeks, getPeriodNowProgress, groupSessionsByDay } from "../lib/schedule";
+import type { Course, Session, Semester } from "../types";
+import { getPeriodNowProgress, groupSessionsByDay } from "../lib/schedule";
 import { getWeekdayNumber, WEEKDAYS } from "../lib/date";
 import type { CalendarDayInfo } from "../lib/holidays";
-
-const ROW_HEIGHT = 58;
+import { CourseBlock, GRID_ROW_HEIGHT as ROW_HEIGHT } from "./session/CourseBlock";
 
 interface TimetableProps {
   semester: Semester;
@@ -25,20 +23,6 @@ interface TimetableProps {
   onNextWeek: () => void;
   onAddAt: (day: number, start: number) => void;
   onAddCourse: () => void;
-}
-
-function courseBlockStyle(session: LaidOutSession): CSSProperties {
-  const top = (session.start - 1) * ROW_HEIGHT + 2;
-  const height = (session.end - session.start + 1) * ROW_HEIGHT - 4;
-  const left = `calc(${(session.column / session.columns) * 100}% + 3px)`;
-  const width = `calc(${100 / session.columns}% - 6px)`;
-  return {
-    top,
-    height,
-    left,
-    width,
-    "--tone": toneColor(session.course.tone),
-  } as CSSProperties;
 }
 
 export function Timetable({
@@ -233,39 +217,13 @@ export function Timetable({
                     nowProgress !== null &&
                     nowProgress.period >= session.start &&
                     nowProgress.period <= session.end;
-                  const conflict = session.columns > 1;
-                  const single = session.start === session.end;
                   return (
-                    <button
-                      className={`course-block ${ongoing ? "is-ongoing" : ""} ${
-                        conflict ? "is-conflict" : ""
-                      } ${single ? "is-single" : ""}`}
-                      type="button"
-                      style={courseBlockStyle(session)}
+                    <CourseBlock
                       key={session.id}
-                      onClick={() => onSelectCourse(session.course)}
-                      title={`${session.course.name}｜${session.course.location || "未填地点"}`}
-                    >
-                      <span className="course-block-top">
-                        <span className="course-block-name">{session.course.name}</span>
-                        {conflict ? (
-                          <span className="conflict-mark" title="时间冲突">
-                            !
-                          </span>
-                        ) : null}
-                        {ongoing && !conflict ? <span className="live-dot" /> : null}
-                      </span>
-                      <span className="course-block-meta">
-                        {session.course.location || "地点待定"}
-                      </span>
-                      {session.course.teacher ? (
-                        <span className="course-block-teacher">@{session.course.teacher}</span>
-                      ) : null}
-                      <span className="course-block-weeks">
-                        {formatWeeks(session.slot)} · 第 {session.start}
-                        {session.end !== session.start ? `–${session.end}` : ""} 节
-                      </span>
-                    </button>
+                      session={session}
+                      ongoing={ongoing}
+                      onSelect={(item) => onSelectCourse(item.course)}
+                    />
                   );
                 })}
 

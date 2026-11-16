@@ -1,12 +1,4 @@
-import {
-  CalendarDays,
-  CalendarPlus,
-  ChevronRight,
-  Clock,
-  MapPin,
-  Plus,
-  User,
-} from "lucide-react";
+import { CalendarDays, CalendarPlus, Plus } from "lucide-react";
 import type { CSSProperties } from "react";
 import type {
   Period,
@@ -24,7 +16,7 @@ import {
   timeToMinutes,
   WEEKDAYS,
 } from "../lib/date";
-import { formatWeeks } from "../lib/schedule";
+import { DayCourseRow } from "./session/DayCourseRow";
 
 interface DayViewProps {
   semester: Semester;
@@ -195,53 +187,15 @@ export function DayView({
         </div>
       ) : (
         <div className="day-list">
-          {daySessions.map((session) => {
-            const ongoing = isOngoing(session, semester.periods, date, now);
-            const start = semester.periods[session.start - 1]?.start ?? "";
-            const end = semester.periods[session.end - 1]?.end ?? "";
-            return (
-              <button
-                className={`day-course ${ongoing ? "is-ongoing" : ""}`}
-                type="button"
-                key={session.id}
-                style={{ "--tone": toneColor(session.course.tone) } as CSSProperties}
-                onClick={() => onSelectCourse(session.course)}
-              >
-                <span className="day-course-time">
-                  <strong>{start}</strong>
-                  <span>{end}</span>
-                  <em>第 {session.start}{session.end !== session.start ? `–${session.end}` : ""} 节</em>
-                </span>
-                <span className="day-course-body">
-                  <span className="day-course-topline">
-                    <span className="day-course-name">{session.course.name}</span>
-                    {ongoing ? <span className="live-badge">进行中</span> : null}
-                  </span>
-                  <span className="day-course-details">
-                    {session.course.location ? (
-                      <span>
-                        <MapPin size={12} />
-                        {session.course.location}
-                      </span>
-                    ) : null}
-                    {session.course.teacher ? (
-                      <span>
-                        <User size={12} />
-                        {session.course.teacher}
-                      </span>
-                    ) : null}
-                    <span>
-                      <Clock size={12} />
-                      {formatWeeks(session.slot)}
-                    </span>
-                  </span>
-                </span>
-                <span className="day-course-more" aria-hidden="true">
-                  <ChevronRight size={16} />
-                </span>
-              </button>
-            );
-          })}
+          {daySessions.map((session) => (
+            <DayCourseRow
+              key={session.id}
+              session={session}
+              periods={semester.periods}
+              ongoing={isOngoing(session, semester.periods, date, now)}
+              onSelect={(item) => onSelectCourse(item.course)}
+            />
+          ))}
         </div>
       )}
 
