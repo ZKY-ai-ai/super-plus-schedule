@@ -239,7 +239,10 @@ export function AiSettingsPanel({ settings, onSave, onNotify }: AiSettingsPanelP
           ))}
         </ul>
         <p className="ai-inline-hint">
-          <Bot size={13} /> 所有设置、密钥和聊天记录都只保存在这台设备，不会上传到课序服务器。
+          <Bot size={13} /> 关闭某项授权后，新的请求不再携带对应数据；历史对话里已出现的内容仍会作为上下文发送，可在对话页一键清空。
+        </p>
+        <p className="ai-inline-hint">
+          <ShieldCheck size={13} /> 所有设置、密钥和聊天记录都只保存在这台设备，不会上传到课序服务器。
         </p>
       </section>
 
