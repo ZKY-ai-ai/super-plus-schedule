@@ -7,17 +7,20 @@ import {
   todayStr, dparse, mdCN, weekdayCN, undo, redo, canUndo, canRedo, loadSample,
 } from '../store.js';
 import { weekDates, currentWeek, sessionsOn, conflictsOn, moveSession, inSemester, weekOf } from '../schedule.js';
+import { visibleDays, weekSummary, dayInfo } from '../calendar.js';
 import { el, ico, toast, modal, confirmModal, readFile } from '../ui.js';
 import { courseModal, sessionModal } from '../editors.js';
 import { parseImport, previewImport, exportICS, exportPNG, exportCoursesJSON } from '../importexport.js';
+import { templatesModal } from '../templates.js';
 
 export function renderTimetable(root, nav) {
   const s = getState();
   const sch = activeSchedule();
-  const ps = activePeriodSet();
   const ui = s.ui;
   const week = Math.max(1, Math.min(sch.totalWeeks, currentWeek() + (ui.ttWeekOffset || 0)));
   const dates = weekDates(week, sch);
+  const ps = activePeriodSet(dates[0]);
+  const days = visibleDays(dates, s.settings.showWeekends, s.settings.autoHolidays, s.settings.customDays);
   const t = todayStr();
   root.innerHTML = '';
 
@@ -41,7 +44,7 @@ export function renderTimetable(root, nav) {
 
   const exportMenu = () => {
     modal('导出课表', el('div', {},
-      el('p', { class: 'muted small mb' }, 'ICS 是静态快照：导入系统日历后，调课需重新导出。PNG 适合分享。'),
+      el('p', { class: 'muted small mb' }, 'ICS 是静态快照：导入系统日历后，调课需重新导出，且不含节假日停课与调休映射。PNG 与页面显示一致（含休/班标记、当前作息与可见天）。'),
       el('div', { class: 'row' },
         el('button', { class: 'btn', onclick: () => { exportICS(); } }, 'ICS 日历文件'),
         el('button', { class: 'btn', onclick: () => { exportPNG(week); } }, `PNG 图片（第 ${week} 周）`),
@@ -58,10 +61,16 @@ export function renderTimetable(root, nav) {
       el('button', { class: 'btn sm', onclick: () => mutate(st => { st.ui.ttWeekOffset = 0; }, { undoable: false }) }, '回本周'),
     ),
     modeSeg,
+    el('button', {
+      class: 'btn sm' + (s.settings.showWeekends ? ' primary' : ''),
+      title: '周视图是否显示周六周日（调休上班日始终显示）',
+      onclick: () => mutate(st => { st.settings.showWeekends = !st.settings.showWeekends; }, { undoable: false }),
+    }, s.settings.showWeekends ? '隐藏周末' : '显示周末'),
     el('span', { style: { flex: 1 } }),
     el('button', { class: 'icon-btn', title: '撤销', html: ico('undo'), disabled: !canUndo(), onclick: () => { if (undo()) toast('已撤销'); } }),
     el('button', { class: 'icon-btn', title: '重做', html: ico('redo'), disabled: !canRedo(), onclick: () => { if (redo()) toast('已重做'); } }),
     el('button', { class: 'btn sm', html: ico('upload') + ' 导入', onclick: () => fileInput.click() }),
+    el('button', { class: 'btn sm', onclick: () => templatesModal({ onApplied: () => nav('timetable') }) }, '模板'),
     el('button', { class: 'btn sm', html: ico('download') + ' 导出', onclick: exportMenu }),
     el('button', { class: 'btn primary sm', html: ico('plus') + ' 新建课程', onclick: () => courseModal(null, () => nav('timetable')) }),
     fileInput,
@@ -70,6 +79,17 @@ export function renderTimetable(root, nav) {
 
   if (!inSemester(dates[0]) && !inSemester(dates[6])) {
     root.append(el('p', { class: 'small mb', style: { color: 'var(--warn)' } }, `第 ${week} 周不在学期范围（${sch.semesterStart} 起 ${sch.totalWeeks} 周）内，可能显示为空。可在设置中调整学期。`));
+  }
+
+  const sum = weekSummary(dates, s.settings.autoHolidays, s.settings.customDays);
+  if (sum.holidays.length || sum.workdays.length || (sch.periodRules || []).length) {
+    root.append(el('div', { class: 'card cal-bar no-print' },
+      (sch.periodRules || []).length ? el('span', { class: 'chip' }, '本周作息：' + ps.name) : null,
+      sum.holidays.length ? el('span', { class: 'chip warn' }, '休 · ' + sum.holidays.join('、')) : null,
+      sum.workdays.length ? el('span', { class: 'chip ok' }, '班 · ' + sum.workdays.join('、')) : null,
+      ...sum.mapped.map(x => el('span', { class: 'chip' }, x)),
+      el('span', { class: 'muted small' }, '节假日自动停课，调休上课日与作息切换可在「设置」中调整。'),
+    ));
   }
 
   const courses = scheduleCourses();
@@ -86,8 +106,8 @@ export function renderTimetable(root, nav) {
     return;
   }
 
-  if (ui.ttMode === 'grid') renderGrid(root, week, dates, ps, nav);
-  else if (ui.ttMode === 'list') renderList(root, week, dates, nav);
+  if (ui.ttMode === 'grid') renderGrid(root, week, dates, days, ps, nav);
+  else if (ui.ttMode === 'list') renderList(root, week, dates, days, nav);
   else renderDay(root, nav);
 
   // 冲突汇总
@@ -102,24 +122,29 @@ export function renderTimetable(root, nav) {
 }
 
 /* ---------- 周网格 ---------- */
-function renderGrid(root, week, dates, ps, nav) {
+function renderGrid(root, week, dates, days, ps, nav) {
   const t = todayStr();
+  const s = getState();
   const periods = ps.periods;
   const wrap = el('div', { class: 'tt-wrap' });
   const grid = el('div', {
     class: 'tt-grid',
     style: {
-      gridTemplateColumns: `64px repeat(7, minmax(96px, 1fr))`,
+      gridTemplateColumns: `64px repeat(${days.length}, minmax(96px, 1fr))`,
       gridTemplateRows: `48px repeat(${periods.length}, minmax(52px, auto))`,
     },
   });
   grid.append(el('div', { class: 'tt-corner', style: { gridRow: 1, gridColumn: 1 } }));
   const dayNames = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-  dates.forEach((d, i) => {
-    grid.append(el('div', {
-      class: 'tt-dayhead' + (d === t ? ' today' : ''),
+  days.forEach((day, i) => {
+    const d = dates[day - 1];
+    const info = dayInfo(d, s.settings.customDays);
+    const head = el('div', {
+      class: 'tt-dayhead' + (d === t ? ' today' : '') + (info && info.kind === 'holiday' ? ' holiday' : ''),
       style: { gridRow: 1, gridColumn: i + 2 },
-    }, dayNames[i], el('span', { class: 'd' }, d.slice(5).replace('-', '/'))));
+    }, dayNames[day - 1], el('span', { class: 'd' }, d.slice(5).replace('-', '/')));
+    if (info) head.append(el('span', { class: 'cal-tag ' + info.kind, title: info.name }, info.short));
+    grid.append(head);
   });
   periods.forEach((p, r) => {
     grid.append(el('div', { class: 'tt-period', style: { gridRow: r + 2, gridColumn: 1 } },
@@ -134,7 +159,8 @@ function renderGrid(root, week, dates, ps, nav) {
     return set;
   });
 
-  dates.forEach((d, ci) => {
+  days.forEach((day, ci) => {
+    const d = dates[day - 1];
     // 背景单元格（拖放目标）
     periods.forEach((p, r) => {
       const cell = el('div', {
@@ -159,7 +185,7 @@ function renderGrid(root, week, dates, ps, nav) {
     });
 
     // 课程块：按 (起始节) 分组处理重叠
-    const list = byDate[ci];
+    const list = byDate[day - 1];
     const groups = {};
     list.forEach(ses => { (groups[ses.periodStart] = groups[ses.periodStart] || []).push(ses); });
     // 跨节重叠也要并排：用扫描线给每个课次分配横向槽位
@@ -188,7 +214,7 @@ function renderGrid(root, week, dates, ps, nav) {
           position: 'relative', zIndex: 2, pointerEvents: 'none',
         },
       });
-      const isConflict = conflictSets[ci].has(ses.courseId + ':' + ses.slotId);
+      const isConflict = conflictSets[day - 1].has(ses.courseId + ':' + ses.slotId);
       const block = el('div', {
         class: 'tt-course' + (isConflict ? ' conflict' : ''),
         draggable: true,
@@ -204,6 +230,7 @@ function renderGrid(root, week, dates, ps, nav) {
         el('span', { class: 'n' }, ses.name),
         ses.location ? el('span', { class: 'l' }, '@' + ses.location) : null,
         ses.moved ? el('span', { class: 'badge-ov' }, '调') : null,
+        ses.makeupFrom ? el('span', { class: 'badge-ov', title: '调休补课：按周' + '一二三四五六日'[ses.makeupFrom - 1] + '课表' }, '补') : null,
       );
       block.addEventListener('dragstart', e => {
         e.dataTransfer.setData('text/plain', JSON.stringify({
@@ -225,22 +252,29 @@ function renderGrid(root, week, dates, ps, nav) {
 }
 
 /* ---------- 周列表 ---------- */
-function renderList(root, week, dates, nav) {
+function renderList(root, week, dates, days, nav) {
   const t = todayStr();
+  const s = getState();
   const dayNames = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
   let any = false;
-  dates.forEach((d, i) => {
+  days.forEach(day => {
+    const d = dates[day - 1];
+    const info = dayInfo(d, s.settings.customDays);
     const list = sessionsOn(d);
-    if (!list.length) return;
+    if (!list.length && !(info && info.kind === 'holiday')) return;
     any = true;
     const card = el('div', { class: 'card tt-list-day' },
-      el('h4', { class: d === t ? 'today' : '' }, `${dayNames[i]} · ${mdCN(d)}${d === t ? '（今天）' : ''}`));
+      el('h4', { class: d === t ? 'today' : '' }, `${dayNames[day - 1]} · ${mdCN(d)}${d === t ? '（今天）' : ''}`,
+        info ? el('span', { class: 'chip ' + (info.kind === 'holiday' ? 'warn' : 'ok'), style: { marginLeft: '6px' } }, `${info.short} · ${info.name}`) : null));
+    if (info && info.kind === 'holiday') card.append(el('p', { class: 'muted small' }, '节假日自动停课，可在「设置 → 校历与节假日」改为正常上课。'));
     list.forEach(ses => {
       card.append(el('div', { class: 'session-item', style: { cursor: 'pointer' }, onclick: () => sessionModal(ses, () => nav('timetable')) },
         el('div', { class: 'session-time' }, `${ses.start}\n${ses.end}`),
         el('div', { class: 'session-bar', style: { '--c': courseColor({ color: ses.color }) } }),
         el('div', { class: 'session-body' },
-          el('div', { class: 'name' }, ses.name, ses.moved ? el('span', { class: 'chip warn', style: { marginLeft: '6px' } }, '调课') : null),
+          el('div', { class: 'name' }, ses.name,
+            ses.moved ? el('span', { class: 'chip warn', style: { marginLeft: '6px' } }, '调课') : null,
+            ses.makeupFrom ? el('span', { class: 'chip', style: { marginLeft: '6px' } }, '按周' + '一二三四五六日'[ses.makeupFrom - 1] + '补课') : null),
           el('div', { class: 'meta' }, [ses.location, ses.teacher].filter(Boolean).join(' · '))),
       ));
     });
@@ -256,10 +290,12 @@ function renderDay(root, nav) {
   dateI.addEventListener('change', () => mutate(st => { st.ui.dayDate = dateI.value; }, { undoable: false }));
   const d = s.ui.dayDate || todayStr();
   const list = sessionsOn(d);
+  const info = dayInfo(d, s.settings.customDays);
   root.append(el('div', { class: 'row mb no-print' }, el('span', { class: 'muted small' }, '选择日期：'), dateI,
-    el('span', { class: 'chip' }, `${weekdayCN(d)} · 第 ${weekOf(d)} 教学周`)));
+    el('span', { class: 'chip' }, `${weekdayCN(d)} · 第 ${weekOf(d)} 教学周`),
+    info ? el('span', { class: 'chip ' + (info.kind === 'holiday' ? 'warn' : 'ok') }, `${info.short} · ${info.name}`) : null));
   const card = el('div', { class: 'card' });
-  if (!list.length) card.append(el('p', { class: 'muted' }, `${mdCN(d)} 没有课程。`));
+  if (!list.length) card.append(el('p', { class: 'muted' }, `${mdCN(d)} 没有课程。${info && info.kind === 'holiday' ? '（节假日自动停课）' : ''}`));
   list.forEach(ses => {
     card.append(el('div', { class: 'session-item', style: { cursor: 'pointer' }, onclick: () => sessionModal(ses, () => nav('timetable')) },
       el('div', { class: 'session-time' }, `${ses.start}\n${ses.end}`),

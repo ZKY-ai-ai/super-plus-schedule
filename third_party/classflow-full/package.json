@@ -1,0 +1,51 @@
+{
+  "name": "classflow",
+  "private": true,
+  "version": "1.11.1",
+  "type": "module",
+  "packageManager": "pnpm@11.28.5",
+  "description": "课序 · 本地优先的大学课表。首页显示周数+日期、紧凑七天网格、年年循环的作息、我的功能页、dsh-pet 鲸鱼娘互动桌宠与鲸海夜航壁纸。",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/share": "^8.0.3",
+    "lucide-react": "^1.72.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/cli": "^8.6.0",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "typescript": "5.9.3",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  },
+  "homepage": "https://lcymxm.github.io/classflow/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lcymxm/classflow.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "timetable",
+    "class-schedule",
+    "student",
+    "pwa",
+    "local-first",
+    "react",
+    "typescript",
+    "vite",
+    "education"
+  ]
+}

@@ -11,6 +11,9 @@ import { renderExams } from './views/exams.js';
 import { renderGaps } from './views/gaps.js';
 import { renderAssistant } from './views/assistant.js';
 import { renderSettings } from './views/settings.js';
+import { applyAppearance } from './appearance.js';
+import { initShortcuts, openPalette } from './commands.js';
+import { syncPet } from './pet.js';
 
 const VIEWS = {
   today: renderToday, timetable: renderTimetable, tasks: renderTasks,
@@ -29,6 +32,7 @@ function applyTheme() {
   document.getElementById('theme-toggle').innerHTML = ico(dark ? 'sun' : 'moon');
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.content = dark ? '#12151c' : '#4f6df5';
+  applyAppearance(getState().settings, dark);
 }
 mq.addEventListener('change', applyTheme);
 document.getElementById('theme-toggle').addEventListener('click', () => {
@@ -77,9 +81,12 @@ function renderAll() {
     root.innerHTML = '';
     root.append(el('div', { class: 'card empty' }, el('h3', {}, '渲染出错'), el('p', { class: 'muted small' }, e.message)));
   }
+  syncPet();
 }
 subscribe(renderAll);
 renderAll();
+initShortcuts({ nav });
+document.getElementById('cmd-btn').addEventListener('click', () => openPalette({ nav }));
 
 /* ---------- 快捷键 ---------- */
 document.addEventListener('keydown', e => {

@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <div id="wallpaper" aria-hidden="true"><div class="wp-overlay"></div></div>
   <div id="app">
     <header class="topbar">
       <div class="brand">
@@ -23,6 +24,7 @@
       </div>
       <div class="topbar-actions">
         <select id="schedule-switcher" class="input select" aria-label="切换课表"></select>
+        <button id="cmd-btn" class="icon-btn" title="命令面板（Ctrl/⌘ + K）" aria-label="命令面板" data-ico="command"></button>
         <button id="theme-toggle" class="icon-btn" title="切换深浅色" aria-label="切换深浅色"></button>
       </div>
     </header>
@@ -48,7 +50,7 @@
     </main>
 
     <footer class="foot">
-      <span>课隙 CourseGap · 数据仅保存在本机浏览器 · 原创开源项目（Apache-2.0）</span>
+      <span>课隙 CourseGap · 数据仅保存在本机浏览器 · 开源（Apache-2.0，含第三方 MIT 代码，见 third_party/classflow/NOTICE.md）</span>
       <span id="foot-week"></span>
     </footer>
   </div>

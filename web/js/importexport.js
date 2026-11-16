@@ -9,6 +9,7 @@ import {
   dparse, dstr, dadd, todayStr, hm2min, min2hm, defaultPeriods, COURSE_COLORS,
 } from './store.js';
 import { weekOf, dateOfWeekDay, periodRange, timeToPeriod, sessionsOn } from './schedule.js';
+import { visibleDays, dayInfo } from './calendar.js';
 import { el, modal, toast, download } from './ui.js';
 
 const DAY_MAP = { MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6, SU: 7 };
@@ -428,8 +429,10 @@ export function exportICS() {
 /* ---------- 导出：PNG 周课表图 ---------- */
 export function exportPNG(week) {
   const sch = activeSchedule();
-  const ps = activePeriodSet();
   const dates = Array.from({ length: 7 }, (_, i) => dateOfWeekDay(week, ((sch.weekStart || 1) - 1 + i) % 7 + 1, sch));
+  const ps = activePeriodSet(dates[0]);
+  const st = getState();
+  const days = visibleDays(dates, st.settings.showWeekends, st.settings.autoHolidays, st.settings.customDays);
   const periods = ps.periods;
   const W = 1200, headH = 64, leftW = 90, rowH = 72;
   const H = headH + periods.length * rowH + 40;
@@ -448,16 +451,23 @@ export function exportPNG(week) {
   ctx.fillText(`${sch.name} · 第 ${week} 周`, 16, 30);
   ctx.fillStyle = muted; ctx.font = '13px sans-serif';
   ctx.fillText(`${dates[0]} ~ ${dates[6]} · 课隙 CourseGap 导出`, 16, 50);
-  const colW = (W - leftW) / 7;
+  const colW = (W - leftW) / days.length;
   const dayNames = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
   ctx.textAlign = 'center';
-  dates.forEach((d, i) => {
+  days.forEach((day, i) => {
+    const d = dates[day - 1];
     const x = leftW + i * colW;
     ctx.fillStyle = d === todayStr() ? (css.getPropertyValue('--site-accent').trim() || '#4f6df5') : fg;
     ctx.font = 'bold 15px sans-serif';
-    ctx.fillText(dayNames[i], x + colW / 2, headH - 22);
+    ctx.fillText(dayNames[day - 1], x + colW / 2, headH - 22);
     ctx.fillStyle = muted; ctx.font = '12px sans-serif';
     ctx.fillText(d.slice(5), x + colW / 2, headH - 6);
+    const info = dayInfo(d, st.settings.customDays);
+    if (info) {
+      ctx.fillStyle = info.kind === 'holiday' ? '#d97706' : '#18a058';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(`${info.short} ${info.name}`, x + colW / 2, headH - 46);
+    }
   });
   ctx.textAlign = 'left';
   periods.forEach((p, r) => {
@@ -469,13 +479,14 @@ export function exportPNG(week) {
     ctx.fillText(p.start, 12, y + rowH / 2 + 12);
     ctx.fillText(p.end, 46, y + rowH / 2 + 12);
   });
-  for (let i = 0; i <= 7; i++) {
+  for (let i = 0; i <= days.length; i++) {
     const x = leftW + i * colW;
     ctx.strokeStyle = border; ctx.beginPath(); ctx.moveTo(x, headH); ctx.lineTo(x, H - 40); ctx.stroke();
   }
   const colorVals = {};
   for (let i = 1; i <= 10; i++) colorVals[i] = css.getPropertyValue(`--course-${i}`).trim() || '#4f6df5';
-  dates.forEach((d, i) => {
+  days.forEach((day, i) => {
+    const d = dates[day - 1];
     const list = sessionsOn(d);
     for (const ses of list) {
       const r0 = periods.findIndex(p => p.p === ses.periodStart);

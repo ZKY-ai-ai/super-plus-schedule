@@ -7,6 +7,8 @@ import {
   getState, activeSchedule, activePeriodSet, scheduleCourses, courseById,
   dstr, dparse, dadd, todayStr, diffDays, hm2min, min2hm, slotInWeek, uid,
 } from './store.js';
+import { periodSetForWeek } from './periods.js';
+import { isHoliday, makeupTargetDay } from './calendar.js';
 
 /* ---------- 教学周 ---------- */
 export function weekOf(dateStr, sch = activeSchedule()) {
@@ -59,14 +61,19 @@ export function sessionsOn(dateStr, { scheduleId } = {}) {
   if (!sch) return [];
   const week = weekOf(dateStr, sch);
   if (week < 1 || week > sch.totalWeeks) return [];
-  const ps = s.settings.periodSets.find(p => p.id === sch.periodSetId) || s.settings.periodSets[0];
+  const ps = periodSetForWeek(dateStr, sch, s.settings.periodSets);
   const day = ((dparse(dateStr).getDay() + 6) % 7) + 1; // 1=周一
+  const auto = s.settings.autoHolidays;
+  const holiday = isHoliday(dateStr, s.settings.customDays, auto);
+  const makeup = makeupTargetDay(dateStr, s.settings.customDays, auto);
+  const ruleDay = makeup || day;
   const out = [];
-  const courses = s.courses.filter(c => c.scheduleId === sch.id);
+  // 法定节假日停课（F026）；调休上班日按映射星期的课表上课（F027）
+  const courses = holiday ? [] : s.courses.filter(c => c.scheduleId === sch.id);
 
   for (const c of courses) {
     for (const slot of c.slots || []) {
-      if (slot.day !== day || !slotInWeek(slot, week)) continue;
+      if (slot.day !== ruleDay || !slotInWeek(slot, week)) continue;
       const ov = s.overrides.find(o => o.courseId === c.id && o.slotId === slot.id && o.date === dateStr);
       if (ov && ov.type === 'cancel') continue;
       if (ov && ov.type === 'move') continue; // 原课次移走，由下方 move 分支补回
@@ -77,8 +84,9 @@ export function sessionsOn(dateStr, { scheduleId } = {}) {
         start: range.start, end: range.end,
         startMin: hm2min(range.start), endMin: hm2min(range.end),
         location: slot.location || c.location || '',
-        name: c.alias || c.name, teacher: c.teacher, color: c.color,
+        name: (s.settings.showAlias && c.alias) || c.name, teacher: c.teacher, color: c.color,
         periodStart: slot.start, periodEnd: slot.end,
+        makeupFrom: makeup,
       });
     }
   }
@@ -96,7 +104,7 @@ export function sessionsOn(dateStr, { scheduleId } = {}) {
       start: range.start, end: range.end,
       startMin: hm2min(range.start), endMin: hm2min(range.end),
       location: ov.toLocation ?? slot.location ?? c.location ?? '',
-      name: c.alias || c.name, teacher: c.teacher, color: c.color,
+      name: (s.settings.showAlias && c.alias) || c.name, teacher: c.teacher, color: c.color,
       periodStart: ov.toStart ?? slot.start, periodEnd: ov.toEnd ?? slot.end,
       moved: true, overrideId: ov.id, fromDate: ov.date,
     });
@@ -137,14 +145,13 @@ export function conflictCourseIds(dateStr) {
 export function wouldConflict(courseId, slotId, day, start, end, weeks, ignoreSlotId) {
   const s = getState();
   const sch = activeSchedule();
-  const ps = activePeriodSet();
-  const range = periodRange(start, end, ps);
-  if (!range) return [];
-  const a0 = hm2min(range.start), a1 = hm2min(range.end);
   const hits = [];
   for (let w = 1; w <= sch.totalWeeks; w++) {
     if (!slotInWeek({ weeks }, w)) continue;
     const date = dateOfWeekDay(w, day, sch);
+    const range = periodRange(start, end, periodSetForWeek(date, sch, s.settings.periodSets));
+    if (!range) continue;
+    const a0 = hm2min(range.start), a1 = hm2min(range.end);
     for (const ses of sessionsOn(date)) {
       if (ses.courseId === courseId && (ses.slotId === slotId || ses.slotId === ignoreSlotId)) continue;
       if (a0 < ses.endMin && ses.startMin < a1) hits.push({ week: w, date, other: ses });

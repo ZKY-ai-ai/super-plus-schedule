@@ -1,9 +1,10 @@
 /* 课隙 CourseGap Service Worker — 离线缓存（应用壳） */
-const CACHE = 'coursegap-v2';
+const CACHE = 'coursegap-v3';
 const ASSETS = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest', 'icons/icon.svg',
   'js/app.js', 'js/store.js', 'js/schedule.js', 'js/ui.js', 'js/editors.js',
-  'js/importexport.js', 'js/ai.js',
+  'js/importexport.js', 'js/ai.js', 'js/periods.js', 'js/calendar.js',
+  'js/appearance.js', 'js/templates.js', 'js/commands.js', 'js/pet.js',
   'js/views/today.js', 'js/views/timetable.js', 'js/views/tasks.js',
   'js/views/exams.js', 'js/views/gaps.js', 'js/views/assistant.js', 'js/views/settings.js',
 ];

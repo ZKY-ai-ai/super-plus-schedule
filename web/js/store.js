@@ -5,6 +5,8 @@
    (session)」，单次调课/停课通过 overrides 表达，不破坏规则。
    ============================================================ */
 
+import { normalizePeriodRules, periodSetForWeek } from './periods.js';
+
 export const STORAGE_KEY = 'coursegap.v1';
 export const COURSE_COLORS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -46,11 +48,25 @@ export function defaultState() {
       ddlRemind: true,
       ai: { endpoint: '', apiKey: '', model: '', visionModel: '', enabled: false },
       notifications: false,
+      autoHolidays: true,     // 法定节假日自动停课、调休上班日自动显示
+      showWeekends: false,    // 周视图是否显示周六周日
+      customDays: {},         // 'YYYY-MM-DD' -> {kind,name,mapTo}，逐日覆盖内置校历
+      showAlias: true,        // 课程显示别名（F135）
+      appearance: {
+        wallpaper: 'none', wallpaperData: '', dim: 30, blur: 0, brightness: 100,
+        radius: 14, gap: 6, accent: '', palette: 'default',
+      },
+      shortcuts: {
+        newCourse: 'n', newTask: 'e', prevWeek: 'ArrowLeft', nextWeek: 'ArrowRight',
+        thisWeek: 't', palette: 'Mod+k', settings: ',',
+      },
+      pet: { enabled: false, x: null, y: null, name: '小隙' },
     },
     schedules: [{
       id: scheduleId, name: '我的课表',
       semesterStart: guessSemesterStart(), totalWeeks: 20, weekStart: 1,
       periodSetId,
+      periodRules: [],        // [{id,from:'MM-DD',periodSetId}]，每年循环（F023）
     }],
     activeScheduleId: scheduleId,
     courses: [],
@@ -58,6 +74,7 @@ export function defaultState() {
     tasks: [],       // {id,courseId,title,due,priority,done,doneAt,subtasks:[{id,title,done}],createdAt}
     exams: [],       // {id,courseId,name,date,start,end,location,seat,notes}
     buildings: [],   // {name}
+    templates: [],   // {id,name,createdAt,payload:{courses,periodSets,schedule,appearance}}（F130）
     ui: { view: 'today', ttMode: 'grid', ttWeekOffset: 0 },
     meta: { createdAt: new Date().toISOString(), sampleLoaded: false },
   };
@@ -106,13 +123,22 @@ function migrate(s) {
   // 宽松合并：保留已有字段，补齐新增字段
   s.settings = { ...d.settings, ...(s.settings || {}) };
   s.settings.ai = { ...d.settings.ai, ...(s.settings.ai || {}) };
+  s.settings.appearance = { ...d.settings.appearance, ...(s.settings.appearance || {}) };
+  s.settings.shortcuts = { ...d.settings.shortcuts, ...(s.settings.shortcuts || {}) };
+  s.settings.pet = { ...d.settings.pet, ...(s.settings.pet || {}) };
+  if (!s.settings.customDays || typeof s.settings.customDays !== 'object') s.settings.customDays = {};
   s.ui = { ...d.ui, ...(s.ui || {}) };
   s.meta = { ...d.meta, ...(s.meta || {}) };
-  for (const k of ['schedules', 'courses', 'overrides', 'tasks', 'exams', 'buildings']) {
+  for (const k of ['schedules', 'courses', 'overrides', 'tasks', 'exams', 'buildings', 'templates']) {
     if (!Array.isArray(s[k])) s[k] = d[k];
   }
   if (!s.schedules.length) { s.schedules = d.schedules; s.activeScheduleId = d.activeScheduleId; }
   if (!s.schedules.find(x => x.id === s.activeScheduleId)) s.activeScheduleId = s.schedules[0].id;
+  const psIds = s.settings.periodSets.map(p => p.id);
+  for (const sch of s.schedules) {
+    if (!psIds.includes(sch.periodSetId)) sch.periodSetId = psIds[0];
+    sch.periodRules = normalizePeriodRules(sch.periodRules, psIds, sch.semesterStart, null);
+  }
   s.version = 1;
   return s;
 }
@@ -157,9 +183,10 @@ export const canRedo = () => redoStack.length > 0;
 
 /* ---------- 常用访问器 ---------- */
 export const activeSchedule = () => state.schedules.find(s => s.id === state.activeScheduleId) || state.schedules[0];
-export const activePeriodSet = () => {
+/* 生效作息：按日期所在教学周解析年度循环规则（F023），无规则时用课表绑定 */
+export const activePeriodSet = (dateStr = todayStr()) => {
   const sch = activeSchedule();
-  return state.settings.periodSets.find(p => p.id === sch.periodSetId) || state.settings.periodSets[0];
+  return periodSetForWeek(dateStr, sch, state.settings.periodSets);
 };
 export const scheduleCourses = () => state.courses.filter(c => c.scheduleId === state.activeScheduleId);
 export const courseById = id => state.courses.find(c => c.id === id);

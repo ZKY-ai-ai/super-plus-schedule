@@ -5,7 +5,7 @@
 为 **2026 Qoder 高校创造力大赛（AI 大模型赛）StudyHack 赛道** 开发，使用 Qoder 完成设计与实现，部署于 Qoder Sites。
 
 - 在线体验：https://coursegap-94kvqohlzrh.qoder.zone （Qoder Sites 公开部署）
-- 许可证：Apache-2.0（Apache 许可证 第2版；版权署名 ZKY-ai-ai；本项目全部代码为原创）
+- 许可证：Apache-2.0（版权署名 ZKY-ai-ai）。主体代码原创；作息年度循环、节假日校历、课表模板、壁纸压缩四部分逻辑移植自 MIT 许可的课序 ClassFlow，归属与许可证见 [third_party/classflow/NOTICE.md](third_party/classflow/NOTICE.md)
 - 无账号、无追踪、无云端同步
 
 ## 功能总览
@@ -13,12 +13,12 @@
 | 视图 | 能力 |
 |---|---|
 | 今日 | 正在上课 / 下一节课与最晚出发时间、今日课程、今日与逾期 DDL、考试倒计时、今日空档摘要、周统计 |
-| 课表 | 周网格 / 周列表 / 日视图；多课表多学期；起止周 + 单双周 + 逐周勾选；同一课程多时段；冲突红框与明细；点击课程块单次停课 / 单次调课 / 编辑整门课；拖拽调课；撤销 / 重做（Ctrl+Z / Ctrl+Y）；PNG 导出与打印 |
+| 课表 | 周网格 / 周列表 / 日视图；多课表多学期；起止周 + 单双周 + 逐周勾选；同一课程多时段；冲突红框与明细；点击课程块单次停课 / 单次调课 / 编辑整门课；拖拽调课；撤销 / 重做（Ctrl+Z / Ctrl+Y）；**法定节假日自动停课与「休 / 班」标记**；**调休上课日按指定星期课表补课**；**作息按月日每年自动切换（冬夏作息），切换日落在周中时整周采用新方案**；**课表模板库（理工 / 文科 / 医学 / 考研）与「存当前课表为模板 → 预览 → 勾选应用」**；周末显示开关；PNG 导出与打印 |
 | 任务 | 作业 / 项目 / 实验按课程归类；截止日期、优先级、子任务、完成状态；逾期 / 今日 / 明日 / 本周 / 以后 / 已完成分组 |
 | 考试 | 日期、时间、地点、座位号；倒计时；考前 1 / 3 天提醒 |
 | 空档 | 自动识别课间空档；扣除楼栋间步行与收拾缓冲后的可用时间；空档去处建议；「去某地再回来是否来得及」往返可行性与最晚返回时间 |
 | AI 助手 | 离线规则问答（查课、查考试、查 DDL、空档与往返可行性、周统计）；可选配置 OpenAI 兼容接口解锁自由问答；可选视觉模型截图识课（结果强制人工核对后导入） |
-| 设置 | 学期 / 开学日期 / 教学周数 / 周起始；多套作息与按课时长度一键生成；楼栋列表与步行时间矩阵；课前 / DDL / 考试提醒；浅色 / 深色 / 跟随系统；AI 接口配置；完整备份导出 / 恢复；示例数据；清空 |
+| 设置 | 学期 / 开学日期 / 教学周数 / 周起始；多套作息与按课时长度一键生成；**作息年度循环规则（只填月日，跨年延续）**；**逐日校历管理（假日 / 调休 / 正常上课覆盖 + 调休映射）**；楼栋列表与步行时间矩阵；课前 / DDL / 考试提醒；浅色 / 深色 / 跟随系统；**壁纸（内置渐变 + 自定义图片自动压缩）、遮罩 / 模糊 / 亮度 / 圆角 / 间距、主题色与四套课程配色、课程别名开关**；**命令面板（Ctrl/⌘+K）与可自定义快捷键**；**桌宠「小隙」（原创 SVG，可拖动、点击播报课程与空档）**；AI 接口配置；完整备份导出 / 恢复；示例数据；清空 |
 
 ### 导入与导出
 
@@ -67,7 +67,7 @@ npx serve web
 node tests/smoke.mjs
 ```
 
-24 项断言覆盖：单双周过滤、连堂时间、冲突检测、单次停课 / 调课与撤销、空档与往返可行性、ICS 导出（RRULE + INTERVAL=2 + EXDATE）、周字符串解析、CSV 与 WakeUp 导入、ICS 导入、AI 日期解析与本地回答、备份往返一致。
+61 项断言覆盖：单双周过滤、连堂时间、冲突检测、单次停课 / 调课与撤销、空档与往返可行性、ICS 导出（RRULE + INTERVAL=2 + EXDATE）、周字符串解析、CSV 与 WakeUp 导入、ICS 导入、AI 日期解析与本地回答、备份往返一致；以及作息年度循环（月日校验、跨年延续、规则归一化、整周锚定、冬夏时间切换）、节假日停课与逐日覆盖、调休映射与周末可见性、课表模板实例化与保存、课程别名开关、快捷键组合解析。
 
 ## 目录结构
 
@@ -79,14 +79,21 @@ web/                  站点根（Qoder Sites 发布目录）
   js/schedule.js      教学周映射、课次展开、冲突、空档与往返引擎
   js/importexport.js  JSON/CSV/ICS/WakeUp 导入导出、PNG、打印数据
   js/ai.js            离线规则问答 + 可选模型增强 + 截图识课
+  js/periods.js       作息按「月-日」年度循环（移植自 ClassFlow，MIT）
+  js/calendar.js      节假日停课 / 调休映射 / 逐日校历（移植 + 新增）
+  js/templates.js     课表模板库、保存当前课表、预览与勾选应用（移植 + 新增）
+  js/appearance.js    壁纸 / 主题色 / 课程配色 / 圆角间距（移植 + 原创配色）
+  js/commands.js      命令面板与可自定义快捷键（原创）
+  js/pet.js           桌宠「小隙」，原创 SVG 形象（原创）
   js/editors.js       课程 / 课次 / 任务 / 考试编辑弹窗
   js/ui.js            DOM 工具、图标、toast、modal
   js/views/*.js       七个视图
   js/app.js           导航、主题、渲染调度、提醒、PWA 注册
   sw.js               Service Worker（网络优先、离线回退缓存）
   manifest.webmanifest
-tests/smoke.mjs       Node 冒烟测试
-docs/                 原创性与合规说明、大赛作品帖草稿
+third_party/classflow/  上游 MIT 代码留存：LICENSE、NOTICE.md、被移植的源文件与测试
+tests/smoke.mjs       Node 冒烟测试（61 项断言）
+docs/                 原创性与合规说明、入口与安装包清单、大赛作品帖草稿
 ```
 
 ## 数据与隐私
@@ -98,7 +105,7 @@ docs/                 原创性与合规说明、大赛作品帖草稿
 
 ## 原创性与致谢
 
-本项目 **全部代码为原创**，以 **Apache-2.0** 许可证发布（版权署名 ZKY-ai-ai）。功能设计参考了下列开源项目的公开 README 与文档，**仅借鉴功能思路，未复制任何项目的代码、文本或素材**。功能思路不属于著作权保护客体；各项目许可证已于 2026-11-16 通过 GitHub API（`/repos/{owner}/{repo}/license`）逐一核验，记录如下：
+本项目以 **Apache-2.0** 许可证发布（版权署名 ZKY-ai-ai）。**主体代码为原创**；另有四个纯逻辑模块（作息年度循环、节假日校历、课表模板、壁纸压缩）**移植自 MIT 许可的课序 ClassFlow**，固定提交 `30c466a`，已保留上游 MIT 全文与版权声明，逐文件归属见 [third_party/classflow/NOTICE.md](third_party/classflow/NOTICE.md)。其余参考项目**仅借鉴功能思路，未复制任何代码、文本或素材**。各项目许可证已于 2026-11-16 通过 GitHub API（`/repos/{owner}/{repo}/license`）逐一核验，记录如下：
 
 | 编号 | 项目 | 核验许可证 | 借鉴的思路 |
 |---|---|---|---|
@@ -106,7 +113,7 @@ docs/                 原创性与合规说明、大赛作品帖草稿
 | P02 | [Sleepy iOS](https://github.com/lingion/sleepy-ios) | GPL-3.0 | 课次级操作、备份迁移、提醒分层 |
 | P03 | [拾光课程表](https://github.com/ShiGuangSchedule/shiguangschedule) | Apache-2.0 | 多套作息绑定课表、节假日停课思路 |
 | P04 | [破晓课程表](https://github.com/HF-CYGG/Dawn-Course) | GPL-3.0 | 多学期并存、备份还原 |
-| P05 | [课序 ClassFlow](https://github.com/lcymxm/classflow) | MIT | 周列表 / 日视图、打印、本地免账号 |
+| P05 | [课序 ClassFlow](https://github.com/lcymxm/classflow) | MIT | **已引入代码**：作息年度循环、节假日 / 调休数据与判定、课表模板清单与课程种子、壁纸渐变与图片压缩；另借鉴周列表 / 日视图、打印、本地免账号思路。鲸鱼娘素材与小组件未引入 |
 | P06 | [贝壳课表](https://github.com/coderirse/BeikeSchedule) | 未找到 LICENSE | 考试座位号与倒计时、学分进度思路（仅思路） |
 | P07 | [Uniplan / Course_Planner](https://github.com/Sira-pel/Course_Planner) | Apache-2.0 | 冲突剔除、ICS 导出、方案比较思路 |
 | P08 | [HIAS-CSA](https://github.com/cty-cty/HIAS-CSA) | 未找到 LICENSE | 替代班次、考核压力分析思路（仅思路） |
