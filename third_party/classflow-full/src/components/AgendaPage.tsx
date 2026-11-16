@@ -1,6 +1,13 @@
-import { CalendarPlus, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight, GraduationCap, ListTodo, Plus } from "lucide-react";
 import type { CalendarDayInfo } from "../lib/holidays";
-import { formatWeekRange, WEEKDAYS } from "../lib/date";
+import {
+  collectUpcomingExams,
+  collectWeekTasks,
+  formatExamWhen,
+} from "../lib/agenda";
+import { dateKey as toDateKey, formatWeekRange, WEEKDAYS } from "../lib/date";
+import { examCountdown, examTypeLabel, type Exam } from "../lib/exams";
+import { describeDue, taskBucket, type Task } from "../lib/tasks";
 import type {
   Period,
   ScheduleEvent,
@@ -34,6 +41,8 @@ interface AgendaPageProps {
   todayNumber: number;
   todayEvents: ScheduleEvent[];
   showAliases: boolean;
+  tasks?: Task[];
+  exams?: Exam[];
   onPrevWeek: () => void;
   onNextWeek: () => void;
   onToday: () => void;
@@ -66,6 +75,8 @@ export function AgendaPage({
   todayNumber,
   todayEvents,
   showAliases,
+  tasks = [],
+  exams = [],
   onPrevWeek,
   onNextWeek,
   onToday,
@@ -81,6 +92,18 @@ export function AgendaPage({
         selectedDate.getDate(),
       ).padStart(2, "0")}`
     : "";
+
+  const weekKeys = dates.map((date) => toDateKey(date)).sort();
+  const weekStartKey = weekKeys[0] ?? toDateKey(now);
+  const weekEndKey = weekKeys[weekKeys.length - 1] ?? toDateKey(now);
+  const weekTasks = collectWeekTasks(tasks, now, weekStartKey, weekEndKey);
+  const upcomingExams = collectUpcomingExams(exams, now, weekEndKey);
+
+  const courseNames = new Map<string, string>();
+  for (const session of [...sessions, ...currentSessions]) {
+    const course = session.course;
+    courseNames.set(course.id, showAliases && course.alias ? course.alias : course.name);
+  }
 
   return (
     <div className="agenda-page">
@@ -194,6 +217,85 @@ export function AgendaPage({
               </div>
             )}
           </section>
+
+          <div className="agenda-triage">
+            <section className="agenda-events agenda-tasks" aria-label="本周任务">
+              <div className="agenda-events-head">
+                <div>
+                  <p className="eyebrow">TASKS</p>
+                  <h2>本周任务</h2>
+                </div>
+                <span className="agenda-count">{weekTasks.length} 项</span>
+              </div>
+              {weekTasks.length > 0 ? (
+                <div className="agenda-event-list">
+                  {weekTasks.map((task) => {
+                    const overdue = taskBucket(task, now) === "overdue";
+                    const courseName = task.courseId ? courseNames.get(task.courseId) : undefined;
+                    return (
+                      <div
+                        className={`agenda-task-item ${overdue ? "is-overdue" : ""}`}
+                        key={task.id}
+                      >
+                        <span className="agenda-task-dot" aria-hidden="true" />
+                        <span className="agenda-task-copy">
+                          <strong>{task.title}</strong>
+                          <small>{courseName ?? "未关联课程"}</small>
+                        </span>
+                        <span className="agenda-task-due">
+                          {overdue ? <em>逾期</em> : null}
+                          <time>{describeDue(task)}</time>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="agenda-events-empty">
+                  <ListTodo size={17} />
+                  <span>本周没有到期的任务。</span>
+                </div>
+              )}
+            </section>
+
+            <section className="agenda-events agenda-exams" aria-label="待考考试">
+              <div className="agenda-events-head">
+                <div>
+                  <p className="eyebrow">EXAMS</p>
+                  <h2>待考考试</h2>
+                </div>
+                <span className="agenda-count">{upcomingExams.length} 场</span>
+              </div>
+              {upcomingExams.length > 0 ? (
+                <div className="agenda-event-list">
+                  {upcomingExams.map((exam) => {
+                    const countdown = examCountdown(exam, now);
+                    const place = [exam.location, exam.seat ? `座位 ${exam.seat}` : ""]
+                      .filter(Boolean)
+                      .join(" · ");
+                    return (
+                      <div className={`agenda-exam-item is-${countdown.tone}`} key={exam.id}>
+                        <span className="agenda-exam-type">{examTypeLabel(exam.type)}</span>
+                        <span className="agenda-exam-copy">
+                          <strong>{exam.title}</strong>
+                          <small>{place || "地点待定"}</small>
+                        </span>
+                        <span className="agenda-exam-when">
+                          <time>{formatExamWhen(exam)}</time>
+                          <small>{countdown.text}</small>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="agenda-events-empty">
+                  <GraduationCap size={17} />
+                  <span>本周没有待考考试。</span>
+                </div>
+              )}
+            </section>
+          </div>
         </div>
 
         <TodayRail

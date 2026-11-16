@@ -1469,3 +1469,139 @@
     font-size: 9px;
   }
 }
+
+/* Agenda triage: this week's tasks and upcoming exams (F059). */
+.agenda-triage {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.agenda-count {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 8px;
+}
+
+.agenda-task-item,
+.agenda-exam-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 15px;
+  border-bottom: 1px solid var(--line);
+}
+
+.agenda-task-item:last-child,
+.agenda-exam-item:last-child {
+  border-bottom: 0;
+}
+
+.agenda-task-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--coral);
+}
+
+.agenda-task-item.is-overdue .agenda-task-dot {
+  background: var(--danger);
+}
+
+.agenda-task-copy,
+.agenda-exam-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.agenda-task-copy strong,
+.agenda-exam-copy strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agenda-task-copy small,
+.agenda-exam-copy small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agenda-task-due {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 7.5px;
+}
+
+.agenda-task-due em {
+  padding: 0 5px;
+  color: var(--danger);
+  border-radius: 999px;
+  background: var(--danger-soft);
+  font-size: 7px;
+  font-style: normal;
+}
+
+.agenda-exam-type {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  color: var(--coral-deep);
+  border-radius: 999px;
+  background: var(--coral-soft);
+  font-size: 7px;
+}
+
+.agenda-exam-when {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 7.5px;
+}
+
+.agenda-exam-when small {
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.agenda-exam-item.is-danger .agenda-exam-when small {
+  color: var(--danger);
+}
+
+.agenda-exam-item.is-warn .agenda-exam-when small {
+  color: var(--coral-deep);
+}
+
+.agenda-exam-item.is-normal .agenda-exam-when small {
+  color: var(--success);
+}
+
+@media (max-width: 760px) {
+  .agenda-triage {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .agenda-task-item,
+  .agenda-exam-item {
+    padding: 9px 12px;
+  }
+}
