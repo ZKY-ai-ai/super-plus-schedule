@@ -1,0 +1,46 @@
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+
+# 密钥与本地配置
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+config.local.*
+
+# 依赖
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# 构建产物
+dist/
+build/
+out/
+target/
+*.log
+.cache/
+
+# 移动端与本地开发数据
+.gradle/
+local.properties
+*.apk
+*.aab
+*.ipa
+*.xcuserstate
+captures/
+*.sqlite
+*.sqlite3
+
+# Qoder Sites 本地发布描述符（工具生成，含冻结快照，不属于源码）
+*.qoder.site
+.qoder/
