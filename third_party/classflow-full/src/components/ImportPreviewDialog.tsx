@@ -21,6 +21,10 @@ export function ImportPreviewDialog({
     (total, timetable) => total + timetable.courses.length,
     0,
   );
+  const eventCount = draft.data.timetables.reduce(
+    (total, timetable) => total + timetable.events.length,
+    0,
+  );
 
   return (
     <Modal
@@ -69,6 +73,7 @@ export function ImportPreviewDialog({
               </div>
               <span>
                 {timetable.courses.length} 门课 · {slots} 个时间段
+                {timetable.events.length > 0 ? ` · ${timetable.events.length} 条日程` : ""}
               </span>
             </li>
           );
@@ -76,9 +81,9 @@ export function ImportPreviewDialog({
       </ul>
 
       <p className="import-preview-hint">
-        备份里共有 {draft.data.timetables.length} 套课表、{courseCount} 门课程。 合并只会把课程和日程
-        追加到当前课表，同名同老师的课程会跳过；替换会用备份完全覆盖当前的 {currentTimetableCount}{" "}
-        套课表。
+        文件里共有 {draft.data.timetables.length} 套课表、{courseCount} 门课程
+        {eventCount > 0 ? `、${eventCount} 条日程` : ""}。 合并只会把课程和日程追加到当前课表，
+        同名同老师的课程会跳过；替换会用文件内容完全覆盖当前的 {currentTimetableCount} 套课表。
       </p>
     </Modal>
   );

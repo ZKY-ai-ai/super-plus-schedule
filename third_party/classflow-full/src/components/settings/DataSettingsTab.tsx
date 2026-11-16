@@ -217,8 +217,8 @@ export function DataSettingsTab({
             <Upload size={18} />
           </span>
           <span>
-            <strong>导入备份</strong>
-            <small>选择由课序导出的 JSON 文件</small>
+            <strong>导入课表</strong>
+            <small>课序 JSON 备份、ICS 日历、CSV 表格或课程文本</small>
           </span>
         </button>
         {!native ? (
@@ -237,8 +237,8 @@ export function DataSettingsTab({
         ref={fileRef}
         id="import-file"
         type="file"
-        accept=".json,application/json"
-        aria-label="选择课表备份文件"
+        accept=".json,.ics,.csv,.tsv,.txt,.md,.html,.htm,application/json,text/calendar,text/csv,text/plain"
+        aria-label="选择课表文件"
         hidden
         onChange={(event) => {
           void handleImport(event.target.files?.[0]);
