@@ -12,7 +12,7 @@ import type {
   WeekPattern,
 } from "../types";
 import { COURSE_TONES } from "../types";
-import { dateKey, getDefaultStartDate, getTermName, startOfWeekMonday } from "./date";
+import { dateKey, getDefaultStartDate, getTermName, minutesToTime, startOfWeekMonday, timeToMinutes } from "./date";
 
 const BASE_PERIOD_TIMES: Array<[string, string]> = [
   ["08:00", "08:45"],
@@ -108,6 +108,33 @@ export function resizePeriods(periods: Period[], count: number): Period[] {
     next.push({ index: next.length + 1, start, end: addMinutes(start, 45) });
   }
   return next;
+}
+
+export interface PeriodSchemeInput {
+  count: number;
+  startTime: string;
+  lessonMinutes: number;
+  breakMinutes: number;
+}
+
+export function generatePeriods(input: PeriodSchemeInput): Period[] {
+  const count = Math.min(Math.max(Math.round(input.count), MIN_PERIODS), MAX_PERIODS);
+  const lesson = Math.min(Math.max(Math.round(input.lessonMinutes), 5), 240);
+  const gap = Math.min(Math.max(Math.round(input.breakMinutes), 0), 120);
+  const parsedStart = input.startTime ? timeToMinutes(input.startTime) : 8 * 60;
+  const startMinutes = Number.isFinite(parsedStart) ? parsedStart : 8 * 60;
+
+  const periods: Period[] = [];
+  let cursor = startMinutes;
+  for (let index = 0; index < count; index += 1) {
+    periods.push({
+      index: index + 1,
+      start: minutesToTime(cursor),
+      end: minutesToTime(cursor + lesson),
+    });
+    cursor += lesson + gap;
+  }
+  return periods;
 }
 
 export function uid(prefix: string): string {
