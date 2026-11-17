@@ -103,6 +103,46 @@ export function normalizeWeekCell(value: string): string {
   return `${min}-${max}周`;
 }
 
+/**
+ * A week cell may hold several disjoint ranges (`2~10,12~14,16~17`) and
+ * per-range parity (`14~16(双),17`). ParsedCourseSeed segments are contiguous,
+ * so split the cell into one segment per range instead of flattening it.
+ */
+export function weekCellSegments(value: string): string[] {
+  const trimmed = value.trim();
+  if (!trimmed) return [""];
+  const segments: Array<{ start: number; end: number; pattern: string }> = [];
+  for (const match of trimmed.matchAll(
+    /(\d{1,2})(?:\s*[-–~至]\s*(\d{1,2}))?\s*(?:[（(]\s*([单双])\s*[)）]|([单双])周)?/g,
+  )) {
+    let start = Number(match[1]);
+    let end = match[2] ? Number(match[2]) : start;
+    if (start > end) [start, end] = [end, start];
+    if (start < 1 || start > 60 || end > 60) continue;
+    segments.push({ start, end, pattern: match[3] ?? match[4] ?? "" });
+  }
+  if (segments.length === 0) return [""];
+  const merged: typeof segments = [];
+  for (const segment of segments) {
+    const previous = merged[merged.length - 1];
+    if (
+      previous &&
+      previous.pattern === "" &&
+      segment.pattern === "" &&
+      segment.start === previous.end + 1
+    ) {
+      previous.end = segment.end;
+    } else {
+      merged.push({ ...segment });
+    }
+  }
+  return merged.map((segment) =>
+    segment.start === segment.end
+      ? `${segment.start}周${segment.pattern}`
+      : `${segment.start}~${segment.end}周${segment.pattern}`,
+  );
+}
+
 export function guessColumnMapping(headers: string[]): ExcelColumnMapping {
   const mapping = { ...EMPTY_MAPPING };
   headers.forEach((header, index) => {
@@ -125,7 +165,7 @@ export function guessColumnMapping(headers: string[]): ExcelColumnMapping {
 }
 
 export function detectHeaderRow(rows: string[][]): number {
-  for (let index = 0; index < Math.min(rows.length, 10); index += 1) {
+  for (let index = 0; index < rows.length; index += 1) {
     const mapping = guessColumnMapping(rows[index] ?? []);
     if (mapping.name >= 0 && mapping.day >= 0) return index;
   }
@@ -194,31 +234,35 @@ export function mapCourseRows(
       .split(/[;；|\n]+/)
       .map((segment) => segment.trim())
       .filter(Boolean);
-    const normalizedWeeks = normalizeWeekCell(weekCell);
-    const lineParts = [
+    const weekVariants = weekCellSegments(weekCell);
+    const baseParts = [
       name,
       dayCell,
-      normalizedWeeks,
       location ? `地点：${location}` : "",
       teacher ? `@${teacher}` : "",
     ].filter(Boolean);
     let merged: ParsedCourseSeed | null = null;
-    for (const segment of segments.length > 0 ? segments : [periodCell]) {
-      const normalizePeriod = /^\d{1,2}\s*[-–~至]\s*\d{1,2}$/.test(segment)
-        ? `${segment}节`
-        : /^\d{1,2}$/.test(segment)
-          ? `第${segment}节`
-          : segment;
-      const parsed = parseCourseText([...lineParts, normalizePeriod].join(" "), totalWeeks);
-      const seed = parsed.courses[0];
-      if (!seed) {
-        errors.push(...parsed.errors.map((message) => `第 ${startRow + index + 1} 行「${name}」：${message}`));
-        continue;
-      }
-      if (!merged) {
-        merged = { ...seed, name: seed.name || name, slots: [...seed.slots] };
-      } else {
-        mergeSeed(merged, seed);
+    for (const weekText of weekVariants) {
+      for (const segment of segments.length > 0 ? segments : [periodCell]) {
+        const normalizePeriod = /^\d{1,2}\s*[-–~至]\s*\d{1,2}$/.test(segment)
+          ? `${segment}节`
+          : /^\d{1,2}$/.test(segment)
+            ? `第${segment}节`
+            : segment;
+        const parsed = parseCourseText(
+          [...baseParts, weekText, normalizePeriod].filter(Boolean).join(" "),
+          totalWeeks,
+        );
+        const seed = parsed.courses[0];
+        if (!seed) {
+          errors.push(...parsed.errors.map((message) => `第 ${startRow + index + 1} 行「${name}」：${message}`));
+          continue;
+        }
+        if (!merged) {
+          merged = { ...seed, name: seed.name || name, slots: [...seed.slots] };
+        } else {
+          mergeSeed(merged, seed);
+        }
       }
     }
     if (!merged) return;

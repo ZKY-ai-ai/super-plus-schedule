@@ -81,6 +81,17 @@ export function pdfItemsToRows(rawItems: unknown[]): string[][] {
     let previousEnd: number | null = null;
     let previousHeight = line[0]?.height ?? 10;
     for (const item of line) {
+      // Many PDF exporters fill table columns with whitespace text runs whose
+      // width spans the gap to the next column. Treat wide runs as boundaries.
+      if (!item.str.trim()) {
+        if (item.width >= 8) {
+          cells.push(current.trim());
+          current = "";
+          previousEnd = item.x + item.width;
+          previousHeight = item.height;
+        }
+        continue;
+      }
       if (previousEnd !== null) {
         const gap = item.x - previousEnd;
         if (gap > Math.max(12, previousHeight * 1.5)) {
@@ -96,10 +107,18 @@ export function pdfItemsToRows(rawItems: unknown[]): string[][] {
       previousHeight = item.height;
     }
     cells.push(current.trim());
-    const filled = cells.filter((cell) => cell);
-    if (filled.length > 0) rows.push(filled);
+    const trimmed = trimEmptyEdges(cells);
+    if (trimmed.length > 0) rows.push(trimmed);
   }
   return rows;
+}
+
+function trimEmptyEdges(cells: string[]): string[] {
+  let start = 0;
+  let end = cells.length;
+  while (start < end && !cells[start]) start += 1;
+  while (end > start && !cells[end - 1]) end -= 1;
+  return cells.slice(start, end);
 }
 
 export function pdfRowsToText(rows: string[][]): string {

@@ -71,4 +71,23 @@ describe("pdf layout", () => {
   it("ignores marked-content items without text", () => {
     expect(pdfItemsToRows([{ type: "beginMarkedContent" }, null, 3])).toEqual([]);
   });
+
+  it("splits cells on the wide whitespace runs table exporters emit", () => {
+    const fill = (x: number, y: number, width: number) => ({
+      str: " ",
+      transform: [10, 0, 0, 10, x, y],
+      width,
+      height: 10,
+    });
+    const rows = pdfItemsToRows([
+      item("星期", 40, 700, 20),
+      fill(60, 700, 100),
+      item("课程", 160, 700, 20),
+      item("星期一", 40, 680, 30),
+      fill(70, 680, 90),
+      item("微积分II（上）", 160, 680, 60),
+    ]);
+    expect(rows[0]).toEqual(["星期", "课程"]);
+    expect(rows[1]).toEqual(["星期一", "微积分II（上）"]);
+  });
 });

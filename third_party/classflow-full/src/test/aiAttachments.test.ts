@@ -5,6 +5,7 @@ import {
   attachmentImages,
   buildAttachmentPromptBlock,
   classifyAttachment,
+  courseSeedsFromRows,
   courseSeedsToText,
   detectDelimiter,
   extractAiAttachment,
@@ -287,6 +288,48 @@ describe("attachment extraction", () => {
     const empty = await extractAiAttachment(new File([], "空.txt", { type: "text/plain" }));
     expect(empty.status).toBe("error");
     expect(empty.error).toContain("空");
+  });
+});
+
+describe("list-style course tables", () => {
+  it("finds a header that follows a long preamble", () => {
+    const rows: string[][] = [
+      ["课程明细与未排时段课程"],
+      ["按星期、节次、周次逐条保留授课安排。"],
+      ...Array.from({ length: 12 }, (_, index) => [`填充行 ${index}`]),
+      ["星期", "课程", "班号", "周次", "节次", "地点", "教师"],
+      ["星期一", "微积分II（上）", "05", "2~16", "1-2", "教东D1-403", "韩军强"],
+    ];
+    const seeds = courseSeedsFromRows(rows, 20);
+    expect(seeds).toHaveLength(1);
+    expect(seeds[0].name).toBe("微积分II（上）");
+    expect(seeds[0].slots[0]).toMatchObject({
+      day: 1,
+      start: 1,
+      end: 2,
+      weekStart: 2,
+      weekEnd: 16,
+    });
+  });
+
+  it("splits disjoint week ranges and keeps parity", () => {
+    const rows: string[][] = [
+      ["星期", "课程", "班号", "周次", "节次", "地点", "教师"],
+      ["星期三", "大学生思想文化素养", "19", "14~16(双),17", "3-4", "教东B1-102", "张记国"],
+      ["星期四", "理解当代中国", "49", "2~10,12~14,16~17", "3-4", "教西B3-205", "魏晏龙"],
+    ];
+    const seeds = courseSeedsFromRows(rows, 20);
+    const thought = seeds.find((course) => course.name === "大学生思想文化素养");
+    expect(thought?.slots).toHaveLength(2);
+    expect(thought?.slots[0]).toMatchObject({ weekStart: 14, weekEnd: 16, pattern: "even" });
+    expect(thought?.slots[1]).toMatchObject({ weekStart: 17, weekEnd: 17, pattern: "all" });
+
+    const understanding = seeds.find((course) => course.name === "理解当代中国");
+    expect(understanding?.slots.map((slot) => [slot.weekStart, slot.weekEnd])).toEqual([
+      [2, 10],
+      [12, 14],
+      [16, 17],
+    ]);
   });
 });
 
