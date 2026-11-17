@@ -1,4 +1,5 @@
 import type { Course } from "../types";
+import { generateSelectionPlan } from "./selectionGenerator";
 import type {
   CatalogState,
   CourseCategory,
@@ -513,6 +514,22 @@ export interface AutoCombineOptions {
 }
 
 export function autoCombine(
+  pool: SelectionSection[],
+  options: AutoCombineOptions = {},
+): string[] {
+  const generated = generateSelectionPlan(pool, options);
+  const picked = generated.sectionIds
+    .map((id) => pool.find((section) => section.id === id))
+    .filter((section): section is SelectionSection => Boolean(section));
+  const maxPeriods = options.maxWeeklyPeriods ?? 32;
+  const periods = picked.reduce((sum, section) => sum + weeklyPeriodsOf(section), 0);
+  if (picked.length > 0 && periods <= maxPeriods) {
+    return picked.map((section) => section.id);
+  }
+  return greedyCombine(pool, options);
+}
+
+function greedyCombine(
   pool: SelectionSection[],
   options: AutoCombineOptions = {},
 ): string[] {

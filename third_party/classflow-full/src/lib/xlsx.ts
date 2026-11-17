@@ -27,7 +27,10 @@ async function inflateRaw(bytes: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-async function readZipEntries(buffer: ArrayBuffer): Promise<Map<string, Uint8Array>> {
+export async function readZipEntries(
+  buffer: ArrayBuffer,
+  label = "xlsx",
+): Promise<Map<string, Uint8Array>> {
   const bytes = new Uint8Array(buffer);
   let eocd = -1;
   for (let index = bytes.length - 22; index >= Math.max(0, bytes.length - 65_557); index -= 1) {
@@ -36,7 +39,7 @@ async function readZipEntries(buffer: ArrayBuffer): Promise<Map<string, Uint8Arr
       break;
     }
   }
-  if (eocd < 0) throw new Error("不是有效的 xlsx 文件。");
+  if (eocd < 0) throw new Error(`不是有效的 ${label} 文件。`);
   const count = u16(bytes, eocd + 10);
   let cursor = u32(bytes, eocd + 16);
   const entries = new Map<string, Uint8Array>();
@@ -63,7 +66,7 @@ async function readZipEntries(buffer: ArrayBuffer): Promise<Map<string, Uint8Arr
   return entries;
 }
 
-function decodeEntities(value: string): string {
+export function decodeXmlEntities(value: string): string {
   return value
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
@@ -78,20 +81,23 @@ function decodeEntities(value: string): string {
 
 function attr(tag: string, name: string): string {
   const match = tag.match(new RegExp(`${name}="([^"]*)"`));
-  return match ? decodeEntities(match[1]) : "";
+  return match ? decodeXmlEntities(match[1]) : "";
 }
+
+// Excel 生成器有的不写前缀（<row>），有的写命名空间前缀（<x:row>）。
+const TAG = String.raw`(?:[A-Za-z_][\w.-]*:)?`;
 
 function collectText(xml: string): string {
   let text = "";
-  for (const match of xml.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)) {
-    text += decodeEntities(match[1]);
+  for (const match of xml.matchAll(new RegExp(`<${TAG}t\\b[^>]*>([\\s\\S]*?)<\\/${TAG}t>`, "g"))) {
+    text += decodeXmlEntities(match[1]);
   }
   return text;
 }
 
 function parseSharedStrings(xml: string): string[] {
   const result: string[] = [];
-  for (const match of xml.matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)) {
+  for (const match of xml.matchAll(new RegExp(`<${TAG}si\\b[^>]*>([\\s\\S]*?)<\\/${TAG}si>`, "g"))) {
     result.push(collectText(match[1]));
   }
   return result;
@@ -107,9 +113,9 @@ function columnIndex(ref: string): number {
 function cellValue(attrs: string, inner: string, shared: string[]): string {
   const type = attr(attrs, "t");
   if (type === "inlineStr") return collectText(inner);
-  const value = inner.match(/<v\b[^>]*>([\s\S]*?)<\/v>/)?.[1];
+  const value = inner.match(new RegExp(`<${TAG}v\\b[^>]*>([\\s\\S]*?)<\\/${TAG}v>`))?.[1];
   if (value === undefined) return "";
-  const decoded = decodeEntities(value);
+  const decoded = decodeXmlEntities(value);
   if (type === "s") return shared[Number(decoded)] ?? "";
   return decoded;
 }
@@ -117,7 +123,15 @@ function cellValue(attrs: string, inner: string, shared: string[]): string {
 function parseSheet(xml: string, shared: string[]): string[][] {
   const rows: string[][] = [];
   let fallbackRow = 0;
-  for (const rowMatch of xml.matchAll(/<row\b([^>]*?)(?:\/>|>([\s\S]*?)<\/row>)/g)) {
+  const rowPattern = new RegExp(
+    `<${TAG}row\\b([^>]*?)(?:\\/>|>([\\s\\S]*?)<\\/${TAG}row>)`,
+    "g",
+  );
+  const cellPattern = new RegExp(
+    `<${TAG}c\\b([^>]*?)(?:\\/>|>([\\s\\S]*?)<\\/${TAG}c>)`,
+    "g",
+  );
+  for (const rowMatch of xml.matchAll(rowPattern)) {
     const rowAttr = rowMatch[1] ?? "";
     const inner = rowMatch[2] ?? "";
     const rowNumber = Number(attr(rowAttr, "r"));
@@ -126,7 +140,7 @@ function parseSheet(xml: string, shared: string[]): string[][] {
     if (rowIndex >= MAX_ROWS) break;
     const cells: string[] = [];
     let fallbackCol = 0;
-    for (const cellMatch of inner.matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+    for (const cellMatch of inner.matchAll(cellPattern)) {
       const cellAttr = cellMatch[1] ?? "";
       const value = cellValue(cellAttr, cellMatch[2] ?? "", shared);
       const ref = attr(cellAttr, "r");
@@ -143,7 +157,7 @@ function parseSheet(xml: string, shared: string[]): string[][] {
 
 function sheetTargets(relsXml: string): Map<string, string> {
   const map = new Map<string, string>();
-  for (const match of relsXml.matchAll(/<Relationship\b[^>]*?\/?>/g)) {
+  for (const match of relsXml.matchAll(new RegExp(`<${TAG}Relationship\\b[^>]*?\\/?>`, "g"))) {
     const tag = match[0];
     const id = attr(tag, "Id");
     let target = attr(tag, "Target");
@@ -165,7 +179,7 @@ export async function readXlsxRows(buffer: ArrayBuffer): Promise<XlsxSheet[]> {
   const rels = sheetTargets(text("xl/_rels/workbook.xml.rels"));
   const workbook = text("xl/workbook.xml");
   const sheets: XlsxSheet[] = [];
-  for (const match of workbook.matchAll(/<sheet\b[^>]*?\/?>/g)) {
+  for (const match of workbook.matchAll(new RegExp(`<${TAG}sheet\\b[^>]*?\\/?>`, "g"))) {
     const tag = match[0];
     const name = attr(tag, "name") || `工作表 ${sheets.length + 1}`;
     const relId = attr(tag, "r:id") || attr(tag, "id");

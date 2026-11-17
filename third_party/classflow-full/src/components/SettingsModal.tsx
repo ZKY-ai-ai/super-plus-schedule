@@ -29,6 +29,7 @@ import type {
   PeriodRule,
   ScheduleData,
   Semester,
+  SettingsTab,
   Theme,
 } from "../types";
 import { Modal } from "./Modal";
@@ -73,25 +74,12 @@ import { QqqPlayground } from "./playground/QqqPlayground";
 import { Woodfish } from "./woodfish/Woodfish";
 import { WhaleMascot } from "./WhaleMascot";
 
-type SettingsTab =
-  | "term"
-  | "periods"
-  | "tasks"
-  | "grades"
-  | "reminders"
-  | "calendar"
-  | "google-calendar"
-  | "academic"
-  | "webdav"
-  | "data"
-  | "ai"
-  | "playground"
-  | "woodfish";
 
 interface SettingsModalProps {
   data: ScheduleData;
   theme: Theme;
   autoHolidays: boolean;
+  initialTab?: SettingsTab;
   onClose: () => void;
   onSaveSemester: (
     semester: Semester,
@@ -185,6 +173,7 @@ export function SettingsModal({
   data,
   theme,
   autoHolidays,
+  initialTab = "term",
   onClose,
   onSaveSemester,
   onExportJson,
@@ -212,7 +201,7 @@ export function SettingsModal({
 }: SettingsModalProps) {
   const active = data.timetables.find((item) => item.id === data.activeTimetableId) ?? data.timetables[0];
   const calendarOverrides = active.calendarOverrides ?? [];
-  const [tab, setTab] = useState<SettingsTab>("term");
+  const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [draft, setDraft] = useState<Semester>(() => ({
     ...active.semester,
     weekStartsOn: active.semester.weekStartsOn ?? 1,

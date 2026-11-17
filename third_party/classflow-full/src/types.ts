@@ -188,6 +188,21 @@ export type AppPage =
   | "ai"
   | "profile";
 
+export type SettingsTab =
+  | "term"
+  | "periods"
+  | "tasks"
+  | "grades"
+  | "reminders"
+  | "calendar"
+  | "google-calendar"
+  | "academic"
+  | "webdav"
+  | "data"
+  | "ai"
+  | "playground"
+  | "woodfish";
+
 export interface Preferences {
   theme: Theme;
   view: ViewMode;

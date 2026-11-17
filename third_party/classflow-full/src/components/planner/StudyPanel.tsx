@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import {
   Brain,
@@ -21,6 +21,16 @@ import { dateKey, formatDuration, minutesToTime, WEEKDAYS } from "../../lib/date
 import { findDayGaps, type GapPreferences } from "../../lib/gaps";
 import { WeeklyShareCard } from "./WeeklyShareCard";
 import {
+  LONG_BREAK_EVERY,
+  usePomodoro,
+  type TimerMode,
+} from "../../lib/study/focusTimer";
+import {
+  generateReviewSchedule,
+  type ScheduledReview,
+  type ScheduleResult,
+} from "../../lib/study/reviewSchedule";
+import {
   DEFAULT_POMODORO,
   PRIORITY_LABELS,
   addStudyLog,
@@ -29,8 +39,7 @@ import {
   experienceStats,
   loadPlannerTasks,
   loadStudyLogs,
-  nextPomodoroStep,
-  savePlannerTasks,
+    savePlannerTasks,
   saveStudyLogs,
   sortTasksByUrgency,
   studyHeatmap,
@@ -77,18 +86,23 @@ const SORT_MODES: Array<{ mode: TaskSortMode; label: string }> = [
   { mode: "due", label: "截止" },
 ];
 
+const SCHEDULE_ERRORS: Record<
+  Extract<ScheduleResult, { ok: false }>["reason"],
+  string
+> = {
+  "invalid-exam": "请填写有效的考试日期。",
+  "invalid-start-time": "开始时间太晚，排不下一次复习。",
+  "past-exam": "考试日期已经过去了。",
+  "exam-today": "考试就是今天，来不及提前排期。",
+  "no-subjects": "请先添加课程。",
+  "insufficient-days": "距离考试的天数少于一门一次的复习量，先集中复习重点科目。",
+};
+
 function clock(seconds: number): string {
   const safe = Math.max(0, seconds);
   return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
 }
 
-function phaseMinutes(phase: PomodoroPhase): number {
-  return phase === "focus"
-    ? DEFAULT_POMODORO.focusMinutes
-    : phase === "short"
-      ? DEFAULT_POMODORO.shortBreakMinutes
-      : DEFAULT_POMODORO.longBreakMinutes;
-}
 
 export function StudyPanel({
   now,
@@ -117,12 +131,12 @@ export function StudyPanel({
   const [logSubject, setLogSubject] = useState("");
   const [logMinutes, setLogMinutes] = useState(25);
 
-  const [phase, setPhase] = useState<PomodoroPhase>("focus");
-  const [round, setRound] = useState(0);
-  const [remaining, setRemaining] = useState(DEFAULT_POMODORO.focusMinutes * 60);
-  const [deadline, setDeadline] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [focusCourseId, setFocusCourseId] = useState("");
+  const [examDate, setExamDate] = useState("");
+  const [examSchedule, setExamSchedule] = useState<ScheduledReview[]>([]);
+  const [examError, setExamError] = useState<string | null>(null);
+  const updateLogsRef = useRef<(next: StudyLog[]) => void>(() => {});
 
   const updateTasks = (next: PlannerTask[]) => {
     setTasks(next);
@@ -133,6 +147,48 @@ export function StudyPanel({
     setLogs(next);
     saveStudyLogs(next);
   };
+  updateLogsRef.current = updateLogs;
+
+  const timer = usePomodoro({
+    durations: {
+      focus: DEFAULT_POMODORO.focusMinutes * 60,
+      shortBreak: DEFAULT_POMODORO.shortBreakMinutes * 60,
+      longBreak: DEFAULT_POMODORO.longBreakMinutes * 60,
+    },
+    onComplete: (finished) => {
+      if (finished !== "focus") return;
+      const course = courses.find((item) => item.id === focusCourseId);
+      updateLogsRef.current(
+        addStudyLog(logs, {
+          subject: course?.name ?? "自由学习",
+          courseId: course?.id,
+          minutes: DEFAULT_POMODORO.focusMinutes,
+          kind: "pomodoro",
+          start: new Date(Date.now() - DEFAULT_POMODORO.focusMinutes * 60_000).toISOString(),
+        }),
+      );
+    },
+  });
+  const { mode, remaining, isRunning, progress, sessionsToday, switchMode } = timer;
+  const phase: PomodoroPhase = mode === "focus" ? "focus" : mode === "shortBreak" ? "short" : "long";
+  const round = sessionsToday % DEFAULT_POMODORO.rounds;
+
+  useEffect(() => {
+    if (isRunning || remaining !== 0) return;
+    if (mode === "focus") {
+      const next: TimerMode =
+        sessionsToday > 0 && sessionsToday % LONG_BREAK_EVERY === 0 ? "longBreak" : "shortBreak";
+      switchMode(next);
+      setNotice(
+        `完成一轮专注，${next === "longBreak" ? "长休息" : "短休息"} ${
+          next === "longBreak" ? DEFAULT_POMODORO.longBreakMinutes : DEFAULT_POMODORO.shortBreakMinutes
+        } 分钟。`,
+      );
+      return;
+    }
+    switchMode("focus");
+    setNotice("休息结束，开始下一轮专注。");
+  }, [isRunning, remaining, mode, sessionsToday, switchMode]);
 
   const daySessions = useMemo(
     () =>
@@ -224,71 +280,25 @@ export function StudyPanel({
     [daySessions, todayPeriods, preferences],
   );
 
-  useEffect(() => {
-    if (deadline === null) return;
-    const tick = () => {
-      setRemaining(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
-    };
-    tick();
-    const id = window.setInterval(tick, 500);
-    return () => window.clearInterval(id);
-  }, [deadline]);
-
-  const completePhase = () => {
-    if (phase === "focus") {
-      const course = courses.find((item) => item.id === focusCourseId);
-      updateLogs(
-        addStudyLog(logs, {
-          subject: course?.name ?? "自由学习",
-          courseId: course?.id,
-          minutes: DEFAULT_POMODORO.focusMinutes,
-          kind: "pomodoro",
-          start: new Date(Date.now() - DEFAULT_POMODORO.focusMinutes * 60_000).toISOString(),
-        }),
-      );
-    }
-    const next = nextPomodoroStep(phase, round, DEFAULT_POMODORO);
-    setPhase(next.phase);
-    setRound(next.round);
-    setRemaining(next.minutes * 60);
-    setNotice(
-      phase === "focus"
-        ? `完成一轮专注，${next.label} ${next.minutes} 分钟。`
-        : `休息结束，开始第 ${next.round + 1} 轮专注。`,
-    );
-  };
-
-  useEffect(() => {
-    if (deadline !== null) return;
-    if (remaining > 0) return;
-    completePhase();
-    // completePhase 只依赖当前渲染的状态，remaining 归零时触发一次即可。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining]);
-
   const toggleTimer = () => {
-    if (deadline !== null) {
-      setRemaining(Math.max(1, Math.ceil((deadline - Date.now()) / 1000)));
-      setDeadline(null);
-      return;
-    }
     setNotice(null);
-    setDeadline(Date.now() + Math.max(1, remaining) * 1000);
+    timer.toggle();
   };
 
   const resetTimer = () => {
-    setDeadline(null);
-    setRemaining(phaseMinutes(phase) * 60);
+    timer.reset();
     setNotice(null);
   };
 
   const skipPhase = () => {
-    const next = nextPomodoroStep(phase, round, DEFAULT_POMODORO);
-    setDeadline(null);
-    setPhase(next.phase);
-    setRound(next.round);
-    setRemaining(next.minutes * 60);
-    setNotice(`已跳到${next.label}。`);
+    const next: TimerMode =
+      mode === "focus" ? timer.nextMode() : "focus";
+    switchMode(next);
+    setNotice(
+      mode === "focus"
+        ? `已跳到${next === "longBreak" ? "长休息" : "短休息"}。`
+        : "已跳回专注。",
+    );
   };
 
   const addTask = (event: FormEvent) => {
@@ -343,17 +353,36 @@ export function StudyPanel({
     );
   };
 
+  const buildExamSchedule = (event: FormEvent) => {
+    event.preventDefault();
+    const result = generateReviewSchedule(
+      courses.map((course) => course.id),
+      `${examDate}T09:00`,
+      now,
+    );
+    if (!result.ok) {
+      setExamSchedule([]);
+      setExamError(SCHEDULE_ERRORS[result.reason]);
+      return;
+    }
+    setExamSchedule(result.sessions);
+    setExamError(null);
+  };
+
+  const moveExamReview = (subjectId: string, date: string) => {
+    setExamSchedule((current) =>
+      current.map((session) =>
+        session.subjectId === subjectId ? { ...session, scheduledDate: date } : session,
+      ),
+    );
+  };
+
   const startReview = (course: Course) => {
     setFocusCourseId(course.id);
-    setPhase("focus");
-    setRound(0);
-    setDeadline(null);
-    setRemaining(DEFAULT_POMODORO.focusMinutes * 60);
+    switchMode("focus");
     setNotice(`已选中《${course.name}》，点击开始专注即可复习。`);
   };
 
-  const timerTotal = phaseMinutes(phase) * 60;
-  const timerProgress = timerTotal === 0 ? 0 : 1 - Math.min(1, remaining / timerTotal);
   const focusCourse = courses.find((item) => item.id === focusCourseId);
 
   return (
@@ -542,7 +571,7 @@ export function StudyPanel({
 
           <div
             className={`pomo-ring is-${phase}`}
-            style={{ "--pomo-progress": `${Math.round(timerProgress * 360)}deg` } as CSSProperties}
+            style={{ "--pomo-progress": `${Math.round(progress * 360)}deg` } as CSSProperties}
           >
             <div className="pomo-ring-inner">
               <strong>{clock(remaining)}</strong>
@@ -566,8 +595,8 @@ export function StudyPanel({
 
           <div className="pomo-actions">
             <button className="primary-button" type="button" onClick={toggleTimer}>
-              {deadline !== null ? <Pause size={15} /> : <Play size={15} />}
-              {deadline !== null ? "暂停" : "开始"}
+              {isRunning ? <Pause size={15} /> : <Play size={15} />}
+              {isRunning ? "暂停" : "开始"}
             </button>
             <button className="small-button" type="button" onClick={resetTimer}>
               <RotateCcw size={13} />
@@ -707,6 +736,45 @@ export function StudyPanel({
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="review-slots exam-schedule">
+            <span className="review-slots-label">考试复习排期</span>
+            <form className="exam-form" onSubmit={buildExamSchedule}>
+              <input
+                type="date"
+                value={examDate}
+                min={todayKey}
+                onChange={(event) => setExamDate(event.target.value)}
+                aria-label="考试日期"
+              />
+              <button className="small-button" type="submit" disabled={!examDate}>
+                按课程排期
+              </button>
+            </form>
+            {examError ? <p className="study-empty-text">{examError}</p> : null}
+            {examSchedule.length > 0 ? (
+              <ul className="exam-list">
+                {examSchedule.map((session) => {
+                  const course = courses.find((item) => item.id === session.subjectId);
+                  return (
+                    <li key={session.subjectId}>
+                      <span>{course?.name ?? "课程"}</span>
+                      <span className="exam-time">{session.scheduledTime}</span>
+                      <input
+                        type="date"
+                        value={session.scheduledDate}
+                        min={todayKey}
+                        onChange={(event) =>
+                          moveExamReview(session.subjectId, event.target.value)
+                        }
+                        aria-label={`${course?.name ?? "课程"}复习日期`}
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
           </div>
         </section>
       </div>

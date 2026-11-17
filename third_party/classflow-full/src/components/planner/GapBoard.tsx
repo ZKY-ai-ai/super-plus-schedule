@@ -29,6 +29,7 @@ import {
   walkKey,
   type GapPreferences,
 } from "../../lib/gaps";
+import { assessDayGap, type GapAction } from "../../lib/gapsEngine/bridge";
 import {
   createRoom,
   loadRooms,
@@ -61,6 +62,27 @@ interface PlannerPageProps {
 function dayLabel(day: number, date: Date | undefined): string {
   return `${WEEKDAYS[day - 1]?.label ?? ""}${date ? ` · ${date.getMonth() + 1}/${date.getDate()}` : ""}`;
 }
+
+const GAP_ACTION_LABELS: Record<GapAction, string> = {
+  "tight-transition": "先赶路",
+  "quick-reset": "短暂回血",
+  "focus-sprint": "冲刺一小块",
+  "meal-window": "错峰吃饭",
+  "study-block": "学习时段",
+  "deep-work-block": "深度专注",
+  "flexible-long-gap": "专注 + 放松",
+  "leave-campus-candidate": "出校一趟",
+  "go-home": "回宿舍",
+  "location-dependent": "看地点再定",
+};
+
+const GAP_TIMELINE_LABELS = {
+  setup: "准备",
+  activity: "可安排",
+  travel: "步行",
+  buffer: "缓冲",
+  flex: "机动",
+} as const;
 
 export function GapBoard({
   now,
@@ -311,13 +333,18 @@ export function GapBoard({
             ) : (
               <div className="gap-list">
                 {gaps.map((gap) => {
-                  const leave = latestDeparture(gap.to, periods, gap.fromLocation, preferences);
+                  const assessment = assessDayGap(gap, preferences);
+                  const effectiveUsable = Math.max(
+                    0,
+                    gap.minutes - gap.walkMinutes - assessment.bufferMinutes,
+                  );
                   const roundTrip = checkRoundTrip(
-                    gap.usableMinutes,
+                    effectiveUsable,
                     gap.fromLocation,
                     destination,
                     preferences,
                   );
+                  const leaveByLabel = minutesToTime(assessment.leaveByMinutes);
                   return (
                     <article className={`gap-card ${gap.isLunch ? "is-lunch" : ""}`} key={gap.id}>
                       <div className="gap-card-time">
@@ -345,18 +372,36 @@ export function GapBoard({
                               无障碍 +{preferences.accessibleExtra} 分钟
                             </span>
                           ) : null}
-                          <span>缓冲 {gap.bufferMinutes} 分钟</span>
-                          <span className="gap-usable">可用 {gap.usableMinutes} 分钟</span>
+                          <span>缓冲 {assessment.bufferMinutes} 分钟</span>
+                          <span className="gap-usable">可用 {effectiveUsable} 分钟</span>
                           <span>
                             <MapPin size={12} />
                             {gap.toLocation || "下一间教室待定"}
                           </span>
                         </div>
                         <p className="gap-leave">
-                          最晚 <strong>{leave.leaveByLabel}</strong> 从
+                          最晚 <strong>{leaveByLabel}</strong> 从
                           {gap.fromLocation ? `「${gap.fromLocation}」` : "当前位置"}出发去下一节。
                         </p>
-                        {gap.usableMinutes >= 5 ? (
+                        <div className="gap-advice">
+                          <div className="gap-advice-head">
+                            <Sparkles size={13} />
+                            <strong>{GAP_ACTION_LABELS[assessment.primary.action]}</strong>
+                            <em>{Math.round(assessment.confidence * 100)}% 把握</em>
+                          </div>
+                          <p>
+                            可安排 {formatDuration(assessment.primary.activityMinutes)}，最晚{" "}
+                            {minutesToTime(assessment.leaveByMinutes)} 出发。
+                          </p>
+                          <div className="gap-advice-timeline">
+                            {assessment.primary.timeline.map((segment, index) => (
+                              <span key={`${segment.kind}-${index}`}>
+                                {GAP_TIMELINE_LABELS[segment.kind]} {segment.minutes} 分
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        {effectiveUsable >= 5 ? (
                           <div className="gap-suggestions">
                             {gap.suggestions.slice(0, 2).map((suggestion) => (
                               <span key={suggestion.id} title={suggestion.detail}>

@@ -105,7 +105,7 @@ export function PlanPage({
           onSelectCourse={onSelectCourse}
         />
       ) : (
-        <SelectionBoard courses={courses} />
+        <SelectionBoard courses={courses} periods={periods} />
       )}
     </div>
   );

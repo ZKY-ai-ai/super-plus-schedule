@@ -315,6 +315,23 @@ describe("settings and chat storage", () => {
     storage.setItem(AI_CHAT_KEY, JSON.stringify({ version: 1, messages: "nope" }));
     expect(loadChat(storage, NOW).messages).toEqual([]);
   });
+
+  it("keeps attachment metadata without storing file contents", () => {
+    const storage = createMemoryStorage();
+    const message = createChatMessage("user", "看看附件", NOW, [
+      { name: "课表.xlsx", kind: "spreadsheet", size: 2048 },
+      { name: "课表.png", kind: "image", size: 4096 },
+    ]);
+    expect(message.attachments).toEqual([
+      { name: "课表.xlsx", kind: "spreadsheet", size: 2048 },
+      { name: "课表.png", kind: "image", size: 4096 },
+    ]);
+    const chat = appendChat(loadChat(storage, NOW), message, NOW);
+    expect(saveChat(chat, storage)).toBe(true);
+    const reloaded = loadChat(storage, NOW);
+    expect(reloaded.messages[0].attachments).toHaveLength(2);
+    expect(JSON.stringify(reloaded)).not.toContain("data:image");
+  });
 });
 
 describe("local provider", () => {
@@ -322,6 +339,26 @@ describe("local provider", () => {
     const result = await complete(userRequest("高数在哪上"), baseSettings(), undefined, NOW);
     expect(result.provider).toBe("local");
     expect(result.content).toContain("教一 401");
+  });
+
+  it("explains that images and attachments need the remote provider", async () => {
+    const image = await complete(
+      { ...userRequest("看看这张图"), images: ["data:image/png;base64,AAAA"] },
+      baseSettings(),
+      undefined,
+      NOW,
+    );
+    expect(image.error).toBe("vision-requires-remote");
+    expect(image.content).toContain("不能读图");
+
+    const file = await complete(
+      { ...userRequest("看看附件"), hasAttachments: true },
+      baseSettings(),
+      undefined,
+      NOW,
+    );
+    expect(file.error).toBe("attachments-require-remote");
+    expect(file.content).toContain("本地规则模式");
   });
 
   it("respects the notes permission", async () => {
@@ -397,6 +434,61 @@ describe("OpenAI-compatible provider", () => {
     expect(body.messages.at(-1)).toEqual({ role: "user", content: "明天有课吗" });
   });
 
+  it("raises the output budget and flags length-truncated replies", async () => {
+    let body: { max_tokens: number } | null = null;
+    const fetchImpl: FetchLike = async (_url, init) => {
+      body = JSON.parse(String(init?.body));
+      return {
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            choices: [{ finish_reason: "length", message: { content: "前面这部分还在。" } }],
+          }),
+      } as unknown as Response;
+    };
+    const result = await complete(userRequest("把所有课列出来"), remoteSettings, fetchImpl, NOW);
+    expect(body!.max_tokens).toBe(8000);
+    expect(result.content).toBe("前面这部分还在。");
+    expect(result.truncated).toBe(true);
+  });
+
+  it("sends image attachments as vision content parts", async () => {
+    let body: {
+      messages: Array<{ role: string; content: unknown }>;
+      max_tokens: number;
+    } | null = null;
+    const fetchImpl: FetchLike = async (_url, init) => {
+      body = JSON.parse(String(init?.body));
+      return {
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({ choices: [{ message: { content: "看到课表了。" } }] }),
+      } as unknown as Response;
+    };
+    const result = await complete(
+      {
+        ...userRequest("看看这张课表"),
+        images: ["data:image/png;base64,AAAA"],
+        hasAttachments: true,
+      },
+      remoteSettings,
+      fetchImpl,
+      NOW,
+    );
+    expect(result.content).toBe("看到课表了。");
+    expect(body).not.toBeNull();
+    const last = body!.messages.at(-1)!;
+    expect(last.role).toBe("user");
+    expect(Array.isArray(last.content)).toBe(true);
+    const parts = last.content as Array<{ type: string; image_url?: { url: string } }>;
+    expect(parts[0]).toEqual({ type: "text", text: "看看这张课表" });
+    expect(parts[1].type).toBe("image_url");
+    expect(parts[1].image_url?.url).toBe("data:image/png;base64,AAAA");
+    expect(body!.max_tokens).toBe(6000);
+  });
+
   it("returns readable errors instead of throwing", async () => {
     const noKey = await complete(
       userRequest("你好"),
@@ -424,6 +516,109 @@ describe("OpenAI-compatible provider", () => {
       ({ ok: true, status: 200, text: async () => "{}" }) as unknown as Response;
     const result = await complete(userRequest("你好"), remoteSettings, empty, NOW);
     expect(result.error).toBe("empty-content");
+  });
+
+  it("retries images with a lean vision request when the full prompt fails", async () => {
+    const bodies: Array<{ messages: Array<{ role: string; content: unknown }> }> = [];
+    const fetchImpl: FetchLike = async (_url, init) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      if (bodies.length === 1) {
+        return {
+          ok: false,
+          status: 400,
+          text: async () => JSON.stringify({ error: { message: "context too long" } }),
+        } as unknown as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ choices: [{ message: { content: "图片里是周三的课。" } }] }),
+      } as unknown as Response;
+    };
+    const result = await complete(
+      {
+        ...userRequest("看看这张课表"),
+        images: ["data:image/png;base64,AAAA"],
+        hasAttachments: true,
+      },
+      remoteSettings,
+      fetchImpl,
+      NOW,
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.content).toBe("图片里是周三的课。");
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1].messages).toHaveLength(2);
+    expect(String(bodies[1].messages[0].content)).not.toContain("【手册目录】");
+    expect(Array.isArray(bodies[1].messages[1].content)).toBe(true);
+  });
+
+  it("reports provider errors returned with HTTP 200", async () => {
+    const providerError: FetchLike = async () =>
+      ({
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            error: { message: "model does not support image input", code: "invalid_request" },
+          }),
+      }) as unknown as Response;
+    const result = await complete(
+      {
+        ...userRequest("看看这张课表"),
+        images: ["data:image/png;base64,AAAA"],
+        hasAttachments: true,
+      },
+      remoteSettings,
+      providerError,
+      NOW,
+    );
+    expect(result.error).toBe("provider-error");
+    expect(result.content).toContain("does not support image input");
+    expect(result.content).toContain("invalid_request");
+  });
+
+  it("explains truncated or non-visual empty image responses", async () => {
+    const truncated: FetchLike = async () =>
+      ({
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({ choices: [{ finish_reason: "length", message: { content: "" } }] }),
+      }) as unknown as Response;
+    const truncatedResult = await complete(
+      {
+        ...userRequest("看看这张课表"),
+        images: ["data:image/png;base64,AAAA"],
+        hasAttachments: true,
+      },
+      remoteSettings,
+      truncated,
+      NOW,
+    );
+    expect(truncatedResult.error).toBe("empty-content");
+    expect(truncatedResult.content).toContain("finish_reason=length");
+    expect(truncatedResult.content).toContain("推理");
+
+    const noVision: FetchLike = async () =>
+      ({
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({ choices: [{ finish_reason: "stop", message: { content: "" } }] }),
+      }) as unknown as Response;
+    const noVisionResult = await complete(
+      {
+        ...userRequest("看看这张课表"),
+        images: ["data:image/png;base64,AAAA"],
+        hasAttachments: true,
+      },
+      remoteSettings,
+      noVision,
+      NOW,
+    );
+    expect(noVisionResult.error).toBe("empty-content");
+    expect(noVisionResult.content).toContain("支持图片输入");
   });
 });
 

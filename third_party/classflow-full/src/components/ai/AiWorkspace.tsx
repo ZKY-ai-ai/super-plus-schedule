@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BookOpenCheck,
   CalendarClock,
@@ -11,7 +11,7 @@ import {
   Sparkles,
   Sun,
 } from "lucide-react";
-import type { Course, Semester } from "../../types";
+import type { Course, ScheduleEvent, Semester, Timetable } from "../../types";
 import {
   addMemory,
   buildAiScheduleSnapshot,
@@ -26,7 +26,12 @@ import {
   type AiMemoryEntry,
   type AiSettings,
 } from "../../lib/ai";
+import type { AiAction, AiActionContext } from "../../lib/aiActions";
 import { loadNotes } from "../../lib/notes";
+import { loadExams } from "../../lib/exams";
+import { loadTasks } from "../../lib/tasks";
+import { loadTemplates } from "../../lib/storage";
+import { loadCatalog } from "../../lib/planner";
 import { formatMonthDay, getWeekNumber, weekdayLabel } from "../../lib/date";
 import { AiChatPanel } from "./AiChatPanel";
 import { AiSettingsPanel } from "./AiSettingsPanel";
@@ -34,19 +39,95 @@ import { CatalogExtractPanel } from "./CatalogExtractPanel";
 import "../../styles/ai.css";
 
 interface AiWorkspaceProps {
+  timetableId: string;
+  timetable: Timetable;
+  timetables: Array<{ id: string; name: string }>;
+  periodProfiles: Array<{ id: string; name: string }>;
   courses: Course[];
+  events: ScheduleEvent[];
   semester: Semester;
   now: Date;
+  onRunAction: (action: AiAction) => Promise<{ ok: boolean; message: string }>;
   onNotify: (message: string, tone?: "success" | "error") => void;
 }
 
 type AiTab = "chat" | "catalog" | "settings";
 
-export function AiWorkspace({ courses, semester, now, onNotify }: AiWorkspaceProps) {
+export function AiWorkspace({
+  timetableId,
+  timetable,
+  timetables,
+  periodProfiles,
+  courses,
+  events,
+  semester,
+  now,
+  onRunAction,
+  onNotify,
+}: AiWorkspaceProps) {
   const [settings, setSettings] = useState<AiSettings>(() => loadAiSettings());
   const [tab, setTab] = useState<AiTab>("chat");
-  const [notes] = useState(() => loadNotes().notes);
+  const [dataVersion, setDataVersion] = useState(0);
   const [memory, setMemory] = useState<AiMemoryData>(() => loadMemory());
+
+  useEffect(() => {
+    setSettings(loadAiSettings());
+    setMemory(loadMemory());
+  }, [dataVersion]);
+
+  const notes = useMemo(() => loadNotes().notes, [dataVersion]);
+  const chapters = useMemo(() => loadNotes().chapters, [dataVersion]);
+  const tasks = useMemo(() => loadTasks(timetableId), [timetableId, dataVersion]);
+  const exams = useMemo(() => loadExams(timetableId), [timetableId, dataVersion]);
+  const templates = useMemo(() => loadTemplates(), [dataVersion]);
+  const catalog = useMemo(() => loadCatalog(), [dataVersion]);
+  const actionContext = useMemo<AiActionContext>(
+    () => ({
+      totalWeeks: semester.totalWeeks,
+      courses: courses.map((course) => ({ id: course.id, name: course.name })),
+      tasks: tasks.map((task) => ({
+        id: task.id,
+        title: task.title,
+        subtasks: task.subtasks.map((subtask) => ({ id: subtask.id, title: subtask.title })),
+      })),
+      exams: exams.map((exam) => ({ id: exam.id, title: exam.title })),
+      notes: notes.map((note) => ({ id: note.id, title: note.title })),
+      events: events.map((event) => ({ id: event.id, title: event.title })),
+      timetables,
+      chapters: chapters.map((chapter) => ({ id: chapter.id, title: chapter.title })),
+      overrides: timetable.overrides.map((override) => ({
+        id: override.id,
+        label: `${override.action} · ${override.courseId} · 第 ${override.week} 周`,
+      })),
+      calendarOverrides: (timetable.calendarOverrides ?? []).map((override) => ({
+        id: override.id,
+        name: override.name,
+        date: override.date,
+      })),
+      periodProfiles,
+      templates: templates.map((template) => ({ id: template.id, name: template.name })),
+      catalogSections: catalog.sections.map((section) => ({
+        id: section.id,
+        name: section.name,
+      })),
+      selectionPlans: catalog.plans.map((plan) => ({ id: plan.id, name: plan.name })),
+    }),
+    [
+      semester.totalWeeks,
+      courses,
+      tasks,
+      exams,
+      notes,
+      events,
+      timetables,
+      chapters,
+      timetable.overrides,
+      timetable.calendarOverrides,
+      periodProfiles,
+      templates,
+      catalog,
+    ],
+  );
 
   const week = getWeekNumber(semester.startDate, now, semester.totalWeeks);
   const snapshot = useMemo(
@@ -174,8 +255,13 @@ export function AiWorkspace({ courses, semester, now, onNotify }: AiWorkspacePro
               settings={settings}
               snapshot={snapshot}
               notes={notes}
+              tasks={tasks}
+              exams={exams}
               memory={memory.entries}
+              actionContext={actionContext}
               onRemember={remember}
+              onRunAction={onRunAction}
+              onAfterAction={() => setDataVersion((value) => value + 1)}
               onOpenSettings={() => setTab("settings")}
               onNotify={onNotify}
             />

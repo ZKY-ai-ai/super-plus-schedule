@@ -66,6 +66,7 @@ function task(patch: Partial<Task> & { title: string }): Task {
     done: false,
     repeat: "none",
     subtasks: [],
+    estimatedMinutes: 0,
     createdAt: "",
     updatedAt: "",
   };

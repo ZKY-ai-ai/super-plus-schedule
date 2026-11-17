@@ -11,15 +11,18 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import type { Course } from "../../types";
+import type { Course, Period } from "../../types";
 import { WEEKDAYS } from "../../lib/date";
+import {
+  generateSelectionPlans,
+  type GeneratedSelectionPlan,
+} from "../../lib/planning/bridge";
 import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
   activePlan,
   alternativesFor,
   assessmentPressure,
-  autoCombine,
   conflictPartners,
   createSection,
   filterSections,
@@ -44,6 +47,7 @@ import {
 
 interface SelectionBoardProps {
   courses: Course[];
+  periods: Period[];
 }
 
 const PERIOD_OPTIONS = Array.from({ length: 14 }, (_, index) => index + 1);
@@ -56,6 +60,37 @@ function meetingLabel(meeting: SelectionMeeting): string {
         ? `${meeting.weekStart}–${meeting.weekEnd} 周（双）`
         : `${meeting.weekStart}–${meeting.weekEnd} 周`;
   return `${WEEKDAYS[meeting.day - 1]?.short ?? ""} ${meeting.start}–${meeting.end} 节 · ${weeks}`;
+}
+
+const DAY_WORDS: Record<string, string> = {
+  Mon: "周一",
+  Tue: "周二",
+  Wed: "周三",
+  Thu: "周四",
+  Fri: "周五",
+  Sat: "周六",
+  Sun: "周日",
+};
+
+function localizeTag(tag: string): string {
+  if (tag === "No gaps") return "无空档";
+  if (tag === "Lunch free") return "午休可用";
+  const gap = /^Max gap (\d+)h(?: (\d+)m)?$/.exec(tag) ?? /^Max gap (\d+)m$/.exec(tag);
+  if (gap) {
+    return gap[2]
+      ? `最长空档 ${gap[1]}h${gap[2]}m`
+      : tag.includes("h")
+        ? `最长空档 ${gap[1]}h`
+        : `最长空档 ${gap[1]}m`;
+  }
+  const off = /^(.+) off$/.exec(tag);
+  if (off) {
+    const days = off[1].split(",").map((day) => DAY_WORDS[day.trim()] ?? day.trim());
+    return `${days.join("、")}空`;
+  }
+  const cap = /^Max (\d+) a day$/.exec(tag);
+  if (cap) return `每天最多 ${cap[1]} 门`;
+  return tag;
 }
 
 function meetingsLabel(section: SelectionSection): string {
@@ -87,7 +122,7 @@ const EMPTY_DRAFT: DraftState = {
   examWeek: 16,
 };
 
-export function SelectionBoard({ courses }: SelectionBoardProps) {
+export function SelectionBoard({ courses, periods }: SelectionBoardProps) {
   const [catalog, setCatalog] = useState(() => loadCatalog());
   const [filter, setFilter] = useState<{
     query: string;
@@ -96,6 +131,7 @@ export function SelectionBoard({ courses }: SelectionBoardProps) {
     freeOnly: boolean;
   }>({ query: "", category: "all", day: "all", freeOnly: false });
   const [autoCredits, setAutoCredits] = useState(26);
+  const [generated, setGenerated] = useState<GeneratedSelectionPlan[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [draft, setDraft] = useState<DraftState>(EMPTY_DRAFT);
   const [notice, setNotice] = useState<string | null>(null);
@@ -171,9 +207,23 @@ export function SelectionBoard({ courses }: SelectionBoardProps) {
       setNotice("课程池还是空的，先从课表导入或手动添加课程。");
       return;
     }
-    const ids = autoCombine(catalog.sections, { maxCredits: autoCredits });
-    update(withPlanSections(catalog, ids));
-    setNotice(`自动组合了 ${ids.length} 门课程，仍可手动替换班次。`);
+    const generation = generateSelectionPlans(catalog.sections, periods, autoCredits);
+    if (generation.plans.length === 0) {
+      setGenerated([]);
+      setNotice(generation.emptyReason ?? "没有找到不冲突的组合，试着放宽课程池或调整目标学分。");
+      return;
+    }
+    setGenerated(generation.plans);
+    const best = generation.plans[0];
+    update(withPlanSections(catalog, best.sectionIds));
+    setNotice(
+      `评估 ${generation.evaluated} 种组合，采用最佳方案：${best.sectionIds.length} 门 / ${best.credits} 学分。`,
+    );
+  };
+
+  const applyGenerated = (candidate: GeneratedSelectionPlan) => {
+    update(withPlanSections(catalog, candidate.sectionIds));
+    setNotice(`已应用候选方案：${candidate.sectionIds.length} 门 / ${candidate.credits} 学分。`);
   };
 
   const replaceSection = (targetId: string, replacementId: string) => {
@@ -243,6 +293,40 @@ export function SelectionBoard({ courses }: SelectionBoardProps) {
             <X size={13} />
           </button>
         </div>
+      ) : null}
+
+      {generated.length > 0 ? (
+        <section className="select-generated" aria-label="自动组合候选方案">
+          <header className="select-generated-head">
+            <div>
+              <strong>组合结果</strong>
+              <small>按冲突与课表紧凑度排序，可直接切换</small>
+            </div>
+            <button type="button" className="small-button" onClick={() => setGenerated([])}>
+              收起
+            </button>
+          </header>
+          <div className="select-generated-list">
+            {generated.map((candidate, index) => (
+              <div className="select-generated-row" key={candidate.id}>
+                <span className="select-generated-rank">{index + 1}</span>
+                <span className="select-generated-copy">
+                  <strong>
+                    {candidate.sectionIds.length} 门 · {candidate.credits} 学分
+                  </strong>
+                  <small>{candidate.tags.slice(0, 3).map(localizeTag).join(" · ")}</small>
+                </span>
+                <button
+                  type="button"
+                  className="small-button"
+                  onClick={() => applyGenerated(candidate)}
+                >
+                  应用
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
       ) : null}
 
       <div className="select-plan-row" role="group" aria-label="选课方案">

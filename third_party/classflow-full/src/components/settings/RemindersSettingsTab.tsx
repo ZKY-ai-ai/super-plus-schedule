@@ -184,7 +184,7 @@ export function RemindersSettingsTab() {
       <label className="toggle-row">
         <span>
           <strong>DDL 递进提醒</strong>
-          <small>任务截止前 24 小时、3 小时与 30 分钟各提醒一次。</small>
+          <small>任务截止前 3 天、24 小时、3 小时与 1 小时各提醒一次。</small>
         </span>
         <input
           type="checkbox"

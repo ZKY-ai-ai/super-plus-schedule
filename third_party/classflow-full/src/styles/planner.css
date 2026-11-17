@@ -334,6 +334,54 @@
   font-size: 8.5px;
 }
 
+.gap-advice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.gap-advice-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+}
+
+.gap-advice-head strong {
+  color: var(--ink);
+}
+
+.gap-advice-head em {
+  margin-left: auto;
+  color: var(--muted);
+  font-style: normal;
+  font-size: 8.5px;
+}
+
+.gap-advice p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 9.5px;
+  line-height: 1.55;
+}
+
+.gap-advice-timeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.gap-advice-timeline span {
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface-2);
+  font-size: 8.5px;
+}
+
 .gap-roundtrip {
   display: flex;
   align-items: center;

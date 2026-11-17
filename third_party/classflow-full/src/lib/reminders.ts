@@ -12,7 +12,7 @@ export interface ReminderSettings {
   tomorrowSummaryTime: string;
   /** Exam reminders at 7 days / 1 day / 2 hours before the start. */
   examReminders: boolean;
-  /** Deadline reminders at 24h / 3h / 30m before a task due time. */
+  /** Deadline reminders at 72h / 24h / 3h / 1h before a task due time. */
   taskReminders: boolean;
 }
 
@@ -322,7 +322,15 @@ export function describeSentKey(key: string): string {
   }
   if (parts[0] === "task") {
     const node =
-      parts[3] === "24h" ? "24 小时" : parts[3] === "3h" ? "3 小时" : parts[3] === "30m" ? "30 分钟" : "前一天";
+      parts[3] === "72h"
+        ? "3 天"
+        : parts[3] === "24h"
+          ? "24 小时"
+          : parts[3] === "3h"
+            ? "3 小时"
+            : parts[3] === "1h"
+              ? "1 小时"
+              : "前一天";
     return `DDL ${node}提醒 · ${parts[2] ?? ""}`;
   }
   return key;

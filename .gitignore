@@ -44,3 +44,6 @@ captures/
 # Qoder Sites 本地发布描述符（工具生成，含冻结快照，不属于源码）
 *.qoder.site
 .qoder/
+
+# 本地并行开发用的临时 worktree，不属于源码
+.qoder-worktrees/

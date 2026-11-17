@@ -74,6 +74,35 @@ function normalizeHeader(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, "");
 }
 
+/**
+ * 表格里的周次常见三种写法：`2~16`、`2,3,4,5`、`第2-16周`。
+ * 课程种子只支持连续周段，所以把列表压缩成周段（奇偶列表转成单双周）。
+ */
+export function normalizeWeekCell(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^\d{1,2}\s*[-–~至]\s*\d{1,2}\s*周?$/.test(trimmed)) {
+    return trimmed.endsWith("周") ? trimmed : `${trimmed}周`;
+  }
+  if (/^\d{1,2}$/.test(trimmed)) return `第${trimmed}周`;
+  const numbers = [...trimmed.matchAll(/\d{1,2}/g)]
+    .map((match) => Number(match[0]))
+    .filter((week) => week >= 1 && week <= 60);
+  if (numbers.length < 2) return trimmed;
+  const unique = [...new Set(numbers)].sort((a, b) => a - b);
+  const min = unique[0];
+  const max = unique[unique.length - 1];
+  if (unique.length === max - min + 1) return `${min}-${max}周`;
+  const span = max - min + 1;
+  if (unique.every((week) => week % 2 === 1) && span === unique.length * 2 - 1) {
+    return `${min}-${max}周单周`;
+  }
+  if (unique.every((week) => week % 2 === 0) && span === unique.length * 2 - 1) {
+    return `${min}-${max}周双周`;
+  }
+  return `${min}-${max}周`;
+}
+
 export function guessColumnMapping(headers: string[]): ExcelColumnMapping {
   const mapping = { ...EMPTY_MAPPING };
   headers.forEach((header, index) => {
@@ -165,11 +194,7 @@ export function mapCourseRows(
       .split(/[;；|\n]+/)
       .map((segment) => segment.trim())
       .filter(Boolean);
-    const normalizedWeeks = /^\d{1,2}\s*[-–~至]\s*\d{1,2}$/.test(weekCell)
-      ? `${weekCell}周`
-      : /^\d{1,2}$/.test(weekCell)
-        ? `第${weekCell}周`
-        : weekCell;
+    const normalizedWeeks = normalizeWeekCell(weekCell);
     const lineParts = [
       name,
       dayCell,
