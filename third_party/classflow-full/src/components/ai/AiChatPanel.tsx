@@ -17,12 +17,12 @@ import {
   X,
 } from "lucide-react";
 import {
-  aiProviderLabel,
   appendChat,
   complete,
   createChatMessage,
   extractMemoryRequest,
   loadChat,
+  providerPreset,
   saveChat,
   type AiChatData,
   type AiInventory,
@@ -349,7 +349,7 @@ export function AiChatPanel({
       }
       if (ready.some((attachment) => attachment.kind === "image")) {
         pushAssistant(
-          "本地规则模式不能读图。到设置里切换云端或本地模型，并选择支持图片输入的模型，再把图片发给我。",
+          "本地规则模式不能读图。到「模型服务」页选择支持图片输入的模型（例如 gpt-4o-mini、qwen-vl）后，再把图片发给我。",
         );
         onNotify("图片需要远程视觉模型。", "error");
         return;
@@ -365,13 +365,13 @@ export function AiChatPanel({
           })
           .join("\n\n");
         pushAssistant(
-          `我在本地读完了这些附件：\n\n${digest}\n\n本地模式只做本地整理；切换到「OpenAI 兼容」后，我可以继续分析内容并生成任务、考试、笔记或导入动作。`,
+          `我在本地读完了这些附件：\n\n${digest}\n\n本地模式只做本地整理；到「模型服务」页接上本地或云端模型后，我可以继续分析内容并生成任务、考试、笔记或导入动作。`,
         );
         return;
       }
       if (ready.length > 0) {
         pushAssistant(
-          "附件已经在本地读完，但当前仍是本地规则模式，只会处理固定指令和课程表文本。接入云端或本地模型后，我就能按文件内容整理任务、笔记或考试。",
+          "附件已经在本地读完，但本地规则模式只会处理固定指令和课程表文本。到「模型服务」页接上模型后，我就能按文件内容整理任务、笔记或考试。",
         );
         onNotify("本地模式无法理解这类附件。", "error");
         return;
@@ -460,9 +460,8 @@ export function AiChatPanel({
           <div>
             <strong>{settings.persona.name}</strong>
             <span>
-              {settings.provider === "local"
-                ? "本地规则"
-                : `${aiProviderLabel(settings.provider)} · ${settings.model || "未选模型"}`}
+              {providerPreset(settings.provider).label}
+              {settings.provider !== "local" && settings.model ? ` · ${settings.model}` : ""}
               {" · "}
               {TONE_LABEL[settings.persona.tone]}
             </span>
@@ -471,7 +470,7 @@ export function AiChatPanel({
         <div className="ai-chat-actions">
           <button className="ai-ghost-button" type="button" onClick={onOpenSettings}>
             <Settings2 size={14} />
-            设置
+            模型
           </button>
           <button
             className="ai-ghost-button"
@@ -663,7 +662,9 @@ export function AiChatPanel({
         <CircleAlert size={12} />
         {settings.provider === "local"
           ? "本地规则模式，不联网；支持固定指令与查课。"
-          : "云端或本地模型下，只会发送你授权范围内的数据和本轮附件。"}
+          : settings.provider === "ollama" || settings.provider === "lmstudio"
+            ? "本地模型模式，数据不出本机；只发送你授权范围内的数据和本轮附件。"
+            : "云端模型模式下，只会发送你授权范围内的数据和本轮附件。"}
         {" "}
         可拖入图片、Word、PDF、Excel、文本；按 Enter 发送，Shift + Enter 换行。
       </p>

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   BookOpenCheck,
   CalendarClock,
-  Cpu,
   Heart,
   Layers,
   MapPin,
@@ -12,17 +11,14 @@ import {
   Sparkles,
   Sun,
 } from "lucide-react";
-import type { Course, ScheduleEvent, Semester, Timetable } from "../../types";
+import type { AppPage, Course, ScheduleEvent, Semester, Timetable } from "../../types";
 import {
   addMemory,
-  aiProviderLabel,
   buildAiScheduleSnapshot,
-  clearMemory,
   describePermissions,
   loadAiSettings,
   loadMemory,
-  removeMemory,
-  saveAiSettings,
+  providerPreset,
   saveMemory,
   type AiInventory,
   type AiMemoryData,
@@ -38,7 +34,6 @@ import { loadPreferences, loadTemplates } from "../../lib/storage";
 import { loadCatalog } from "../../lib/planner";
 import { formatMonthDay, getWeekNumber, weekdayLabel } from "../../lib/date";
 import { AiChatPanel } from "./AiChatPanel";
-import { AiSettingsPanel } from "./AiSettingsPanel";
 import { CatalogExtractPanel } from "./CatalogExtractPanel";
 import "../../styles/ai.css";
 
@@ -60,9 +55,10 @@ interface AiWorkspaceProps {
   now: Date;
   onRunAction: (action: AiAction) => Promise<{ ok: boolean; message: string }>;
   onNotify: (message: string, tone?: "success" | "error") => void;
+  onNavigate: (page: AppPage) => void;
 }
 
-type AiTab = "chat" | "catalog" | "model" | "profile";
+type AiTab = "chat" | "catalog";
 
 export function AiWorkspace({
   timetableId,
@@ -75,6 +71,7 @@ export function AiWorkspace({
   now,
   onRunAction,
   onNotify,
+  onNavigate,
 }: AiWorkspaceProps) {
   const [settings, setSettings] = useState<AiSettings>(() => loadAiSettings());
   const [tab, setTab] = useState<AiTab>("chat");
@@ -183,31 +180,12 @@ export function AiWorkspace({
     (item) => item.enabled,
   );
 
-  const saveSettings = (nextSettings: AiSettings) => {
-    saveAiSettings(nextSettings);
-    setSettings(nextSettings);
-  };
-
   const remember = (text: string): AiMemoryEntry[] => {
     const next = addMemory(memory, text);
     saveMemory(next);
     setMemory(next);
-    onNotify("已加入长期记忆，可在「人格与授权」里管理。");
+    onNotify("已加入长期记忆，可在「人格与记忆」里管理。");
     return next.entries;
-  };
-
-  const forget = (id: string) => {
-    const next = removeMemory(memory, id);
-    saveMemory(next);
-    setMemory(next);
-    onNotify("已删除这条记忆。");
-  };
-
-  const forgetAll = () => {
-    const next = clearMemory(memory);
-    saveMemory(next);
-    setMemory(next);
-    onNotify("长期记忆已清空。");
   };
 
   return (
@@ -217,15 +195,14 @@ export function AiWorkspace({
           <span className="eyebrow">AI STUDY COMPANION</span>
           <h1>问课表，也问笔记</h1>
           <p>
-            不联网也能查今天、明天和下一节；开启授权后，{settings.persona.name}
-            还能帮你翻笔记。数据只在本机流转。
+            不联网也能查今天、明天和下一节；接上模型后，{settings.persona.name}
+            还能帮你翻笔记、整理任务。数据只在本机流转。
           </p>
           <div className="ai-hero-chips">
             <span>
               <Sparkles size={13} />
-              {settings.provider === "local"
-                ? "本地规则"
-                : `${aiProviderLabel(settings.provider)} · ${settings.model || "未选模型"}`}
+              {providerPreset(settings.provider).label}
+              {settings.provider !== "local" && settings.model ? ` · ${settings.model}` : ""}
             </span>
             <span>
               <ShieldCheck size={13} />
@@ -235,8 +212,11 @@ export function AiWorkspace({
               <Heart size={13} />
               记忆 {memory.entries.length} 条
             </span>
-            <button type="button" className="ai-inline-link" onClick={() => setTab("profile")}>
-              调整授权与人设
+            <button type="button" className="ai-inline-link" onClick={() => onNavigate("models")}>
+              模型服务
+            </button>
+            <button type="button" className="ai-inline-link" onClick={() => onNavigate("persona")}>
+              人格与记忆
             </button>
           </div>
         </div>
@@ -283,26 +263,6 @@ export function AiWorkspace({
               <BookOpenCheck size={15} />
               目录提取
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "model"}
-              className={tab === "model" ? "is-active" : ""}
-              onClick={() => setTab("model")}
-            >
-              <Cpu size={15} />
-              模型设置
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "profile"}
-              className={tab === "profile" ? "is-active" : ""}
-              onClick={() => setTab("profile")}
-            >
-              <ShieldCheck size={15} />
-              人格与授权
-            </button>
           </div>
           {tab === "chat" ? (
             <AiChatPanel
@@ -317,22 +277,11 @@ export function AiWorkspace({
               onRemember={remember}
               onRunAction={onRunAction}
               onAfterAction={() => setDataVersion((value) => value + 1)}
-              onOpenSettings={() => setTab("model")}
+              onOpenSettings={() => onNavigate("models")}
               onNotify={onNotify}
             />
-          ) : tab === "catalog" ? (
-            <CatalogExtractPanel onNotify={onNotify} />
           ) : (
-            <AiSettingsPanel
-              settings={settings}
-              memory={memory.entries}
-              onAddMemory={remember}
-              onRemoveMemory={forget}
-              onClearMemory={forgetAll}
-              onSave={saveSettings}
-              onNotify={onNotify}
-              view={tab === "model" ? "model" : "profile"}
-            />
+            <CatalogExtractPanel onNotify={onNotify} />
           )}
         </section>
 
@@ -403,7 +352,7 @@ export function AiWorkspace({
                   ? "已授权标题与标签，正文仍然只留在本机。"
                   : "笔记未授权。开启后 AI 才能帮你检索资料。"}
             </p>
-            <button type="button" className="ai-inline-link" onClick={() => setTab("profile")}>
+            <button type="button" className="ai-inline-link" onClick={() => onNavigate("persona")}>
               去调整授权
             </button>
           </section>
@@ -419,7 +368,7 @@ export function AiWorkspace({
               ))}
             </ul>
             <p className="ai-side-foot">
-              默认共享本机全部数据。所有开关都能随时关闭，聊天与密钥只存在这台设备。
+              默认全部授权，可在「人格与记忆」逐项关闭。聊天与密钥只存在这台设备。
             </p>
           </section>
         </aside>

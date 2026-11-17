@@ -309,7 +309,7 @@ describe("visionConfigFromAiSettings", () => {
     ).toBeNull();
     expect(
       visionConfigFromAiSettings({
-        provider: "openai-compatible",
+        provider: "deepseek",
         baseUrl: "https://api.openai.com/v1",
         apiKey: "",
         model: "gpt-4o-mini",
@@ -317,7 +317,7 @@ describe("visionConfigFromAiSettings", () => {
     ).toBeNull();
     expect(
       visionConfigFromAiSettings({
-        provider: "openai-compatible",
+        provider: "deepseek",
         baseUrl: "ftp://example.com",
         apiKey: "sk-test",
         model: "gpt-4o-mini",
@@ -328,7 +328,7 @@ describe("visionConfigFromAiSettings", () => {
   it("normalizes a usable OpenAI-compatible config", () => {
     expect(
       visionConfigFromAiSettings({
-        provider: "openai-compatible",
+        provider: "custom",
         baseUrl: " https://api.example.com/v1/ ",
         apiKey: " sk-test ",
         model: " gpt-4o-mini ",

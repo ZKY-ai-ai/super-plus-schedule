@@ -1,9 +1,8 @@
 import type { Semester } from "../types";
 import {
-  aiProviderRequiresApiKey,
   complete,
   createChatMessage,
-  isRemoteAiProvider,
+  providerPreset,
   type AiChatMessage,
   type AiSettings,
 } from "./ai";
@@ -24,11 +23,9 @@ export interface CourseImportConversion {
 }
 
 export function isAiImportReady(settings: AiSettings): boolean {
-  return (
-    isRemoteAiProvider(settings.provider) &&
-    Boolean(settings.model.trim()) &&
-    (!aiProviderRequiresApiKey(settings.provider) || Boolean(settings.apiKey.trim()))
-  );
+  const preset = providerPreset(settings.provider);
+  if (preset.probe === "none") return false;
+  return !preset.keyRequired || Boolean(settings.apiKey.trim());
 }
 
 export function isIcsFile(name: string): boolean {

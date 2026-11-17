@@ -186,6 +186,8 @@ export type AppPage =
   | "plan"
   | "notes"
   | "ai"
+  | "models"
+  | "persona"
   | "playground"
   | "woodfish"
   | "profile";

@@ -126,6 +126,8 @@ const PAGES: AppPage[] = [
   "plan",
   "notes",
   "ai",
+  "models",
+  "persona",
   "courses",
   "playground",
   "woodfish",
@@ -155,6 +157,8 @@ const PAGE_LABELS: Record<AppPage, string> = {
   plan: "空档与规划",
   notes: "笔记与看板",
   ai: "AI 助手",
+  models: "模型服务",
+  persona: "人格与记忆",
   courses: "课程库",
   playground: "QQQ 游乐场",
   woodfish: "敲木鱼",
@@ -473,7 +477,7 @@ export function validateAiAction(
       const page = asString(args.page, 20) as AppPage | null;
       if (!page || !PAGES.includes(page)) {
         return fail(
-          "navigate 需要合法 page：timetable/agenda/plan/notes/ai/courses/playground/woodfish/profile。",
+          "navigate 需要合法 page：timetable/agenda/plan/notes/ai/models/persona/courses/playground/woodfish/profile。",
         );
       }
       const rawTab = asString(args.planTab, 10) as AiPlanTab | null;
@@ -1099,6 +1103,12 @@ export function parseLocalCommand(
     }
     if (/木鱼/.test(input)) return [{ action: "navigate", args: { page: "woodfish" } }];
     if (/游乐场|qqq/i.test(input)) return [{ action: "navigate", args: { page: "playground" } }];
+    if (/模型|服务商|ollama|lm\s?studio|deepseek|密钥|api\s?key/i.test(input)) {
+      return [{ action: "navigate", args: { page: "models" } }];
+    }
+    if (/人格|人设|记忆|授权|语气/.test(input)) {
+      return [{ action: "navigate", args: { page: "persona" } }];
+    }
     if (/设置/.test(input)) {
       const tab: SettingsTab | undefined =
         /学期/.test(input) ? "term"

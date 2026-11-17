@@ -25,6 +25,8 @@ const PAGE_LABELS: Record<AppPage, string> = {
   plan: "空档与规划",
   notes: "笔记与看板",
   ai: "AI 助手",
+  models: "模型服务",
+  persona: "人格与记忆",
   courses: "课程库",
   playground: "QQQ 游乐场",
   woodfish: "敲木鱼",

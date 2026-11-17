@@ -378,7 +378,7 @@ describe("全功能动作", () => {
     expect(
       validate({
         action: "update_ai_settings",
-        args: { provider: "openai-compatible", model: "gpt-4o-mini" },
+        args: { provider: "ollama", model: "qwen2.5:7b" },
       }).ok,
     ).toBe(true);
     expect(

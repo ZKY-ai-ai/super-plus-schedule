@@ -29,17 +29,16 @@ const GRADE_STATUSES = ["normal", "retake", "exempt", "audit", "planned"] as con
 
 const AI_PROVIDERS = [
   "local",
-  "openai",
-  "deepseek",
-  "zhipu",
-  "qwen",
-  "moonshot",
-  "siliconflow",
-  "openrouter",
-  "openai-compatible",
   "ollama",
   "lmstudio",
-  "custom-local",
+  "custom",
+  "deepseek",
+  "openai",
+  "moonshot",
+  "zhipu",
+  "dashscope",
+  "siliconflow",
+  "openrouter",
 ] as const;
 
 const AI_TONES = ["concise", "warm", "playful"] as const;

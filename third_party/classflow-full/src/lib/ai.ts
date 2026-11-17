@@ -556,175 +556,146 @@ export function answerScheduleQuestion(
 
 /* --------------------------- 人格与设置 --------------------------- */
 
-export type AiModelProviderId =
-  | "openai"
-  | "deepseek"
-  | "zhipu"
-  | "qwen"
-  | "moonshot"
-  | "siliconflow"
-  | "openrouter"
-  | "openai-compatible"
+export type AiProviderId =
+  | "local"
   | "ollama"
   | "lmstudio"
-  | "custom-local";
-
-export type AiProviderId = "local" | AiModelProviderId;
-export type AiProviderGroup = "cloud" | "local";
-export type AiTone = "concise" | "warm" | "playful";
+  | "custom"
+  | "deepseek"
+  | "openai"
+  | "moonshot"
+  | "zhipu"
+  | "dashscope"
+  | "siliconflow"
+  | "openrouter";
 
 export interface AiProviderPreset {
-  id: AiModelProviderId;
+  id: AiProviderId;
   label: string;
-  group: AiProviderGroup;
+  kind: "local" | "cloud";
   baseUrl: string;
   model: string;
-  models: string[];
-  requiresApiKey: boolean;
-  hint: string;
+  keyRequired: boolean;
+  probe: "none" | "ollama" | "openai";
+  note: string;
 }
 
+/** 服务商预设：本地默认 Ollama，云端均为 OpenAI 兼容端点。 */
 export const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
   {
-    id: "openai",
-    label: "OpenAI",
-    group: "cloud",
+    id: "ollama",
+    label: "Ollama（本地）",
+    kind: "local",
+    baseUrl: "http://127.0.0.1:11434/v1",
+    model: "",
+    keyRequired: false,
+    probe: "ollama",
+    note: "默认提供方。自动检测本地服务，用 /api/tags 的完整模型名；留空模型时自动选第一个。",
+  },
+  {
+    id: "lmstudio",
+    label: "LM Studio（本地）",
+    kind: "local",
+    baseUrl: "http://127.0.0.1:1234/v1",
+    model: "",
+    keyRequired: false,
+    probe: "openai",
+    note: "本地 OpenAI 兼容服务，先在 LM Studio 里启动 Server 并加载模型。",
+  },
+  {
+    id: "custom",
+    label: "自定义（OpenAI 兼容）",
+    kind: "local",
     baseUrl: "https://api.openai.com/v1",
     model: "gpt-4o-mini",
-    models: ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4o"],
-    requiresApiKey: true,
-    hint: "官方接口，支持图片输入",
+    keyRequired: false,
+    probe: "openai",
+    note: "任意 OpenAI 兼容端点：vLLM、llama.cpp、OneAPI 或中转站。本地端点可不留 Key。",
+  },
+  {
+    id: "local",
+    label: "本地规则（离线）",
+    kind: "local",
+    baseUrl: "",
+    model: "",
+    keyRequired: false,
+    probe: "none",
+    note: "零配置、不联网：查课、查笔记与固定指令。模型服务连不上时也会自动回退到这里。",
   },
   {
     id: "deepseek",
-    label: "DeepSeek",
-    group: "cloud",
-    baseUrl: "https://api.deepseek.com",
-    model: "deepseek-flash",
-    models: ["deepseek-flash", "deepseek-chat", "deepseek-reasoner"],
-    requiresApiKey: true,
-    hint: "中文对话与推理",
+    label: "DeepSeek 官方",
+    kind: "cloud",
+    baseUrl: "https://api.deepseek.com/v1",
+    model: "deepseek-chat",
+    keyRequired: true,
+    probe: "openai",
+    note: "官方 OpenAI 兼容端点，Key 在 platform.deepseek.com 创建。",
+  },
+  {
+    id: "openai",
+    label: "OpenAI",
+    kind: "cloud",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini",
+    keyRequired: true,
+    probe: "openai",
+    note: "gpt-4o-mini 支持图片输入，适合识课表截图。",
+  },
+  {
+    id: "moonshot",
+    label: "Moonshot Kimi",
+    kind: "cloud",
+    baseUrl: "https://api.moonshot.cn/v1",
+    model: "moonshot-v1-8k",
+    keyRequired: true,
+    probe: "openai",
+    note: "长上下文见长，适合整本手册与长笔记整理。",
   },
   {
     id: "zhipu",
     label: "智谱 GLM",
-    group: "cloud",
+    kind: "cloud",
     baseUrl: "https://open.bigmodel.cn/api/paas/v4",
     model: "glm-4-flash",
-    models: ["glm-4-flash", "glm-4-plus", "glm-4v-flash"],
-    requiresApiKey: true,
-    hint: "GLM 系列，含视觉模型",
+    keyRequired: true,
+    probe: "openai",
+    note: "glm-4-flash 免费额度友好；glm-4v 支持图片。",
   },
   {
-    id: "qwen",
+    id: "dashscope",
     label: "通义千问",
-    group: "cloud",
+    kind: "cloud",
     baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
     model: "qwen-plus",
-    models: ["qwen-plus", "qwen-turbo", "qwen-vl-max"],
-    requiresApiKey: true,
-    hint: "DashScope 兼容模式",
-  },
-  {
-    id: "moonshot",
-    label: "Kimi / Moonshot",
-    group: "cloud",
-    baseUrl: "https://api.moonshot.cn/v1",
-    model: "moonshot-v1-8k",
-    models: ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
-    requiresApiKey: true,
-    hint: "月之暗面长文本模型",
+    keyRequired: true,
+    probe: "openai",
+    note: "阿里云兼容模式端点；qwen-vl-max 支持图片输入。",
   },
   {
     id: "siliconflow",
     label: "硅基流动",
-    group: "cloud",
+    kind: "cloud",
     baseUrl: "https://api.siliconflow.cn/v1",
-    model: "Qwen/Qwen2.5-7B-Instruct",
-    models: [
-      "Qwen/Qwen2.5-7B-Instruct",
-      "deepseek-ai/DeepSeek-V3",
-      "THUDM/glm-4-9b-chat",
-    ],
-    requiresApiKey: true,
-    hint: "多模型托管服务",
+    model: "deepseek-ai/DeepSeek-V3",
+    keyRequired: true,
+    probe: "openai",
+    note: "聚合多家开源模型，模型 id 带厂商前缀，建议测试连接后从列表选。",
   },
   {
     id: "openrouter",
     label: "OpenRouter",
-    group: "cloud",
+    kind: "cloud",
     baseUrl: "https://openrouter.ai/api/v1",
     model: "openai/gpt-4o-mini",
-    models: [
-      "openai/gpt-4o-mini",
-      "anthropic/claude-3.5-sonnet",
-      "google/gemini-2.0-flash-001",
-    ],
-    requiresApiKey: true,
-    hint: "聚合多家云端模型",
-  },
-  {
-    id: "openai-compatible",
-    label: "自定义云端",
-    group: "cloud",
-    baseUrl: "https://api.openai.com/v1",
-    model: "gpt-4o-mini",
-    models: [],
-    requiresApiKey: true,
-    hint: "任意 OpenAI 协议地址",
-  },
-  {
-    id: "ollama",
-    label: "Ollama",
-    group: "local",
-    baseUrl: "http://localhost:11434/v1",
-    model: "qwen2.5:7b",
-    models: ["qwen2.5:7b", "llama3.1:8b", "deepseek-r1:7b"],
-    requiresApiKey: false,
-    hint: "本机模型，默认服务",
-  },
-  {
-    id: "lmstudio",
-    label: "LM Studio",
-    group: "local",
-    baseUrl: "http://localhost:1234/v1",
-    model: "local-model",
-    models: ["local-model"],
-    requiresApiKey: false,
-    hint: "LM Studio 本地服务",
-  },
-  {
-    id: "custom-local",
-    label: "自定义本地",
-    group: "local",
-    baseUrl: "http://127.0.0.1:8000/v1",
-    model: "",
-    models: [],
-    requiresApiKey: false,
-    hint: "自建 OpenAI 兼容服务",
+    keyRequired: true,
+    probe: "openai",
+    note: "一个 Key 路由多家模型，模型 id 形如 vendor/model。",
   },
 ];
 
-export const AI_PROVIDER_IDS: readonly AiProviderId[] = [
-  "local",
-  ...AI_PROVIDER_PRESETS.map((preset) => preset.id),
-];
-
-export function getAiProviderPreset(id: AiProviderId): AiProviderPreset | null {
-  return AI_PROVIDER_PRESETS.find((preset) => preset.id === id) ?? null;
-}
-
-export function isRemoteAiProvider(id: AiProviderId): boolean {
-  return id !== "local";
-}
-
-export function aiProviderRequiresApiKey(id: AiProviderId): boolean {
-  return getAiProviderPreset(id)?.requiresApiKey ?? true;
-}
-
-export function aiProviderLabel(id: AiProviderId): string {
-  if (id === "local") return "本地规则";
-  return getAiProviderPreset(id)?.label ?? "远程模型";
+export function providerPreset(id: AiProviderId): AiProviderPreset {
+  return AI_PROVIDER_PRESETS.find((preset) => preset.id === id) ?? AI_PROVIDER_PRESETS[0];
 }
 
 export function isValidAiBaseUrl(value: string): boolean {
@@ -735,6 +706,90 @@ export function isValidAiBaseUrl(value: string): boolean {
     return false;
   }
 }
+
+export interface AiConnectionTestResult {
+  ok: boolean;
+  latencyMs: number;
+  message: string;
+  models: string[];
+}
+
+function probeUrl(settings: AiSettings): string {
+  const base = settings.baseUrl.replace(/\/+$/, "");
+  if (providerPreset(settings.provider).probe === "ollama") {
+    return `${base.replace(/\/v1$/, "")}/api/tags`;
+  }
+  return `${base}/models`;
+}
+
+function parseModelList(payload: unknown, probe: "ollama" | "openai"): string[] {
+  if (!isRecord(payload)) return [];
+  const list = probe === "ollama" ? payload.models : payload.data;
+  if (!Array.isArray(list)) return [];
+  const names: string[] = [];
+  for (const item of list.slice(0, 200)) {
+    if (!isRecord(item)) continue;
+    const name = typeof item.name === "string" ? item.name : typeof item.id === "string" ? item.id : "";
+    if (name) names.push(name);
+  }
+  return names;
+}
+
+/** 连接测试：拉取模型列表并计时；失败时给出可操作的提示（跨域 / Key / 路径）。 */
+export async function testAiConnection(
+  settings: AiSettings,
+  fetchImpl: FetchLike = (input, init) => fetch(input, init),
+  timeoutMs = 8000,
+): Promise<AiConnectionTestResult> {
+  const preset = providerPreset(settings.provider);
+  if (preset.probe === "none") {
+    return { ok: true, latencyMs: 0, message: "本地规则不联网，无需连接测试。", models: [] };
+  }
+  if (!isValidAiBaseUrl(settings.baseUrl)) {
+    return { ok: false, latencyMs: 0, message: "Base URL 不是合法的 http(s) 地址。", models: [] };
+  }
+  const headers: Record<string, string> = {};
+  if (settings.apiKey.trim()) headers.Authorization = `Bearer ${settings.apiKey.trim()}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const startedAt = Date.now();
+  try {
+    const response = await fetchImpl(probeUrl(settings), { headers, signal: controller.signal });
+    const latencyMs = Date.now() - startedAt;
+    if (!response.ok) {
+      const message =
+        response.status === 401 || response.status === 403
+          ? `API Key 无效或无权限（HTTP ${response.status}）。`
+          : response.status === 404
+            ? `端点路径不对（HTTP 404）：检查 Base URL 是否该带 /v1。`
+            : `服务返回 HTTP ${response.status}。`;
+      return { ok: false, latencyMs, message, models: [] };
+    }
+    const models = parseModelList(await response.json(), preset.probe);
+    return {
+      ok: true,
+      latencyMs,
+      message:
+        models.length > 0
+          ? `连接成功，${latencyMs}ms，发现 ${models.length} 个模型。`
+          : `连接成功，${latencyMs}ms，但服务里还没有模型（Ollama 先 ollama pull 一个）。`,
+      models,
+    };
+  } catch (error) {
+    const latencyMs = Date.now() - startedAt;
+    const local = /127\.0\.0\.1|localhost/.test(settings.baseUrl);
+    const message =
+      error instanceof DOMException && error.name === "AbortError"
+        ? `测试超时（${Math.round(timeoutMs / 1000)} 秒）：服务没响应。`
+        : local
+          ? "连不上本地服务：确认已启动（ollama serve / LM Studio Server）；浏览器跨域需给 Ollama 设置 OLLAMA_ORIGINS=* 后重启。"
+          : "网络不可达，或对方不允许浏览器跨域（CORS）。检查地址、网络与代理。";
+    return { ok: false, latencyMs, message, models: [] };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+export type AiTone = "concise" | "warm" | "playful";
 
 export interface AiPersona {
   name: string;
@@ -755,6 +810,8 @@ export interface AiSettings {
   baseUrl: string;
   apiKey: string;
   model: string;
+  /** 每个服务商各存一把 Key，切换提供方时自动带出。 */
+  keyVault: Record<string, string>;
   persona: AiPersona;
   permissions: AiPermissions;
 }
@@ -805,10 +862,11 @@ export const DEFAULT_AI_PERMISSIONS: AiPermissions = {
 };
 
 export const DEFAULT_AI_SETTINGS: AiSettings = {
-  provider: "local",
-  baseUrl: "https://api.openai.com/v1",
+  provider: "ollama",
+  baseUrl: "http://127.0.0.1:11434/v1",
   apiKey: "",
-  model: "gpt-4o-mini",
+  model: "",
+  keyVault: {},
   persona: DEFAULT_PERSONA,
   permissions: DEFAULT_AI_PERMISSIONS,
 };
@@ -852,12 +910,6 @@ function normalizePermissions(value: unknown): AiPermissions {
   };
 }
 
-function normalizeProvider(value: unknown): AiProviderId {
-  return typeof value === "string" && (AI_PROVIDER_IDS as readonly string[]).includes(value)
-    ? (value as AiProviderId)
-    : "local";
-}
-
 function normalizeBaseUrl(value: unknown, fallback: string): string {
   const raw = text(value, 300, fallback);
   try {
@@ -871,15 +923,37 @@ function normalizeBaseUrl(value: unknown, fallback: string): string {
   }
 }
 
+function normalizeProvider(value: unknown): AiProviderId {
+  if (value === "openai-compatible") return "custom";
+  if (typeof value === "string" && AI_PROVIDER_PRESETS.some((preset) => preset.id === value)) {
+    return value as AiProviderId;
+  }
+  return DEFAULT_AI_SETTINGS.provider;
+}
+
+function normalizeKeyVault(value: unknown): Record<string, string> {
+  if (!isRecord(value)) return {};
+  const vault: Record<string, string> = {};
+  for (const preset of AI_PROVIDER_PRESETS) {
+    const key = text(value[preset.id], 300);
+    if (key) vault[preset.id] = key;
+  }
+  return vault;
+}
+
 export function normalizeAiSettings(raw: unknown): AiSettings {
   const object = isRecord(raw) ? raw : {};
   const provider = normalizeProvider(object.provider);
-  const preset = getAiProviderPreset(provider);
+  const preset = providerPreset(provider);
+  const keyVault = normalizeKeyVault(object.keyVault);
+  const apiKey = text(object.apiKey, 300) || keyVault[provider] || "";
+  if (apiKey && preset.keyRequired) keyVault[provider] = apiKey;
   return {
     provider,
-    baseUrl: normalizeBaseUrl(object.baseUrl, preset?.baseUrl ?? DEFAULT_AI_SETTINGS.baseUrl),
-    apiKey: text(object.apiKey, 300),
-    model: text(object.model, 80, preset ? preset.model : DEFAULT_AI_SETTINGS.model),
+    baseUrl: preset.probe === "none" ? "" : normalizeBaseUrl(object.baseUrl, preset.baseUrl),
+    apiKey,
+    model: text(object.model, 80, preset.model),
+    keyVault,
     persona: normalizePersona(object.persona),
     permissions: normalizePermissions(object.permissions),
   };
@@ -887,14 +961,12 @@ export function normalizeAiSettings(raw: unknown): AiSettings {
 
 export function validateAiSettings(settings: AiSettings): string | null {
   if (!settings.persona.name.trim()) return "给 AI 起一个名字吧。";
-  if (!isRemoteAiProvider(settings.provider)) return null;
+  const preset = providerPreset(settings.provider);
+  if (preset.probe === "none") return null;
   if (!isValidAiBaseUrl(settings.baseUrl)) {
     return "Base URL 需要是 http(s) 地址，例如 https://api.openai.com/v1。";
   }
-  if (!settings.model.trim()) {
-    return "请填写模型名称；本地模型可以先用「测试连接」确认是否可用。";
-  }
-  if (aiProviderRequiresApiKey(settings.provider) && !settings.apiKey.trim()) {
+  if (preset.keyRequired && !settings.apiKey.trim()) {
     return "这个云端服务需要 API Key；也可以改用本地模型（Ollama）。";
   }
   return null;
@@ -925,7 +997,11 @@ export function loadAiSettings(
 export function saveAiSettings(settings: AiSettings, storage: StorageLike | null = defaultStorage()): boolean {
   if (!storage) return false;
   try {
-    storage.setItem(AI_SETTINGS_KEY, JSON.stringify(normalizeAiSettings(settings)));
+    const vault = { ...settings.keyVault };
+    const key = settings.apiKey.trim();
+    if (key) vault[settings.provider] = key;
+    else delete vault[settings.provider];
+    storage.setItem(AI_SETTINGS_KEY, JSON.stringify(normalizeAiSettings({ ...settings, keyVault: vault })));
     return true;
   } catch {
     return false;
@@ -1544,105 +1620,6 @@ function providerErrorText(payload: unknown): string {
   return "";
 }
 
-export interface AiConnectionTestResult {
-  ok: boolean;
-  message: string;
-  latencyMs: number;
-}
-
-const AI_CONNECTION_TIMEOUT_MS = 15_000;
-
-async function fetchWithAiTimeout(
-  fetchImpl: FetchLike,
-  url: string,
-  init: RequestInit,
-): Promise<Response> {
-  const controller = typeof AbortController === "undefined" ? null : new AbortController();
-  const timer = setTimeout(() => controller?.abort(), AI_CONNECTION_TIMEOUT_MS);
-  try {
-    return await fetchImpl(url, controller ? { ...init, signal: controller.signal } : init);
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-export async function testAiConnection(
-  settings: AiSettings,
-  fetchImpl: FetchLike = (input, init) => fetch(input, init),
-): Promise<AiConnectionTestResult> {
-  const startedAt = Date.now();
-  const elapsed = () => Date.now() - startedAt;
-  const base = settings.baseUrl.trim().replace(/\/+$/, "");
-  if (!isValidAiBaseUrl(base)) {
-    return { ok: false, message: "Base URL 需要是 http(s) 地址。", latencyMs: 0 };
-  }
-  if (aiProviderRequiresApiKey(settings.provider) && !settings.apiKey.trim()) {
-    return { ok: false, message: "请先填写 API Key 再测试连接。", latencyMs: 0 };
-  }
-  const preset = getAiProviderPreset(settings.provider);
-  const model = settings.model.trim() || preset?.model || "";
-  if (!model) {
-    return { ok: false, message: "请先填写模型名称。", latencyMs: 0 };
-  }
-  const localHint =
-    preset?.group === "local"
-      ? "请确认本地服务已启动；Ollama 需运行 ollama serve，跨域受限时需设置 OLLAMA_ORIGINS。"
-      : "请检查 Base URL、模型名、API Key 和网络。";
-  try {
-    const response = await fetchWithAiTimeout(fetchImpl, `${base}/chat/completions`, {
-      method: "POST",
-      headers: aiRequestHeaders(settings),
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: "ping" }],
-        temperature: 0,
-        max_tokens: 8,
-        stream: false,
-      }),
-    });
-    const raw = await response.text();
-    const latencyMs = elapsed();
-    if (!response.ok) {
-      let detail = "";
-      try {
-        detail = providerErrorText(JSON.parse(raw));
-      } catch {
-        detail = raw.trim().slice(0, 160);
-      }
-      return {
-        ok: false,
-        message: `连接失败（HTTP ${response.status}）${detail ? `：${detail}` : ""}。${localHint}`,
-        latencyMs,
-      };
-    }
-    let parsed: unknown = null;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return {
-        ok: false,
-        message: `接口有响应，但不是合法的 JSON，可能不是 OpenAI 兼容服务。${localHint}`,
-        latencyMs,
-      };
-    }
-    const providerError = providerErrorText(parsed);
-    if (providerError) {
-      return { ok: false, message: `连接失败：${providerError}。${localHint}`, latencyMs };
-    }
-    return {
-      ok: true,
-      message: `连接成功（${latencyMs} ms），模型「${model}」已响应。`,
-      latencyMs,
-    };
-  } catch {
-    return {
-      ok: false,
-      message: `无法连接到 ${base}。${localHint}`,
-      latencyMs: elapsed(),
-    };
-  }
-}
-
 function aiAuthHeaders(settings: AiSettings): Record<string, string> {
   const headers: Record<string, string> = {};
   if (settings.apiKey.trim()) headers.Authorization = `Bearer ${settings.apiKey.trim()}`;
@@ -1658,9 +1635,10 @@ async function completeRemote(
   settings: AiSettings,
   fetchImpl: FetchLike,
 ): Promise<AiCompletionResult> {
-  if (aiProviderRequiresApiKey(settings.provider) && !settings.apiKey.trim()) {
+  const preset = providerPreset(settings.provider);
+  if (preset.keyRequired && !settings.apiKey.trim()) {
     return {
-      content: "还没有填写 API Key。请到「AI 助手」设置里填入云端服务的密钥，或改用本机 Ollama / LM Studio。",
+      content: `「${preset.label}」需要 API Key。到「模型服务」页填入 Key，或切换成本地模型 / 本地规则。`,
       provider: settings.provider,
       error: "missing-api-key",
     };
@@ -1885,16 +1863,11 @@ async function completeRemote(
   }
 }
 
-export async function complete(
+function completeLocal(
   request: AiCompletionRequest,
-  settings: AiSettings = loadAiSettings(),
-  fetchImpl: FetchLike = (input, init) => fetch(input, init),
-  now = new Date(),
-): Promise<AiCompletionResult> {
-  if (isRemoteAiProvider(settings.provider)) {
-    return completeRemote(request, settings, fetchImpl);
-  }
-
+  settings: AiSettings,
+  now: Date,
+): AiCompletionResult {
   const lastUser = [...request.messages].reverse().find((message) => message.role === "user");
   const question = lastUser?.content.trim() ?? "";
   if (!question) {
@@ -1903,14 +1876,14 @@ export async function complete(
   const memoryText = extractMemoryRequest(question);
   if (memoryText) {
     return {
-      content: `记下了：${memoryText}。以后回答时会参考这条，可在「人与授权」里修改或删除。`,
+      content: `记下了：${memoryText}。以后回答时会参考这条，可在「人格与记忆」里修改或删除。`,
       provider: "local",
     };
   }
   if (request.images?.length) {
     return {
       content:
-        "本地规则模式不能读图。请到「人格与授权」切换云端或本地模型，并选择支持图片输入的模型（例如 gpt-4o-mini、qwen-vl），再把图片发给我。",
+        "本地规则模式不能读图。请到「模型服务」页选择支持图片输入的模型（例如 gpt-4o-mini、qwen-vl、glm-4v），再把图片发给我。",
       provider: "local",
       error: "vision-requires-remote",
     };
@@ -1918,7 +1891,7 @@ export async function complete(
   if (request.hasAttachments) {
     return {
       content:
-        "附件已经在本地读取，但本地规则模式只会处理固定指令和课程表文本。接入云端或本地模型后，我就能按文件内容自由整理任务、笔记或考试。",
+        "附件已经在本地读取，但本地规则模式只会处理固定指令和课程表文本。到「模型服务」页接上本地或云端模型后，我就能按文件内容自由整理任务、笔记或考试。",
       provider: "local",
       error: "attachments-require-remote",
     };
@@ -1928,7 +1901,7 @@ export async function complete(
     return {
       content: memory.length > 0
         ? `我记得这些：\n${memory.map((entry) => `· ${entry.text}`).join("\n")}\n这些只保存在本机，随时可以删掉。`
-        : "还没有保存任何记忆。说「记住……」我就会记下来，之后可以在「人与授权」里管理。",
+        : "还没有保存任何记忆。说「记住……」我就会记下来，之后可以在「人格与记忆」里管理。",
       provider: "local",
     };
   }
@@ -1985,7 +1958,7 @@ export async function complete(
   if (/你是谁|介绍一下|能做什么/.test(question)) {
     return {
       content:
-        `我是${settings.persona.name}，本地课表助手。不联网也能回答今天/明天/周几的课、下一节、课程地点和数量；开启笔记授权后还能帮你找笔记。接入云端或本地模型后可以自由聊天。`,
+        `我是${settings.persona.name}，本地课表助手。不联网也能回答今天/明天/周几的课、下一节、课程地点和数量；开启笔记授权后还能帮你找笔记。到「模型服务」页接上 Ollama 或云端模型后可以自由聊天。`,
       provider: "local",
     };
   }
@@ -1995,11 +1968,49 @@ export async function complete(
   if (/授权|隐私|权限/.test(question)) {
     return {
       content:
-        "AI 只会读取你逐项开启的数据：课表默认开启，笔记正文与标签默认关闭。所有设置和密钥都只保存在这台设备上，可随时关闭。",
+        "AI 只会读取你逐项开启的数据：课表、笔记、任务与考试默认全部开启，可在「人格与记忆」里逐项关闭。所有设置和密钥都只保存在这台设备上，可随时关闭。",
       provider: "local",
     };
   }
   return { content: localFallback(settings), provider: "local" };
+}
+
+export async function complete(
+  request: AiCompletionRequest,
+  settings: AiSettings = loadAiSettings(),
+  fetchImpl: FetchLike = (input, init) => fetch(input, init),
+  now = new Date(),
+): Promise<AiCompletionResult> {
+  const preset = providerPreset(settings.provider);
+  if (preset.probe === "none") {
+    return completeLocal(request, settings, now);
+  }
+
+  let resolved = settings;
+  if (!resolved.model.trim()) {
+    const probe = await testAiConnection(resolved, fetchImpl, 4000);
+    if (probe.ok && probe.models.length > 0) {
+      resolved = { ...resolved, model: probe.models[0] };
+    } else {
+      const fallback = completeLocal(request, settings, now);
+      return {
+        ...fallback,
+        content: `模型服务里还没选模型，也拉不到模型列表（${probe.message}）先用本地规则回答：\n\n${fallback.content}`,
+        error: "missing-model",
+      };
+    }
+  }
+
+  const remote = await completeRemote(request, resolved, fetchImpl);
+  if (remote.error === "network") {
+    const fallback = completeLocal(request, settings, now);
+    return {
+      ...fallback,
+      content: `模型服务连不上（${remote.content}）已改用本地规则回答：\n\n${fallback.content}`,
+      error: "network-fallback",
+    };
+  }
+  return remote;
 }
 
 /**

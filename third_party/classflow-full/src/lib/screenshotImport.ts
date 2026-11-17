@@ -162,18 +162,20 @@ export function buildScreenshotMessages(
   ];
 }
 
-const LOCAL_PROVIDERS = new Set(["ollama", "lmstudio", "custom-local"]);
 
 export function visionConfigFromAiSettings(
   settings: VisionSettingsLike | null | undefined,
 ): ScreenshotVisionConfig | null {
-  if (!settings || !settings.provider || settings.provider === "local") return null;
+  if (!settings) return null;
+  const provider = (settings.provider ?? "").trim();
+  if (!provider || provider === "local") return null;
   const baseUrl = (settings.baseUrl ?? "").trim().replace(/\/+$/, "");
   const apiKey = (settings.apiKey ?? "").trim();
   const model = (settings.model ?? "").trim();
   if (!baseUrl || !model) return null;
-  if (!apiKey && !LOCAL_PROVIDERS.has(settings.provider)) return null;
   if (!/^https?:\/\//i.test(baseUrl)) return null;
+  const keyOptional = provider === "ollama" || provider === "lmstudio" || provider === "custom";
+  if (!apiKey && !keyOptional) return null;
   return { baseUrl, apiKey, model };
 }
 

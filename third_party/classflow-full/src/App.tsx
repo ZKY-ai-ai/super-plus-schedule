@@ -66,6 +66,8 @@ import { CommandPalette, type CommandItem } from "./components/CommandPalette";
 import { PlanPage, type PlanTab } from "./components/planner/PlanPage";
 import { NotesWorkspace } from "./components/notes/NotesWorkspace";
 import { AiWorkspace } from "./components/ai/AiWorkspace";
+import { ModelsPage } from "./components/ai/ModelsPage";
+import { PersonaPage } from "./components/ai/PersonaPage";
 import { QqqPlayground } from "./components/playground/QqqPlayground";
 import { Woodfish } from "./components/woodfish/Woodfish";
 import {
@@ -140,7 +142,7 @@ import { syncAndroidWidget } from "./lib/widget";
 import {
   addMemory as addAiMemory,
   clearMemory as clearAiMemory,
-  getAiProviderPreset,
+  providerPreset,
   loadAiSettings,
   loadMemory as loadAiMemory,
   removeMemory as removeAiMemory,
@@ -163,6 +165,8 @@ const PAGE_NAMES: Record<AppPage, string> = {
   plan: "空档与规划",
   notes: "笔记与看板",
   ai: "AI 助手",
+  models: "模型服务",
+  persona: "人格与记忆",
   courses: "课程库",
   playground: "QQQ 游乐场",
   woodfish: "敲木鱼",
@@ -1339,7 +1343,7 @@ export default function App() {
           const provider =
             typeof args.provider === "string" ? (args.provider as AiProviderId) : current.provider;
           const providerChanged = provider !== current.provider;
-          const preset = getAiProviderPreset(provider);
+          const preset = providerPreset(provider);
           const next: AiSettings = {
             ...current,
             provider,
@@ -1532,6 +1536,20 @@ export default function App() {
       run: () => navigate("ai"),
     },
     { id: "go-courses", group: "导航", label: "课程库", run: () => navigate("courses") },
+    {
+      id: "go-models",
+      group: "导航",
+      label: "模型服务",
+      hint: "Ollama / 云端模型与连接测试",
+      run: () => navigate("models"),
+    },
+    {
+      id: "go-persona",
+      group: "导航",
+      label: "人格与记忆",
+      hint: "人设、长期记忆、数据授权",
+      run: () => navigate("persona"),
+    },
     {
       id: "go-playground",
       group: "导航",
@@ -1869,7 +1887,12 @@ export default function App() {
               now={now}
               onRunAction={runAiAction}
               onNotify={notify}
+              onNavigate={navigate}
             />
+          ) : page === "models" ? (
+            <ModelsPage onNotify={notify} />
+          ) : page === "persona" ? (
+            <PersonaPage onNotify={notify} />
           ) : page === "playground" ? (
             <section className="game-page" aria-label="QQQ 游乐场">
               <QqqPlayground />
@@ -2127,6 +2150,10 @@ export default function App() {
             setShareOpen(true);
           }}
           onImportCourseSeeds={actions.addTextCourses}
+          onOpenAiPage={(target) => {
+            setSettingsOpen(false);
+            navigate(target);
+          }}
         />
       ) : null}
 

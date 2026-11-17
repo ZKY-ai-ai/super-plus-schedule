@@ -42,19 +42,20 @@ function icsEvent(input: {
 }
 
 describe("schedule import", () => {
-  it("only treats a remote provider with key and model as AI-ready", () => {
-    expect(isAiImportReady(DEFAULT_AI_SETTINGS)).toBe(false);
+  it("only treats a remote provider with its required key as AI-ready", () => {
+    expect(isAiImportReady({ ...DEFAULT_AI_SETTINGS, provider: "local" })).toBe(false);
+    expect(isAiImportReady(DEFAULT_AI_SETTINGS)).toBe(true);
     expect(
       isAiImportReady({
         ...DEFAULT_AI_SETTINGS,
-        provider: "openai-compatible",
+        provider: "deepseek",
         apiKey: "",
       }),
     ).toBe(false);
     expect(
       isAiImportReady({
         ...DEFAULT_AI_SETTINGS,
-        provider: "openai-compatible",
+        provider: "deepseek",
         apiKey: "sk-test",
       }),
     ).toBe(true);
@@ -73,7 +74,7 @@ describe("schedule import", () => {
         apiKey: "",
         model: "",
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("converts ICS events into course seeds with weeks and periods", () => {
@@ -204,7 +205,7 @@ describe("schedule import", () => {
     };
     const settings = {
       ...DEFAULT_AI_SETTINGS,
-      provider: "openai-compatible" as const,
+      provider: "custom" as const,
       apiKey: "sk-test",
       model: "test-model",
     };

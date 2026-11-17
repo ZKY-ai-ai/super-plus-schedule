@@ -9,7 +9,9 @@ import {
   CloudDownload,
   Pencil,
   Plus,
+  ServerCog,
   Sparkles,
+  UserRound,
   X,
   Database,
   GraduationCap,
@@ -53,20 +55,6 @@ import {
 } from "../lib/date";
 import { getUsedMaxPeriod, weeksForSlot } from "../lib/schedule";
 import type { ExportResult } from "../lib/nativeFile";
-import {
-  addMemory,
-  clearMemory,
-  loadAiSettings,
-  loadMemory,
-  normalizeAiSettings,
-  removeMemory,
-  saveAiSettings,
-  saveMemory,
-  validateAiSettings,
-  type AiMemoryData,
-  type AiSettings,
-} from "../lib/ai";
-import { AiSettingsPanel } from "./ai/AiSettingsPanel";
 import { WhaleMascot } from "./WhaleMascot";
 
 
@@ -106,6 +94,7 @@ interface SettingsModalProps {
   onChangeTheme: (theme: Theme) => void;
   onOpenTimetableShare: () => void;
   onImportCourseSeeds: (seeds: ParsedCourseSeed[]) => { courses: number; slots: number };
+  onOpenAiPage: (page: "models" | "persona" | "ai") => void;
 }
 
 interface Notice {
@@ -122,7 +111,7 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Database }> = [
   { id: "calendar", label: "系统日历", icon: CalendarDays },
   { id: "academic", label: "教务导入", icon: CloudDownload },
   { id: "data", label: "数据与备份", icon: Database },
-  { id: "ai", label: "AI 助手", icon: Sparkles },
+  { id: "ai", label: "AI 与模型", icon: Sparkles },
 ];
 
 function isValidMonthDay(value: string): boolean {
@@ -183,6 +172,7 @@ export function SettingsModal({
   onChangeTheme,
   onOpenTimetableShare,
   onImportCourseSeeds,
+  onOpenAiPage,
 }: SettingsModalProps) {
   const active = data.timetables.find((item) => item.id === data.activeTimetableId) ?? data.timetables[0];
   const calendarOverrides = active.calendarOverrides ?? [];
@@ -217,31 +207,10 @@ export function SettingsModal({
   const [overrideKind, setOverrideKind] = useState<"holiday" | "workday">("holiday");
   const [overrideBorrow, setOverrideBorrow] = useState(0);
   const [overrideName, setOverrideName] = useState("");
-  const [aiDraft, setAiDraft] = useState<AiSettings>(() => loadAiSettings());
-  const [aiDirty, setAiDirty] = useState(false);
   const [semesterDirty, setSemesterDirty] = useState(false);
-  const [aiMemory, setAiMemory] = useState<AiMemoryData>(() => loadMemory());
   const updateDraft = (updater: (current: Semester) => Semester) => {
     setSemesterDirty(true);
     setDraft(updater);
-  };
-  const rememberForAi = (value: string) => {
-    const next = addMemory(aiMemory, value);
-    saveMemory(next);
-    setAiMemory(next);
-    setNotice({ tone: "success", message: "已加入长期记忆。" });
-  };
-  const forgetForAi = (id: string) => {
-    const next = removeMemory(aiMemory, id);
-    saveMemory(next);
-    setAiMemory(next);
-    setNotice({ tone: "success", message: "已删除这条记忆。" });
-  };
-  const forgetAllForAi = () => {
-    const next = clearMemory(aiMemory);
-    saveMemory(next);
-    setAiMemory(next);
-    setNotice({ tone: "success", message: "长期记忆已清空。" });
   };
   const currentProfile = data.periodProfiles.find((profile) => profile.id === profileId);
   const maxPeriodForProfile = (id: string): number => {
@@ -366,21 +335,6 @@ export function SettingsModal({
     }
   };
 
-  const saveAiDraft = (): boolean => {
-    if (!aiDirty) return true;
-    const aiError = validateAiSettings(aiDraft);
-    if (aiError) {
-      setError(aiError);
-      setTab("ai");
-      return false;
-    }
-    const next = normalizeAiSettings(aiDraft);
-    saveAiSettings(next);
-    setAiDraft(next);
-    setAiDirty(false);
-    return true;
-  };
-
   const saveSemesterDraft = (): boolean => {
     const name = draft.name.trim();
     if (!name) {
@@ -472,7 +426,6 @@ export function SettingsModal({
 
   const handleSaveAndClose = () => {
     setError("");
-    if (!saveAiDraft()) return;
     if (semesterDirty && !saveSemesterDraft()) return;
     onClose();
   };
@@ -480,12 +433,6 @@ export function SettingsModal({
   // 叉号、Esc 和点遮罩只负责关闭；草稿有效就顺手保存，无效则丢弃后直接关，不能把人困在设置里。
   const handleClose = () => {
     setError("");
-    if (aiDirty && !validateAiSettings(aiDraft)) {
-      const next = normalizeAiSettings(aiDraft);
-      saveAiSettings(next);
-      setAiDraft(next);
-      setAiDirty(false);
-    }
     if (semesterDirty) saveSemesterDraft();
     onClose();
   };
@@ -1104,25 +1051,39 @@ export function SettingsModal({
             {tab === "ai" ? (
               <section className="settings-pane">
                 <div className="settings-pane-head">
-                  <p className="eyebrow">AI ASSISTANT</p>
-                  <h3>AI 助手</h3>
+                  <p className="eyebrow">AI & MODELS</p>
+                  <h3>AI 与模型</h3>
                   <p>
-                    接入云端服务或本机 Ollama / LM Studio 后即可使用。
-                    笔记、聊天记录与密钥都只保存在这台设备。
+                    AI 配置已独立成页：模型服务管提供方与连接测试，人格与记忆管人设、长期记忆和数据授权。
+                    聊天、密钥与记忆都只保存在这台设备。
                   </p>
                 </div>
-                <AiSettingsPanel
-                  settings={aiDraft}
-                  memory={aiMemory.entries}
-                  onAddMemory={rememberForAi}
-                  onRemoveMemory={forgetForAi}
-                  onClearMemory={forgetAllForAi}
-                  onChange={(next) => {
-                    setAiDraft(next);
-                    setAiDirty(true);
-                    setError("");
-                  }}
-                />
+                <div className="settings-ai-links">
+                  <button type="button" className="settings-ai-link" onClick={() => onOpenAiPage("models")}>
+                    <ServerCog size={18} />
+                    <span>
+                      <strong>模型服务</strong>
+                      <small>默认 Ollama 本地模型，也可接 DeepSeek、OpenAI、Kimi 等云端服务，带连接测试。</small>
+                    </span>
+                    <ArrowUpRight size={15} />
+                  </button>
+                  <button type="button" className="settings-ai-link" onClick={() => onOpenAiPage("persona")}>
+                    <UserRound size={18} />
+                    <span>
+                      <strong>人格与记忆</strong>
+                      <small>名字与语气、长期记忆逐条管理、笔记 / 任务 / 考试的分项数据授权。</small>
+                    </span>
+                    <ArrowUpRight size={15} />
+                  </button>
+                  <button type="button" className="settings-ai-link" onClick={() => onOpenAiPage("ai")}>
+                    <Sparkles size={18} />
+                    <span>
+                      <strong>AI 助手对话</strong>
+                      <small>查今天 / 明天 / 下一节，翻笔记，确认式动作卡。</small>
+                    </span>
+                    <ArrowUpRight size={15} />
+                  </button>
+                </div>
               </section>
             ) : null}
           </div>

@@ -5,7 +5,6 @@ import {
   AI_PROVIDER_PRESETS,
   AI_SETTINGS_KEY,
   addMemory,
-  aiProviderRequiresApiKey,
   appendChat,
   answerScheduleQuestion,
   buildAiContext,
@@ -15,13 +14,16 @@ import {
   complete,
   createChatMessage,
   DEFAULT_AI_SETTINGS,
+  DEFAULT_PERSONA,
   describePermissions,
   extractMemoryRequest,
+  isValidAiBaseUrl,
   loadAiSettings,
   loadChat,
   loadMemory,
   normalizeAiSettings,
   normalizeMemory,
+  providerPreset,
   removeMemory,
   saveAiSettings,
   saveChat,
@@ -91,6 +93,7 @@ const snapshot = buildAiScheduleSnapshot({
 function baseSettings(patch: Partial<AiSettings> = {}): AiSettings {
   return normalizeAiSettings({
     ...DEFAULT_AI_SETTINGS,
+    provider: "local",
     ...patch,
     persona: { ...DEFAULT_AI_SETTINGS.persona, ...(patch.persona ?? {}) },
     permissions: { ...DEFAULT_AI_SETTINGS.permissions, ...(patch.permissions ?? {}) },
@@ -315,17 +318,17 @@ describe("permissions and context", () => {
 describe("settings and chat storage", () => {
   it("normalizes unsafe settings", () => {
     const settings = normalizeAiSettings({
-      provider: "openai-compatible",
+      provider: "custom",
       baseUrl: "file:///etc/passwd",
       apiKey: "  sk-test  ",
       model: "",
       persona: { name: "  ", tone: "playful", customPrompt: 42 },
       permissions: { notes: true, noteTags: "yes" },
     });
-    expect(settings.provider).toBe("openai-compatible");
-    expect(settings.baseUrl).toBe(DEFAULT_AI_SETTINGS.baseUrl);
+    expect(settings.provider).toBe("custom");
+    expect(settings.baseUrl).toBe("https://api.openai.com/v1");
     expect(settings.apiKey).toBe("sk-test");
-    expect(settings.model).toBe(DEFAULT_AI_SETTINGS.model);
+    expect(settings.model).toBe("gpt-4o-mini");
     expect(settings.persona.name).toBe(DEFAULT_AI_SETTINGS.persona.name);
     expect(settings.persona.tone).toBe("playful");
     expect(settings.persona.customPrompt).toBe("");
@@ -337,7 +340,7 @@ describe("settings and chat storage", () => {
   it("round-trips settings and falls back on corrupt data", () => {
     const storage = createMemoryStorage();
     const saved = baseSettings({
-      provider: "openai-compatible",
+      provider: "custom",
       baseUrl: "https://api.example.com/v1/",
       apiKey: "sk-1",
       permissions: { ...DEFAULT_AI_SETTINGS.permissions, notes: true },
@@ -349,7 +352,7 @@ describe("settings and chat storage", () => {
     expect(loaded.permissions.notes).toBe(true);
 
     storage.setItem(AI_SETTINGS_KEY, "{oops");
-    expect(loadAiSettings(storage).provider).toBe("local");
+    expect(loadAiSettings(storage).provider).toBe("ollama");
   });
 
   it("stores a bounded chat history", () => {
@@ -381,151 +384,6 @@ describe("settings and chat storage", () => {
     const reloaded = loadChat(storage, NOW);
     expect(reloaded.messages[0].attachments).toHaveLength(2);
     expect(JSON.stringify(reloaded)).not.toContain("data:image");
-  });
-});
-
-describe("model provider presets", () => {
-  it("lists unique cloud and local presets with Ollama as the local default", () => {
-    const ids = AI_PROVIDER_PRESETS.map((preset) => preset.id);
-    expect(new Set(ids).size).toBe(ids.length);
-    expect(AI_PROVIDER_PRESETS.some((preset) => preset.group === "cloud")).toBe(true);
-    const ollama = AI_PROVIDER_PRESETS.find((preset) => preset.id === "ollama");
-    expect(ollama?.group).toBe("local");
-    expect(ollama?.baseUrl).toBe("http://localhost:11434/v1");
-    expect(ollama?.requiresApiKey).toBe(false);
-  });
-
-  it("applies provider-specific defaults when stored fields are empty", () => {
-    const ollama = normalizeAiSettings({ provider: "ollama", baseUrl: "", model: "" });
-    expect(ollama.provider).toBe("ollama");
-    expect(ollama.baseUrl).toBe("http://localhost:11434/v1");
-    expect(ollama.model).toBe("qwen2.5:7b");
-    expect(aiProviderRequiresApiKey("ollama")).toBe(false);
-
-    const deepseek = normalizeAiSettings({ provider: "deepseek" });
-    expect(deepseek.baseUrl).toBe("https://api.deepseek.com");
-    expect(deepseek.model).toBe("deepseek-flash");
-    expect(aiProviderRequiresApiKey("deepseek")).toBe(true);
-
-    expect(normalizeAiSettings({ provider: "unknown-provider" }).provider).toBe("local");
-  });
-
-  it("validates settings by provider key and model requirements", () => {
-    const localModel: AiSettings = {
-      ...DEFAULT_AI_SETTINGS,
-      provider: "ollama",
-      baseUrl: "http://localhost:11434/v1",
-      model: "qwen2.5:7b",
-      apiKey: "",
-    };
-    expect(validateAiSettings(localModel)).toBeNull();
-    expect(validateAiSettings(DEFAULT_AI_SETTINGS)).toBeNull();
-
-    const cloudWithoutKey: AiSettings = {
-      ...localModel,
-      provider: "deepseek",
-      baseUrl: "https://api.deepseek.com",
-      model: "deepseek-flash",
-    };
-    expect(validateAiSettings(cloudWithoutKey)).toContain("API Key");
-
-    expect(validateAiSettings({ ...localModel, model: "" })).toContain("模型");
-    expect(validateAiSettings({ ...localModel, baseUrl: "ftp://example.com" })).toContain(
-      "Base URL",
-    );
-  });
-});
-
-describe("connection test", () => {
-  it("posts a tiny ping with the selected local model and no auth header", async () => {
-    let seenUrl = "";
-    let seenInit: RequestInit | undefined;
-    const fetchImpl: FetchLike = async (input, init) => {
-      seenUrl = input;
-      seenInit = init;
-      return {
-        ok: true,
-        status: 200,
-        text: async () => JSON.stringify({ choices: [{ message: { content: "pong" } }] }),
-      } as unknown as Response;
-    };
-    const result = await testAiConnection(
-      baseSettings({
-        provider: "ollama",
-        baseUrl: "http://localhost:11434/v1/",
-        model: "qwen2.5:7b",
-        apiKey: "",
-      }),
-      fetchImpl,
-    );
-    expect(result.ok).toBe(true);
-    expect(result.message).toContain("连接成功");
-    expect(seenUrl).toBe("http://localhost:11434/v1/chat/completions");
-    const body = JSON.parse(String(seenInit?.body));
-    expect(body.model).toBe("qwen2.5:7b");
-    expect(body.messages[0].content).toBe("ping");
-    expect((seenInit?.headers as Record<string, string>).Authorization).toBeUndefined();
-  });
-
-  it("reports auth and network failures without throwing", async () => {
-    const missingKey = await testAiConnection(
-      baseSettings({ provider: "deepseek", apiKey: "" }),
-      async () => {
-        throw new Error("should not be called");
-      },
-    );
-    expect(missingKey.ok).toBe(false);
-    expect(missingKey.message).toContain("API Key");
-
-    const unauthorized = await testAiConnection(
-      baseSettings({ provider: "openai-compatible", apiKey: "sk-bad" }),
-      async () =>
-        ({
-          ok: false,
-          status: 401,
-          text: async () => JSON.stringify({ error: { message: "invalid key" } }),
-        }) as unknown as Response,
-    );
-    expect(unauthorized.ok).toBe(false);
-    expect(unauthorized.message).toContain("HTTP 401");
-    expect(unauthorized.message).toContain("invalid key");
-
-    const offline = await testAiConnection(
-      baseSettings({ provider: "ollama", baseUrl: "http://localhost:11434/v1" }),
-      async () => {
-        throw new Error("network down");
-      },
-    );
-    expect(offline.ok).toBe(false);
-    expect(offline.message).toContain("无法连接");
-    expect(offline.message).toContain("OLLAMA_ORIGINS");
-  });
-
-  it("allows local model providers to complete without an api key", async () => {
-    let authorization: string | undefined;
-    const fetchImpl: FetchLike = async (_input, init) => {
-      authorization = (init?.headers as Record<string, string> | undefined)?.Authorization;
-      return {
-        ok: true,
-        status: 200,
-        text: async () => JSON.stringify({ choices: [{ message: { content: "本地回答" } }] }),
-      } as unknown as Response;
-    };
-    const result = await complete(
-      userRequest("你好"),
-      baseSettings({
-        provider: "ollama",
-        baseUrl: "http://localhost:11434/v1",
-        model: "qwen2.5:7b",
-        apiKey: "",
-      }),
-      fetchImpl,
-      NOW,
-    );
-    expect(result.error).toBeUndefined();
-    expect(result.content).toBe("本地回答");
-    expect(result.provider).toBe("ollama");
-    expect(authorization).toBeUndefined();
   });
 });
 
@@ -596,7 +454,7 @@ describe("local provider", () => {
 
 describe("OpenAI-compatible provider", () => {
   const remoteSettings = baseSettings({
-    provider: "openai-compatible",
+    provider: "custom",
     baseUrl: "https://api.example.com/v1/",
     apiKey: "sk-test",
     model: "demo-model",
@@ -687,7 +545,7 @@ describe("OpenAI-compatible provider", () => {
   it("returns readable errors instead of throwing", async () => {
     const noKey = await complete(
       userRequest("你好"),
-      baseSettings({ provider: "openai-compatible", apiKey: "" }),
+      baseSettings({ provider: "deepseek", apiKey: "" }),
       undefined,
       NOW,
     );
@@ -702,8 +560,9 @@ describe("OpenAI-compatible provider", () => {
       throw new Error("offline");
     };
     const network = await complete(userRequest("你好"), remoteSettings, broken, NOW);
-    expect(network.error).toBe("network");
-    expect(network.content).toContain("网络请求失败");
+    expect(network.error).toBe("network-fallback");
+    expect(network.provider).toBe("local");
+    expect(network.content).toContain("模型服务连不上");
   });
 
   it("surfaces an empty response", async () => {
@@ -900,7 +759,7 @@ describe("persona memory (F119)", () => {
       } as unknown as Response;
     };
     const settings = baseSettings({
-      provider: "openai-compatible",
+      provider: "custom",
       baseUrl: "https://api.example.com/v1",
       apiKey: "sk-test",
     });
@@ -909,5 +768,166 @@ describe("persona memory (F119)", () => {
     await complete(request, settings, fetchImpl, NOW);
     const body = JSON.parse(String(requests[0].init?.body));
     expect(body.messages[0].content).toContain("周三下午没空");
+  });
+});
+
+describe("model providers and connection test", () => {
+  it("defaults to Ollama and migrates legacy openai-compatible", () => {
+    expect(DEFAULT_AI_SETTINGS.provider).toBe("ollama");
+    expect(DEFAULT_AI_SETTINGS.baseUrl).toBe("http://127.0.0.1:11434/v1");
+    expect(providerPreset("ollama").keyRequired).toBe(false);
+    expect(providerPreset("deepseek").keyRequired).toBe(true);
+    expect(AI_PROVIDER_PRESETS.some((preset) => preset.id === "local")).toBe(true);
+    expect(isValidAiBaseUrl("http://127.0.0.1:11434/v1")).toBe(true);
+    expect(isValidAiBaseUrl("file:///etc/passwd")).toBe(false);
+
+    const legacy = normalizeAiSettings({
+      provider: "custom",
+      baseUrl: "https://x.example/v1",
+      apiKey: "sk-1",
+      model: "m",
+    });
+    expect(legacy.provider).toBe("custom");
+    expect(legacy.baseUrl).toBe("https://x.example/v1");
+    expect(legacy.model).toBe("m");
+  });
+
+  it("validates settings by provider key requirements", () => {
+    expect(validateAiSettings({ ...DEFAULT_AI_SETTINGS, persona: { ...DEFAULT_PERSONA, name: " " } })).toContain("名字");
+    expect(validateAiSettings(DEFAULT_AI_SETTINGS)).toBeNull();
+    expect(validateAiSettings(normalizeAiSettings({ provider: "local" }))).toBeNull();
+    expect(
+      validateAiSettings(normalizeAiSettings({ provider: "deepseek", apiKey: "", baseUrl: "https://api.deepseek.com/v1" })),
+    ).toContain("API Key");
+    expect(
+      validateAiSettings({ ...DEFAULT_AI_SETTINGS, provider: "custom", baseUrl: "notaurl", apiKey: "sk-1" }),
+    ).toContain("Base URL");
+  });
+
+  it("keeps per-provider keys in the vault and supports clearing", () => {
+    const storage = createMemoryStorage();
+    saveAiSettings(
+      normalizeAiSettings({ provider: "deepseek", apiKey: "sk-a", model: "deepseek-chat" }),
+      storage,
+    );
+    saveAiSettings(
+      normalizeAiSettings({
+        ...loadAiSettings(storage),
+        provider: "openai",
+        apiKey: "sk-b",
+        model: "gpt-4o-mini",
+      }),
+      storage,
+    );
+    const loaded = loadAiSettings(storage);
+    expect(loaded.keyVault.deepseek).toBe("sk-a");
+    expect(loaded.keyVault.openai).toBe("sk-b");
+
+    const back = normalizeAiSettings({ ...loaded, provider: "deepseek", apiKey: "" });
+    expect(back.apiKey).toBe("sk-a");
+
+    saveAiSettings({ ...loaded, provider: "deepseek", apiKey: "" }, storage);
+    expect(loadAiSettings(storage).keyVault.deepseek).toBeUndefined();
+  });
+
+  it("probes ollama /api/tags without a key", async () => {
+    const calls: string[] = [];
+    const fetchImpl: FetchLike = async (url) => {
+      calls.push(url);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ models: [{ name: "qwen2.5:7b" }, { name: "llama3:8b" }] }),
+      } as unknown as Response;
+    };
+    const result = await testAiConnection(normalizeAiSettings({ provider: "ollama" }), fetchImpl);
+    expect(result.ok).toBe(true);
+    expect(calls[0]).toBe("http://127.0.0.1:11434/api/tags");
+    expect(result.models).toEqual(["qwen2.5:7b", "llama3:8b"]);
+    expect(result.message).toContain("2 个模型");
+  });
+
+  it("probes openai-compatible /models with bearer auth", async () => {
+    let headers: Record<string, string> = {};
+    let seenUrl = "";
+    const fetchImpl: FetchLike = async (url, init) => {
+      seenUrl = url;
+      headers = (init?.headers ?? {}) as Record<string, string>;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [{ id: "gpt-4o-mini" }] }),
+      } as unknown as Response;
+    };
+    const result = await testAiConnection(
+      normalizeAiSettings({ provider: "openai", apiKey: "sk-x" }),
+      fetchImpl,
+    );
+    expect(result.ok).toBe(true);
+    expect(seenUrl).toBe("https://api.openai.com/v1/models");
+    expect(headers.Authorization).toBe("Bearer sk-x");
+    expect(result.models).toEqual(["gpt-4o-mini"]);
+  });
+
+  it("reports 401 and local network failures with actionable hints", async () => {
+    const unauthorized: FetchLike = async () =>
+      ({ ok: false, status: 401, json: async () => ({}) }) as unknown as Response;
+    const bad = await testAiConnection(
+      normalizeAiSettings({ provider: "deepseek", apiKey: "sk-bad" }),
+      unauthorized,
+    );
+    expect(bad.ok).toBe(false);
+    expect(bad.message).toContain("API Key");
+
+    const offline: FetchLike = async () => {
+      throw new Error("offline");
+    };
+    const down = await testAiConnection(normalizeAiSettings({ provider: "ollama" }), offline);
+    expect(down.ok).toBe(false);
+    expect(down.message).toContain("OLLAMA_ORIGINS");
+
+    const local = await testAiConnection(normalizeAiSettings({ provider: "local" }), offline);
+    expect(local.ok).toBe(true);
+  });
+
+  it("auto-selects the first ollama model when none is configured", async () => {
+    const bodies: Array<{ model: string }> = [];
+    const fetchImpl: FetchLike = async (url, init) => {
+      if (url.endsWith("/api/tags")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ models: [{ name: "qwen2.5:7b" }] }),
+        } as unknown as Response;
+      }
+      bodies.push(JSON.parse(String(init?.body)));
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ choices: [{ message: { content: "本地模型答。" } }] }),
+      } as unknown as Response;
+    };
+    const result = await complete(
+      userRequest("明天有课吗"),
+      normalizeAiSettings({ provider: "ollama" }),
+      fetchImpl,
+      NOW,
+    );
+    expect(result.content).toBe("本地模型答。");
+    expect(bodies[0].model).toBe("qwen2.5:7b");
+  });
+
+  it("falls back to local rules when ollama is unreachable", async () => {
+    const offline: FetchLike = async () => {
+      throw new Error("offline");
+    };
+    const result = await complete(
+      userRequest("高数在哪上"),
+      normalizeAiSettings({ provider: "ollama" }),
+      offline,
+      NOW,
+    );
+    expect(result.provider).toBe("local");
+    expect(result.content).toContain("教一 401");
   });
 });

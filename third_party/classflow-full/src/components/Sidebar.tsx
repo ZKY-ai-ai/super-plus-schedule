@@ -6,9 +6,11 @@ import {
   LayoutGrid,
   Moon,
   NotebookPen,
+  ServerCog,
   Settings2,
   Sparkles,
   Sun,
+  UserRound,
   Waves,
 } from "lucide-react";
 import type { AppPage, Theme } from "../types";
@@ -154,6 +156,28 @@ export function Sidebar({
           <BookOpen size={17} strokeWidth={1.8} />
           <span>课程库</span>
           <span className="nav-count">{courseCount}</span>
+        </button>
+      </nav>
+
+      <nav className="main-nav main-nav--play" aria-label="AI 配置">
+        <span className="nav-label">AI 配置</span>
+        <button
+          className={`nav-item ${page === "models" ? "is-active" : ""}`}
+          type="button"
+          onClick={() => onNavigate("models")}
+          aria-current={page === "models" ? "page" : undefined}
+        >
+          <ServerCog size={17} strokeWidth={1.8} />
+          <span>模型服务</span>
+        </button>
+        <button
+          className={`nav-item ${page === "persona" ? "is-active" : ""}`}
+          type="button"
+          onClick={() => onNavigate("persona")}
+          aria-current={page === "persona" ? "page" : undefined}
+        >
+          <UserRound size={17} strokeWidth={1.8} />
+          <span>人格与记忆</span>
         </button>
       </nav>
 
