@@ -157,7 +157,7 @@ export function usePomodoro({ onComplete, durations }: UsePomodoroOptions = {}) 
     }
     const m = String(Math.floor(remaining / 60)).padStart(2, "0");
     const s = String(remaining % 60).padStart(2, "0");
-    document.title = `${m}:${s} · ${LABELS[mode]} — 课序`;
+    document.title = `${m}:${s} · ${LABELS[mode]} — 课序PLUS`;
     return () => {
       document.title = base;
     };
