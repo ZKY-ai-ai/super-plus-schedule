@@ -191,6 +191,8 @@ export function getTermName(date = new Date()): string {
   return `${year - 1}–${year} 秋季学期`;
 }
 
-export function getDefaultStartDate(date = new Date(), weekStartsOn = 1): string {
-  return dateKey(startOfWeek(date, weekStartsOn));
+/** 开学第一周默认从 8 月 31 日开始；周课表仍按 weekStartsOn 对齐到所在周的周一。 */
+export function getDefaultStartDate(date = new Date()): string {
+  const year = date.getMonth() + 1 >= 8 ? date.getFullYear() : date.getFullYear() - 1;
+  return dateKey(new Date(year, 7, 31));
 }

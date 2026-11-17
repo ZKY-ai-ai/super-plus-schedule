@@ -68,9 +68,6 @@ export type AiActionName =
   | "apply_template"
   | "delete_template"
   | "export_data"
-  | "webdav_backup"
-  | "webdav_restore_latest"
-  | "sync_google_calendar"
   | "sync_widget"
   | "clear_scope"
   | "update_gap_preferences"
@@ -142,9 +139,7 @@ const SETTINGS_TABS: SettingsTab[] = [
   "grades",
   "reminders",
   "calendar",
-  "google-calendar",
   "academic",
-  "webdav",
   "data",
   "ai",
   "playground",
@@ -177,9 +172,7 @@ const SETTINGS_LABELS: Record<SettingsTab, string> = {
   grades: "成绩",
   reminders: "提醒",
   calendar: "日历",
-  "google-calendar": "Google 日历",
   academic: "教务导入",
-  webdav: "WebDAV",
   data: "数据",
   ai: "AI",
   playground: "QQQ 游乐场",
@@ -1110,12 +1103,11 @@ export function parseLocalCommand(
               : /成绩|考试/.test(input) ? "grades"
                 : /提醒/.test(input) ? "reminders"
                   : /日历|节假日/.test(input) ? "calendar"
-                    : /webdav/i.test(input) ? "webdav"
-                      : /数据|导入|导出/.test(input) ? "data"
-                        : /ai|助手/i.test(input) ? "ai"
-                          : /木鱼/.test(input) ? "woodfish"
-                            : /游乐场|qqq/i.test(input) ? "playground"
-                              : undefined;
+                    : /数据|导入|导出/.test(input) ? "data"
+                      : /ai|助手/i.test(input) ? "ai"
+                        : /木鱼/.test(input) ? "woodfish"
+                          : /游乐场|qqq/i.test(input) ? "playground"
+                            : undefined;
       return [{ action: "open_settings", args: tab ? { tab } : {} }];
     }
     const weekMatch = /第?\s*(\d{1,2})\s*周/.exec(input);

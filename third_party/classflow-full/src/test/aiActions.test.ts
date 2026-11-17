@@ -291,7 +291,7 @@ describe("全功能动作", () => {
     validateAiAction(action, context);
 
   it("接受界面、壁纸与偏好动作", () => {
-    expect(validate({ action: "open_dialog", args: { dialog: "excel-import" } }).ok).toBe(true);
+    expect(validate({ action: "open_dialog", args: { dialog: "text-import" } }).ok).toBe(true);
     expect(validate({ action: "set_preferences", args: { theme: "dark" } }).ok).toBe(true);
     expect(validate({ action: "set_wallpaper", args: { preset: "dawn", dim: 30 } }).ok).toBe(true);
     expect(validate({ action: "open_dialog", args: { dialog: "nope" } }).ok).toBe(false);

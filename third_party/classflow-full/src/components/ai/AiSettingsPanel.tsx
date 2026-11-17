@@ -19,7 +19,8 @@ interface AiSettingsPanelProps {
   onAddMemory: (text: string) => void;
   onRemoveMemory: (id: string) => void;
   onClearMemory: () => void;
-  onSave: (next: AiSettings) => void;
+  onSave?: (next: AiSettings) => void;
+  onChange?: (next: AiSettings) => void;
   onNotify?: (message: string, tone?: "success" | "error") => void;
 }
 
@@ -29,7 +30,7 @@ const TONES: Array<{ value: AiTone; label: string; hint: string }> = [
   { value: "playful", label: "俏皮", hint: "轻快一点点" },
 ];
 
-function isValidBaseUrl(value: string): boolean {
+export function isValidAiBaseUrl(value: string): boolean {
   try {
     const url = new URL(value);
     return url.protocol === "http:" || url.protocol === "https:";
@@ -45,6 +46,7 @@ export function AiSettingsPanel({
   onRemoveMemory,
   onClearMemory,
   onSave,
+  onChange,
   onNotify,
 }: AiSettingsPanelProps) {
   const [draft, setDraft] = useState<AiSettings>(settings);
@@ -57,15 +59,21 @@ export function AiSettingsPanel({
     setDraft(settings);
   }, [settings]);
 
+  const updateDraft = (updater: (current: AiSettings) => AiSettings) => {
+    const next = updater(draft);
+    setDraft(next);
+    onChange?.(next);
+  };
+
   const updatePersona = (patch: Partial<AiPersona>) => {
-    setDraft((current) => ({
+    updateDraft((current) => ({
       ...current,
       persona: { ...current.persona, ...patch },
     }));
   };
 
   const togglePermission = (key: keyof AiPermissions) => {
-    setDraft((current) => ({
+    updateDraft((current) => ({
       ...current,
       permissions: { ...current.permissions, [key]: !current.permissions[key] },
     }));
@@ -73,7 +81,7 @@ export function AiSettingsPanel({
 
   const save = () => {
     if (draft.provider === "openai-compatible") {
-      if (!isValidBaseUrl(draft.baseUrl)) {
+      if (!isValidAiBaseUrl(draft.baseUrl)) {
         setError("Base URL 需要是 http(s) 地址，例如 https://api.openai.com/v1。");
         return;
       }
@@ -87,7 +95,7 @@ export function AiSettingsPanel({
       return;
     }
     setError(null);
-    onSave(normalizeAiSettings(draft));
+    onSave?.(normalizeAiSettings(draft));
     onNotify?.("AI 设置已保存在本机。");
   };
 
@@ -112,7 +120,7 @@ export function AiSettingsPanel({
           <button
             type="button"
             className={draft.provider === "local" ? "is-active" : ""}
-            onClick={() => setDraft((current) => ({ ...current, provider: "local" }))}
+            onClick={() => updateDraft((current) => ({ ...current, provider: "local" }))}
           >
             本地规则
           </button>
@@ -120,7 +128,7 @@ export function AiSettingsPanel({
             type="button"
             className={draft.provider === "openai-compatible" ? "is-active" : ""}
             onClick={() =>
-              setDraft((current) => ({ ...current, provider: "openai-compatible" }))
+              updateDraft((current) => ({ ...current, provider: "openai-compatible" }))
             }
           >
             OpenAI 兼容
@@ -135,7 +143,7 @@ export function AiSettingsPanel({
                 className="field-input"
                 value={draft.baseUrl}
                 onChange={(event) =>
-                  setDraft((current) => ({ ...current, baseUrl: event.target.value }))
+                  updateDraft((current) => ({ ...current, baseUrl: event.target.value }))
                 }
                 placeholder="https://api.openai.com/v1"
                 spellCheck={false}
@@ -152,7 +160,7 @@ export function AiSettingsPanel({
                   type={showKey ? "text" : "password"}
                   value={draft.apiKey}
                   onChange={(event) =>
-                    setDraft((current) => ({ ...current, apiKey: event.target.value }))
+                    updateDraft((current) => ({ ...current, apiKey: event.target.value }))
                   }
                   placeholder="sk-..."
                   spellCheck={false}
@@ -173,7 +181,7 @@ export function AiSettingsPanel({
                 className="field-input"
                 value={draft.model}
                 onChange={(event) =>
-                  setDraft((current) => ({ ...current, model: event.target.value }))
+                  updateDraft((current) => ({ ...current, model: event.target.value }))
                 }
                 placeholder="gpt-4o-mini"
                 spellCheck={false}
@@ -341,21 +349,23 @@ export function AiSettingsPanel({
 
       {error ? <p className="inline-notice inline-notice--error">{error}</p> : null}
 
-      <div className="ai-settings-footer">
-        <button
-          className="secondary-button"
-          type="button"
-          onClick={() => {
-            setDraft(settings);
-            setError(null);
-          }}
-        >
-          还原
-        </button>
-        <button className="primary-button" type="button" onClick={save}>
-          保存设置
-        </button>
-      </div>
+      {onChange ? null : (
+        <div className="ai-settings-footer">
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => {
+              setDraft(settings);
+              setError(null);
+            }}
+          >
+            还原
+          </button>
+          <button className="primary-button" type="button" onClick={save}>
+            保存设置
+          </button>
+        </div>
+      )}
 
       {clearMemoryOpen ? (
         <ConfirmDialog

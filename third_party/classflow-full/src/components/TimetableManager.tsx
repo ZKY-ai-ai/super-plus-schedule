@@ -37,7 +37,7 @@ export function TimetableManager({
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [semesterName, setSemesterName] = useState("");
-  const [startDate, setStartDate] = useState(() => getDefaultStartDate(new Date(), 1));
+  const [startDate, setStartDate] = useState(() => getDefaultStartDate(new Date()));
   const [weekStartsOn, setWeekStartsOn] = useState(1);
   const [totalWeeks, setTotalWeeks] = useState(20);
   const [showWeekends, setShowWeekends] = useState(true);
@@ -58,7 +58,7 @@ export function TimetableManager({
     setCreating(true);
     setName(`我的课表 ${data.timetables.length + 1}`);
     setSemesterName("");
-    setStartDate(getDefaultStartDate(new Date(), 1));
+    setStartDate(getDefaultStartDate(new Date()));
     setWeekStartsOn(1);
     setTotalWeeks(20);
     setShowWeekends(true);

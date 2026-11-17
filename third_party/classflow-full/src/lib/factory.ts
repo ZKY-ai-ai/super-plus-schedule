@@ -258,7 +258,7 @@ export function createBlankSemester(
 ): Semester {
   return {
     name: options.name?.trim() || getTermName(now),
-    startDate: options.startDate || getDefaultStartDate(now, options.weekStartsOn ?? 1),
+    startDate: options.startDate || getDefaultStartDate(now),
     totalWeeks: options.totalWeeks ?? DEFAULT_TOTAL_WEEKS,
     showWeekends: options.showWeekends ?? true,
     weekStartsOn: options.weekStartsOn ?? 1,

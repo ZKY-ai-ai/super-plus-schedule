@@ -7,9 +7,6 @@ import type {
 
 const DIALOGS = [
   "text-import",
-  "excel-import",
-  "third-party-import",
-  "screenshot-import",
   "share",
   "timetables",
   "wallpaper",
@@ -40,9 +37,6 @@ const STUDY_KINDS = ["pomodoro", "manual", "review"] as const;
 
 const DIALOG_LABELS: Record<DialogId, string> = {
   "text-import": "文本导入",
-  "excel-import": "Excel 导入",
-  "third-party-import": "第三方课表导入",
-  "screenshot-import": "截图识课",
   share: "课表分享",
   timetables: "多课表管理",
   wallpaper: "壁纸",
@@ -108,9 +102,6 @@ export const EXTRA_ACTION_DEFINITIONS: AiActionDefinition[] = [
   def("apply_template", "导入导出与备份", "把模板课程追加到当前课表", "id", false),
   def("delete_template", "导入导出与备份", "删除课表模板", "id", true),
   def("export_data", "导入导出与备份", "导出 JSON/ICS 文件", "format", false),
-  def("webdav_backup", "导入导出与备份", "用已保存配置备份到 WebDAV", "无", false),
-  def("webdav_restore_latest", "导入导出与备份", "从 WebDAV 恢复最新备份", "无", true),
-  def("sync_google_calendar", "导入导出与备份", "用已授权账号同步到 Google 日历", "无", false),
   def("sync_widget", "导入导出与备份", "同步桌面小组件（原生端）", "无", false),
   def("clear_scope", "高风险", "按范围清空本地数据", "scope", true),
   def("update_gap_preferences", "空档与选课", "修改空档评估的步行、缓冲与午饭偏好", "walkSpeed?, bufferMinutes?, lunchEnabled?, lunchStart?, lunchEnd?, lunchMinutes?, accessMode?, accessibleExtra?, aliases?, customWalks?", false),
@@ -268,9 +259,6 @@ export function validateExtraAction(
     case "print":
     case "undo":
     case "redo":
-    case "webdav_backup":
-    case "webdav_restore_latest":
-    case "sync_google_calendar":
     case "sync_widget":
     case "clear_memory":
       return ok(input, {}, reason);
@@ -1146,12 +1134,6 @@ export function describeExtraAction(
       return `删除模板「${findName(context.templates, String(args.id)) ?? args.id}」`;
     case "export_data":
       return `导出 ${String(args.format).toUpperCase()} 文件`;
-    case "webdav_backup":
-      return "用已保存配置备份到 WebDAV";
-    case "webdav_restore_latest":
-      return "从 WebDAV 恢复最新备份（会替换当前全部课表）";
-    case "sync_google_calendar":
-      return "用已授权账号同步到 Google 日历";
     case "sync_widget":
       return "同步桌面小组件";
     case "clear_scope":

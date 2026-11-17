@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   CalendarDays,
+  FileUp,
   Image as ImageIcon,
   LayoutGrid,
   List,
@@ -40,7 +41,6 @@ import { AgendaPage } from "./components/AgendaPage";
 import { MobileTabBar } from "./components/MobileTabBar";
 import { ProfilePage } from "./components/ProfilePage";
 import { ConfirmDialog } from "./components/ConfirmDialog";
-import { ExcelImportDialog } from "./components/ExcelImportDialog";
 import { DesktopPet } from "./components/DesktopPet";
 import { EventEditor } from "./components/EventEditor";
 import type { EventSeed } from "./components/EventEditor";
@@ -48,10 +48,9 @@ import { SettingsModal } from "./components/SettingsModal";
 import { Sidebar } from "./components/Sidebar";
 import { Timetable } from "./components/Timetable";
 import { ImportPreviewDialog } from "./components/ImportPreviewDialog";
+import { ImportScheduleDialog } from "./components/ImportScheduleDialog";
 import { SessionOverrideDialog } from "./components/SessionOverrideDialog";
 import { TextImportDialog } from "./components/TextImportDialog";
-import { ThirdPartyImportDialog } from "./components/ThirdPartyImportDialog";
-import { ScreenshotImportDialog } from "./components/ScreenshotImportDialog";
 import { TimetableShareDialog } from "./components/TimetableShareDialog";
 import { TimetableList } from "./components/TimetableList";
 import { TimetableManager } from "./components/TimetableManager";
@@ -97,7 +96,7 @@ import {
   upsertNote,
   type NotePatch,
 } from "./lib/notes";
-import { getActiveTimetable, makeCourse, makeEvent, makeSlot, nextTone } from "./lib/factory";
+import { makeCourse, makeEvent, makeSlot, nextTone } from "./lib/factory";
 import { parseCourseText } from "./lib/textImport";
 import type { AiAction } from "./lib/aiActions";
 import { toggleEventCheckIn } from "./lib/eventRepeat";
@@ -133,14 +132,6 @@ import {
   type StudyLog,
 } from "./lib/stats";
 import { emptyWoodfish, loadWoodfish, saveWoodfish, tapWoodfish } from "./lib/woodfish";
-import {
-  downloadBackup,
-  listRemoteBackups,
-  loadWebDavConfig,
-  uploadScheduleBackup,
-  webDavErrorMessage,
-} from "./lib/webdav";
-import { syncTimetableToGoogle } from "./lib/googleCalendar";
 import { syncAndroidWidget } from "./lib/widget";
 import {
   addMemory as addAiMemory,
@@ -209,9 +200,7 @@ export default function App() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [sessionMenu, setSessionMenu] = useState<{ session: Session; week: number } | null>(null);
   const [textImportOpen, setTextImportOpen] = useState(false);
-  const [excelImportOpen, setExcelImportOpen] = useState(false);
-  const [thirdPartyImportOpen, setThirdPartyImportOpen] = useState(false);
-  const [screenshotImportOpen, setScreenshotImportOpen] = useState(false);
+  const [importScheduleOpen, setImportScheduleOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [sharedCourseText, setSharedCourseText] = useState("");
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
@@ -614,15 +603,6 @@ export default function App() {
             case "text-import":
               setSharedCourseText("");
               setTextImportOpen(true);
-              break;
-            case "excel-import":
-              setExcelImportOpen(true);
-              break;
-            case "third-party-import":
-              setThirdPartyImportOpen(true);
-              break;
-            case "screenshot-import":
-              setScreenshotImportOpen(true);
               break;
             case "share":
               setShareOpen(true);
@@ -1103,39 +1083,6 @@ export default function App() {
           if (args.format === "ics") actions.exportIcs();
           else actions.exportJson();
           return { ok: true, message: `已导出 ${String(args.format).toUpperCase()} 文件。` };
-        }
-
-        case "webdav_backup": {
-          const config = loadWebDavConfig();
-          if (!config.url) return fail("请先在「设置 → WebDAV」填好服务器地址和账号。");
-          const result = await uploadScheduleBackup(config, data);
-          return { ok: true, message: `已备份到 WebDAV：${result.name}` };
-        }
-
-        case "webdav_restore_latest": {
-          const config = loadWebDavConfig();
-          if (!config.url) return fail("请先在「设置 → WebDAV」填好服务器地址和账号。");
-          try {
-            const backups = await listRemoteBackups(config);
-            if (backups.length === 0) return fail("WebDAV 上没有可恢复的备份。");
-            const latest = backups[0];
-            const restored = await downloadBackup(config, latest.name);
-            store.setData(restored);
-            view.resetToTimetable(getActiveTimetable(restored));
-            return { ok: true, message: `已从 WebDAV 恢复备份 ${latest.name}。` };
-          } catch (error) {
-            return fail(webDavErrorMessage(error));
-          }
-        }
-
-        case "sync_google_calendar": {
-          const result = await syncTimetableToGoogle(timetable, {
-            periodProfiles: data.periodProfiles,
-          });
-          return {
-            ok: true,
-            message: `已同步 ${result.succeeded} 条到 Google 日历「${result.calendarName}」，跳过 ${result.skipped} 条，失败 ${result.failed} 条。`,
-          };
         }
 
         case "sync_widget": {
@@ -1642,6 +1589,15 @@ export default function App() {
                     </div>
                     <div className="board-toolbar-right">
                       <button
+                        className="secondary-button board-import-button"
+                        type="button"
+                        onClick={() => setImportScheduleOpen(true)}
+                        title="导入课表（图片 / Word / PDF / Excel / 文本 / ICS）"
+                      >
+                        <FileUp size={15} />
+                        <span>导入课表</span>
+                      </button>
+                      <button
                         className="icon-button"
                         type="button"
                         disabled={!store.canUndo}
@@ -1949,6 +1905,22 @@ export default function App() {
         />
       ) : null}
 
+      {importScheduleOpen ? (
+        <ImportScheduleDialog
+          semester={viewSemester}
+          onClose={() => setImportScheduleOpen(false)}
+          onImport={(seeds) => {
+            const added = actions.addTextCourses(seeds);
+            setImportScheduleOpen(false);
+            notify(`已导入 ${added.courses} 门课程、${added.slots} 个时段。`, "success");
+          }}
+          onOpenAiSettings={() => {
+            setImportScheduleOpen(false);
+            navigate("ai");
+          }}
+        />
+      ) : null}
+
       {shareOpen ? (
         <TimetableShareDialog
           timetable={timetable}
@@ -1960,36 +1932,6 @@ export default function App() {
           periods={viewPeriods}
           showAliases={prefs.showAliases}
           onClose={() => setShareOpen(false)}
-        />
-      ) : null}
-
-      {excelImportOpen ? (
-        <ExcelImportDialog
-          totalWeeks={semester.totalWeeks}
-          onClose={() => setExcelImportOpen(false)}
-          onImport={actions.addTextCourses}
-        />
-      ) : null}
-
-      {thirdPartyImportOpen ? (
-        <ThirdPartyImportDialog
-          onClose={() => setThirdPartyImportOpen(false)}
-          onPreview={actions.previewThirdParty}
-        />
-      ) : null}
-
-      {screenshotImportOpen ? (
-        <ScreenshotImportDialog
-          totalWeeks={viewSemester.totalWeeks}
-          onClose={() => setScreenshotImportOpen(false)}
-          onImport={(seeds) => {
-            actions.addTextCourses(seeds);
-            setScreenshotImportOpen(false);
-          }}
-          onOpenAiSettings={() => {
-            setScreenshotImportOpen(false);
-            navigate("ai");
-          }}
         />
       ) : null}
 
@@ -2041,6 +1983,10 @@ export default function App() {
           onSaveSemester={actions.saveSemester}
           onExportJson={actions.exportJson}
           onExportIcs={actions.exportIcs}
+          onOpenImportSchedule={() => {
+            setSettingsOpen(false);
+            setImportScheduleOpen(true);
+          }}
           onImportFile={actions.importFile}
           onApplyImportDraft={actions.applyImportDraft}
           onDiscardImportDraft={actions.discardImportDraft}
@@ -2055,29 +2001,10 @@ export default function App() {
           onRemoveCalendarOverride={actions.removeCalendarOverride}
           onRenameProfile={actions.renamePeriodProfile}
           onChangeTheme={store.setTheme}
-          onOpenThirdPartyImport={() => {
-            setSettingsOpen(false);
-            setThirdPartyImportOpen(true);
-          }}
-          onOpenScreenshotImport={() => {
-            setSettingsOpen(false);
-            setScreenshotImportOpen(true);
-          }}
-          onOpenExcelImport={() => {
-            setSettingsOpen(false);
-            setExcelImportOpen(true);
-          }}
           onOpenTimetableShare={() => {
             setSettingsOpen(false);
             setShareOpen(true);
           }}
-          onRestoreWebDav={(next) =>
-            actions.previewThirdParty(
-              next,
-              "WebDAV 备份.json",
-              "已读取 WebDAV 备份，请选择替换或合并。",
-            )
-          }
           onImportCourseSeeds={actions.addTextCourses}
         />
       ) : null}

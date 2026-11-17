@@ -318,7 +318,7 @@ export function useScheduleActions({
       data.periodProfiles.find((item) => item.id === input.periodProfileId) ??
       data.periodProfiles[0];
     const date = startOfWeek(
-      parseDateKey(input.startDate || getDefaultStartDate(new Date(), input.weekStartsOn)),
+      parseDateKey(input.startDate || getDefaultStartDate(new Date())),
       input.weekStartsOn,
     );
     const created = createBlankTimetable(
@@ -482,23 +482,6 @@ export function useScheduleActions({
     };
     onPreviewImport(draft);
     return { ok: true, message: "已读取备份，请选择替换或合并。" };
-  };
-
-  const previewThirdParty = (
-    data: ScheduleData,
-    fileName: string,
-    message: string,
-  ): ImportResult => {
-    const next = normalizeSchedule(data);
-    if (!next) return { ok: false, message: "第三方课表无法转换为课序PLUS格式。" };
-    onPreviewImport({
-      id: uid("draft"),
-      fileName,
-      createdAt: new Date().toISOString(),
-      data: next,
-      message,
-    });
-    return { ok: true, message: "已读取第三方课表，请选择替换或合并。" };
   };
 
   const saveDraftForLater = (draft: ImportDraft): ImportResult => {
@@ -783,7 +766,6 @@ export function useScheduleActions({
     exportJson,
     exportIcs,
     importFile,
-    previewThirdParty,
     saveDraftForLater,
     replaceWithImport,
     mergeWithImport,

@@ -449,6 +449,26 @@ export function Woodfish() {
     if (next.soundOn) playKnock();
   };
 
+  // 空格也能敲：跳过输入控件，避免把正文或表单里的空格吃掉；
+  // 长按的自动重复不算敲击，得一下一下按。
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "Space" && event.key !== " ") return;
+      if (event.repeat) return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+      ) {
+        return;
+      }
+      event.preventDefault();
+      strike();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [strike]);
+
   // 首帧把存量数字写进自管节点。
   useEffect(() => {
     const stats = statsRef.current;
@@ -638,7 +658,7 @@ export function Woodfish() {
         </div>
 
         <p className="woodfish__hint" ref={hintRef} aria-hidden="true">
-          轻点木鱼
+          轻点木鱼，或按空格
         </p>
       </div>
 
@@ -653,7 +673,7 @@ export function Woodfish() {
           {soundOn ? "声音开" : "声音关"}
         </button>
         <p className="woodfish__caption">
-          敲击次数只保存在本机，点击速度是最近 1.5 秒的实时手速。
+          按空格键也能敲。敲击次数只保存在本机，点击速度是最近 1.5 秒的实时手速。
         </p>
       </div>
     </div>

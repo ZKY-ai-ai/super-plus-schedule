@@ -21,7 +21,7 @@
 @import "./timetable-share.css";
 @import "./selection.css";
 @import "./command.css";
-@import "./third-party-import.css";
 @import "./legacy.css";
+@import "./import.css";
 @import "./playground.css";
 @import "./woodfish.css";

@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CalendarRange,
-  CloudDownload,
   Database,
   Download,
   FileClock,
-  FileSpreadsheet,
   LayoutTemplate,
   Printer,
-  ScanText,
   Share2,
   Trash2,
   Upload,
@@ -22,10 +19,8 @@ interface DataSettingsTabProps {
   draftRevision: number;
   onExportJson: () => Promise<ExportResult>;
   onExportIcs: () => Promise<ExportResult & { count: number }>;
+  onOpenImportSchedule: () => void;
   onImportFile: (file: File) => Promise<ImportResult>;
-  onOpenThirdPartyImport: () => void;
-  onOpenScreenshotImport: () => void;
-  onOpenExcelImport: () => void;
   onOpenTimetableShare: () => void;
   onApplyDraft: (draft: ImportDraft) => Promise<ImportResult>;
   onDiscardDraft: () => void;
@@ -63,10 +58,8 @@ export function DataSettingsTab({
   draftRevision,
   onExportJson,
   onExportIcs,
+  onOpenImportSchedule,
   onImportFile,
-  onOpenThirdPartyImport,
-  onOpenScreenshotImport,
-  onOpenExcelImport,
   onOpenTimetableShare,
   onApplyDraft,
   onDiscardDraft,
@@ -116,7 +109,7 @@ export function DataSettingsTab({
     }
   };
 
-  const handleImport = async (file: File | undefined) => {
+  const handleRestoreBackup = async (file: File | undefined) => {
     if (!file) return;
     setNotice({ tone: "info", message: "正在读取备份…" });
     const result = await onImportFile(file);
@@ -224,40 +217,22 @@ export function DataSettingsTab({
             <small>ICS · 只导出当前课表的课程和日程</small>
           </span>
         </button>
-        <button className="data-card" type="button" onClick={() => fileRef.current?.click()}>
+        <button className="data-card" type="button" onClick={onOpenImportSchedule}>
           <span className="data-card-icon">
             <Upload size={18} />
           </span>
           <span>
             <strong>导入课表</strong>
-            <small>课序PLUS JSON 备份、ICS 日历、CSV 表格或课程文本</small>
+            <small>图片、Word、PDF、Excel / CSV、文本与 ICS，由 AI 自动转换</small>
           </span>
         </button>
-        <button className="data-card" type="button" onClick={onOpenThirdPartyImport}>
+        <button className="data-card" type="button" onClick={() => fileRef.current?.click()}>
           <span className="data-card-icon">
-            <CloudDownload size={18} />
+            <FileClock size={18} />
           </span>
           <span>
-            <strong>WakeUp / 星链导入</strong>
-            <small>分享口令、.wakeup_schedule 备份或星链课表 JSON</small>
-          </span>
-        </button>
-        <button className="data-card" type="button" onClick={onOpenScreenshotImport}>
-          <span className="data-card-icon">
-            <ScanText size={18} />
-          </span>
-          <span>
-            <strong>截图识课</strong>
-            <small>上传或粘贴课表截图，用已配置的视觉模型解析</small>
-          </span>
-        </button>
-        <button className="data-card" type="button" onClick={onOpenExcelImport}>
-          <span className="data-card-icon">
-            <FileSpreadsheet size={18} />
-          </span>
-          <span>
-            <strong>Excel 映射导入</strong>
-            <small>XLSX · 自选列映射、班次筛选后并入当前课表</small>
+            <strong>恢复课表备份</strong>
+            <small>读取课序PLUS JSON 备份、ICS、CSV 或课程文本，冲突时可选择合并或替换</small>
           </span>
         </button>
         <button className="data-card" type="button" onClick={onOpenTimetableShare}>
@@ -285,11 +260,13 @@ export function DataSettingsTab({
         ref={fileRef}
         id="import-file"
         type="file"
-        accept=".json,.wakeup_schedule,.ics,.csv,.tsv,.txt,.md,.html,.htm,application/json,text/calendar,text/csv,text/plain"
-        aria-label="选择课表文件"
+        accept=".json,.ics,.csv,.tsv,.txt,.md,.html,.htm,application/json,text/calendar,text/csv,text/plain"
+        aria-label="选择课表备份文件"
         hidden
         onChange={(event) => {
-          void handleImport(event.target.files?.[0]);
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          void handleRestoreBackup(file);
         }}
       />
 

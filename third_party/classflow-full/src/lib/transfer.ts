@@ -14,7 +14,6 @@ import { normalizeSchedule } from "./storage";
 import { createBlankSchedule, makeCourse, makeEvent, makeSlot, nextTone } from "./factory";
 import { parseCourseText } from "./textImport";
 import type { ParsedCourseSeed } from "./textImport";
-import { parseThirdPartySchedule } from "./thirdPartyImport";
 import { deliverTextFile, type ExportResult, type FileDelivery } from "./nativeFile";
 
 interface ExportEnvelope {
@@ -613,22 +612,6 @@ export async function readScheduleFile(file: File): Promise<{
   }
   const baseName = file.name.replace(/\.[^.]+$/, "").trim();
 
-  if (
-    lower.endsWith(".wakeup_schedule") ||
-    /"(?:courseList|stepWeekList|startSection|timeSlots|courseName)"\s*:/.test(text)
-  ) {
-    const thirdParty = parseThirdPartySchedule(text);
-    if (thirdParty) {
-      return { data: thirdParty.data, message: thirdParty.message };
-    }
-    if (lower.endsWith(".wakeup_schedule")) {
-      return {
-        data: null,
-        message: "这份 WakeUp 备份里没有找到课程，请确认文件内容完整。",
-      };
-    }
-  }
-
   if (lower.endsWith(".ics") || /BEGIN:VCALENDAR/i.test(text.slice(0, 4000))) {
     const events = parseIcsEvents(text);
     if (events.length === 0) {
@@ -677,11 +660,6 @@ export async function readScheduleFile(file: File): Promise<{
       data: scheduleFromCourses(parsed.courses, baseName),
       message: `已从文本读取 ${parsed.courses.length} 门课程、${slotCount} 个时间段。`,
     };
-  }
-
-  const thirdParty = parseThirdPartySchedule(text);
-  if (thirdParty) {
-    return { data: thirdParty.data, message: thirdParty.message };
   }
 
   let parsed: unknown;

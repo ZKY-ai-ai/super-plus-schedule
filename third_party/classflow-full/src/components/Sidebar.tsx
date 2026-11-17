@@ -9,7 +9,6 @@ import {
   Settings2,
   Sparkles,
   Sun,
-  UserRound,
   Waves,
 } from "lucide-react";
 import type { AppPage, Theme } from "../types";
@@ -147,15 +146,6 @@ export function Sidebar({
         >
           <Sparkles size={17} strokeWidth={1.8} />
           <span>AI 助手</span>
-        </button>
-        <button
-          className={`nav-item ${page === "profile" ? "is-active" : ""}`}
-          type="button"
-          onClick={() => onNavigate("profile")}
-          aria-current={page === "profile" ? "page" : undefined}
-        >
-          <UserRound size={17} strokeWidth={1.8} />
-          <span>我的</span>
         </button>
         <button
           className={`nav-item ${page === "courses" ? "is-active" : ""}`}

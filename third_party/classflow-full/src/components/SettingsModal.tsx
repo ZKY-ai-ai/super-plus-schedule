@@ -3,11 +3,9 @@ import {
   ArrowUpRight,
   Bell,
   CalendarDays,
-  CalendarRange,
   Check,
   ClipboardList,
   Clock,
-  Cloud,
   CloudDownload,
   Pencil,
   Plus,
@@ -38,8 +36,6 @@ import { PeriodGenerator } from "./settings/PeriodGenerator";
 import { GradesSettingsTab } from "./settings/GradesSettingsTab";
 import { RemindersSettingsTab } from "./settings/RemindersSettingsTab";
 import { SystemCalendarPanel } from "./settings/SystemCalendarPanel";
-import { GoogleCalendarPanel } from "./settings/GoogleCalendarPanel";
-import { WebDavSettingsPanel } from "./settings/WebDavSettingsPanel";
 import { AcademicImportPanel } from "./settings/AcademicImportPanel";
 import type { ParsedCourseSeed } from "../lib/textImport";
 import { TasksSettingsTab } from "./settings/TasksSettingsTab";
@@ -63,13 +59,14 @@ import {
   clearMemory,
   loadAiSettings,
   loadMemory,
+  normalizeAiSettings,
   removeMemory,
   saveAiSettings,
   saveMemory,
   type AiMemoryData,
   type AiSettings,
 } from "../lib/ai";
-import { AiSettingsPanel } from "./ai/AiSettingsPanel";
+import { AiSettingsPanel, isValidAiBaseUrl } from "./ai/AiSettingsPanel";
 import { QqqPlayground } from "./playground/QqqPlayground";
 import { Woodfish } from "./woodfish/Woodfish";
 import { WhaleMascot } from "./WhaleMascot";
@@ -89,6 +86,7 @@ interface SettingsModalProps {
   ) => void;
   onExportJson: () => Promise<ExportResult>;
   onExportIcs: () => Promise<ExportResult & { count: number }>;
+  onOpenImportSchedule: () => void;
   onImportFile: (file: File) => Promise<ImportResult>;
   onApplyImportDraft: (draft: ImportDraft) => Promise<ImportResult>;
   onDiscardImportDraft: () => void;
@@ -108,11 +106,7 @@ interface SettingsModalProps {
   onRemoveCalendarOverride: (id: string) => void;
   onRenameProfile: (id: string, name: string) => void;
   onChangeTheme: (theme: Theme) => void;
-  onOpenThirdPartyImport: () => void;
-  onOpenScreenshotImport: () => void;
-  onOpenExcelImport: () => void;
   onOpenTimetableShare: () => void;
-  onRestoreWebDav: (data: ScheduleData) => ImportResult;
   onImportCourseSeeds: (seeds: ParsedCourseSeed[]) => { courses: number; slots: number };
 }
 
@@ -128,9 +122,7 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Database }> = [
   { id: "grades", label: "考试与成绩", icon: GraduationCap },
   { id: "reminders", label: "上课提醒", icon: Bell },
   { id: "calendar", label: "系统日历", icon: CalendarDays },
-  { id: "google-calendar", label: "Google 日历", icon: CalendarRange },
   { id: "academic", label: "教务导入", icon: CloudDownload },
-  { id: "webdav", label: "WebDAV 备份", icon: Cloud },
   { id: "data", label: "数据与备份", icon: Database },
   { id: "ai", label: "笔记与 AI", icon: Sparkles },
   { id: "playground", label: "QQQ 游乐场", icon: Waves },
@@ -178,6 +170,7 @@ export function SettingsModal({
   onSaveSemester,
   onExportJson,
   onExportIcs,
+  onOpenImportSchedule,
   onImportFile,
   onApplyImportDraft,
   onDiscardImportDraft,
@@ -192,11 +185,7 @@ export function SettingsModal({
   onRemoveCalendarOverride,
   onRenameProfile,
   onChangeTheme,
-  onOpenThirdPartyImport,
-  onOpenScreenshotImport,
-  onOpenExcelImport,
   onOpenTimetableShare,
-  onRestoreWebDav,
   onImportCourseSeeds,
 }: SettingsModalProps) {
   const active = data.timetables.find((item) => item.id === data.activeTimetableId) ?? data.timetables[0];
@@ -232,8 +221,14 @@ export function SettingsModal({
   const [overrideKind, setOverrideKind] = useState<"holiday" | "workday">("holiday");
   const [overrideBorrow, setOverrideBorrow] = useState(0);
   const [overrideName, setOverrideName] = useState("");
-  const [aiSettings, setAiSettings] = useState<AiSettings>(() => loadAiSettings());
+  const [aiDraft, setAiDraft] = useState<AiSettings>(() => loadAiSettings());
+  const [aiDirty, setAiDirty] = useState(false);
+  const [semesterDirty, setSemesterDirty] = useState(false);
   const [aiMemory, setAiMemory] = useState<AiMemoryData>(() => loadMemory());
+  const updateDraft = (updater: (current: Semester) => Semester) => {
+    setSemesterDirty(true);
+    setDraft(updater);
+  };
   const rememberForAi = (value: string) => {
     const next = addMemory(aiMemory, value);
     saveMemory(next);
@@ -293,6 +288,7 @@ export function SettingsModal({
 
   const updatePeriodRule = (id: string, patch: Partial<PeriodRule>) => {
     setError("");
+    setSemesterDirty(true);
     setPeriodRules((current) =>
       current.map((rule) => (rule.id === id ? { ...rule, ...patch } : rule)),
     );
@@ -301,6 +297,7 @@ export function SettingsModal({
   const addPeriodRule = () => {
     const profile = currentProfile ?? data.periodProfiles[0];
     if (!profile) return;
+    setSemesterDirty(true);
     setPeriodRules((current) => [
       ...current,
       {
@@ -313,6 +310,7 @@ export function SettingsModal({
   };
 
   const removePeriodRule = (id: string) => {
+    setSemesterDirty(true);
     setPeriodRules((current) => (current.length <= 1 ? current : current.filter((rule) => rule.id !== id)));
     setError("");
   };
@@ -320,7 +318,7 @@ export function SettingsModal({
   const setPeriodCount = (count: number) => {
     setError("");
     const periods = resizePeriods(draft.periods, count).map((period) => ({ ...period }));
-    setDraft((current) => ({ ...current, periods }));
+    updateDraft((current) => ({ ...current, periods }));
     if (profileId) {
       setProfilePeriods((current) => ({ ...current, [profileId]: periods }));
     }
@@ -354,7 +352,7 @@ export function SettingsModal({
     }
     setError("");
     setProfileId(profile.id);
-    setDraft((current) => ({
+    updateDraft((current) => ({
       ...current,
       periods: periods.map((period) => ({ ...period })),
     }));
@@ -366,45 +364,76 @@ export function SettingsModal({
     const periods = draft.periods.map((period) =>
       period.index === index ? { ...period, ...patch } : period,
     );
-    setDraft((current) => ({ ...current, periods }));
+    updateDraft((current) => ({ ...current, periods }));
     if (profileId) {
       setProfilePeriods((current) => ({ ...current, [profileId]: periods }));
     }
   };
 
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    if (tab === "ai" || tab === "playground" || tab === "woodfish") return;
+  const saveAiDraft = (): boolean => {
+    if (!aiDirty) return true;
+    if (aiDraft.provider === "openai-compatible") {
+      if (!isValidAiBaseUrl(aiDraft.baseUrl)) {
+        setError("Base URL 需要是 http(s) 地址，例如 https://api.openai.com/v1。");
+        setTab("ai");
+        return false;
+      }
+      if (!aiDraft.apiKey.trim()) {
+        setError("远程模式需要填写 API Key；也可以先切回本地规则模式。");
+        setTab("ai");
+        return false;
+      }
+    }
+    if (!aiDraft.persona.name.trim()) {
+      setError("给 AI 起一个名字吧。");
+      setTab("ai");
+      return false;
+    }
+    const next = normalizeAiSettings(aiDraft);
+    saveAiSettings(next);
+    setAiDraft(next);
+    setAiDirty(false);
+    return true;
+  };
+
+  const saveSemesterDraft = (): boolean => {
     const name = draft.name.trim();
     if (!name) {
       setError("学期名称不能为空。");
-      return;
+      setTab("term");
+      return false;
     }
     if (weekWarning) {
       setError(weekWarning);
-      return;
+      setTab("term");
+      return false;
     }
     if (periodWarning) {
       setError(periodWarning);
-      return;
+      setTab("periods");
+      return false;
     }
     if (periodRules.length === 0) {
       setError("至少保留一条作息执行日期。");
-      return;
+      setTab("periods");
+      return false;
     }
     const ruleDates = new Set<string>();
     for (const rule of periodRules) {
       if (!/^\d{2}-\d{2}$/.test(rule.from) || !isValidMonthDay(rule.from)) {
         setError("请为每条作息规则选择一个有效的月和日。");
-        return;
+        setTab("periods");
+        return false;
       }
       if (ruleDates.has(rule.from)) {
         setError("同一天只能设置一套作息。");
-        return;
+        setTab("periods");
+        return false;
       }
       if (!data.periodProfiles.some((profile) => profile.id === rule.profileId)) {
         setError("有一条作息规则引用了不存在的作息方案。");
-        return;
+        setTab("periods");
+        return false;
       }
       ruleDates.add(rule.from);
     }
@@ -428,14 +457,16 @@ export function SettingsModal({
         (period) => !period.start || !period.end || timeToMinutes(period.end) <= timeToMinutes(period.start),
       );
       setError(`「${invalidProfile.name}」第 ${invalid?.index ?? 1} 节的时间不正确。`);
-      return;
+      setTab("periods");
+      return false;
     }
 
     for (const profile of profilesForSave) {
       const max = maxPeriodForProfile(profile.id);
       if (max > profile.periods.length) {
         setError(`使用「${profile.name}」的课表上到第 ${max} 节，方案不能少于 ${max} 节。`);
-        return;
+        setTab("periods");
+        return false;
       }
     }
 
@@ -451,6 +482,22 @@ export function SettingsModal({
       profilesForSave,
       sortedPeriodRules,
     );
+    return true;
+  };
+
+  const handleSaveAndClose = () => {
+    setError("");
+    if (!saveAiDraft()) return;
+    if (semesterDirty) {
+      saveSemesterDraft();
+      return;
+    }
+    onClose();
+  };
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    handleSaveAndClose();
   };
 
   return (
@@ -458,37 +505,24 @@ export function SettingsModal({
       className="settings-modal"
       eyebrow="PREFERENCES"
       title="设置"
-      onClose={onClose}
+      onClose={handleSaveAndClose}
       footer={
-        tab === "ai" || tab === "playground" || tab === "woodfish" ? (
-          <>
-            <p className="modal-foot-note">
-              {tab === "playground"
-                ? "这片水面只保存在本机"
-                : tab === "woodfish"
-                  ? "功德只保存在本机"
-                  : "聊天与密钥只保存在本机"}
-            </p>
-            <span className="modal-foot-spacer" />
-            <button className="primary-button" type="button" onClick={onClose}>
-              完成
-            </button>
-          </>
-        ) : (
-          <>
-            <p className="modal-foot-note">所有内容只保存在本机</p>
-            <span className="modal-foot-spacer" />
-            <button className="secondary-button" type="button" onClick={onClose}>
-              {tab === "term" || tab === "periods" ? "取消" : "关闭"}
-            </button>
-            {tab === "term" || tab === "periods" ? (
-              <button className="primary-button" type="submit" form="settings-form">
-                <Check size={16} />
-                保存设置
-              </button>
-            ) : null}
-          </>
-        )
+        <>
+          <p className="modal-foot-note">
+            {tab === "playground"
+              ? "这片水面只保存在本机"
+              : tab === "woodfish"
+                ? "功德只保存在本机"
+                : tab === "ai"
+                  ? "聊天与密钥只保存在本机"
+                  : "所有内容只保存在本机"}
+          </p>
+          <span className="modal-foot-spacer" />
+          <button className="primary-button" type="button" onClick={handleSaveAndClose}>
+            <Check size={16} />
+            {tab === "playground" || tab === "woodfish" ? "完成" : "保存设置"}
+          </button>
+        </>
       }
     >
       <form id="settings-form" className="settings-form" onSubmit={handleSubmit}>
@@ -592,7 +626,7 @@ export function SettingsModal({
                       className="field-input"
                       value={draft.name}
                       onChange={(event) =>
-                        setDraft((current) => ({ ...current, name: event.target.value }))
+                        updateDraft((current) => ({ ...current, name: event.target.value }))
                       }
                       placeholder="例如：2026 秋季学期"
                       maxLength={60}
@@ -611,7 +645,7 @@ export function SettingsModal({
                           parseDateKey(event.target.value || dateKey(new Date())),
                           draft.weekStartsOn ?? 1,
                         );
-                        setDraft((current) => ({
+                        updateDraft((current) => ({
                           ...current,
                           startDate: dateKey(normalized),
                         }));
@@ -632,7 +666,7 @@ export function SettingsModal({
                           7,
                           Math.max(1, Number(event.target.value) || 1),
                         );
-                        setDraft((current) => ({
+                        updateDraft((current) => ({
                           ...current,
                           weekStartsOn,
                           startDate: dateKey(
@@ -658,7 +692,7 @@ export function SettingsModal({
                       max={30}
                       value={draft.totalWeeks}
                       onChange={(event) =>
-                        setDraft((current) => ({
+                        updateDraft((current) => ({
                           ...current,
                           totalWeeks: Math.min(30, Math.max(1, Number(event.target.value) || 1)),
                         }))
@@ -677,7 +711,7 @@ export function SettingsModal({
                     type="checkbox"
                     checked={draft.showWeekends}
                     onChange={(event) =>
-                      setDraft((current) => ({ ...current, showWeekends: event.target.checked }))
+                      updateDraft((current) => ({ ...current, showWeekends: event.target.checked }))
                     }
                   />
                   <span className="switch" aria-hidden="true" />
@@ -991,7 +1025,7 @@ export function SettingsModal({
                 <PeriodGenerator
                   periods={draft.periods}
                   onGenerate={(periods) => {
-                    setDraft((current) => ({ ...current, periods }));
+                    updateDraft((current) => ({ ...current, periods }));
                     if (profileId) {
                       setProfilePeriods((current) => ({ ...current, [profileId]: periods }));
                     }
@@ -1052,19 +1086,11 @@ export function SettingsModal({
               />
             ) : null}
 
-            {tab === "google-calendar" ? (
-              <GoogleCalendarPanel
-                timetable={active}
-                periodProfiles={data.periodProfiles}
-              />
-            ) : null}
-
             {tab === "academic" ? (
-              <AcademicImportPanel onImport={onImportCourseSeeds} />
-            ) : null}
-
-            {tab === "webdav" ? (
-              <WebDavSettingsPanel data={data} onRestore={onRestoreWebDav} />
+              <AcademicImportPanel
+                onImport={onImportCourseSeeds}
+                onOpenImportSchedule={onOpenImportSchedule}
+              />
             ) : null}
 
             {tab === "data" ? (
@@ -1073,10 +1099,8 @@ export function SettingsModal({
                 draftRevision={importDraftRevision}
                 onExportJson={onExportJson}
                 onExportIcs={onExportIcs}
+                onOpenImportSchedule={onOpenImportSchedule}
                 onImportFile={onImportFile}
-                onOpenThirdPartyImport={onOpenThirdPartyImport}
-                onOpenScreenshotImport={onOpenScreenshotImport}
-                onOpenExcelImport={onOpenExcelImport}
                 onOpenTimetableShare={onOpenTimetableShare}
                 onApplyDraft={onApplyImportDraft}
                 onDiscardDraft={onDiscardImportDraft}
@@ -1099,18 +1123,16 @@ export function SettingsModal({
                   </p>
                 </div>
                 <AiSettingsPanel
-                  settings={aiSettings}
+                  settings={aiDraft}
                   memory={aiMemory.entries}
                   onAddMemory={rememberForAi}
                   onRemoveMemory={forgetForAi}
                   onClearMemory={forgetAllForAi}
-                  onSave={(next) => {
-                    saveAiSettings(next);
-                    setAiSettings(next);
+                  onChange={(next) => {
+                    setAiDraft(next);
+                    setAiDirty(true);
                     setError("");
-                    setNotice({ tone: "success", message: "AI 设置已保存在本机。" });
                   }}
-                  onNotify={(message, tone) => setNotice({ tone: tone ?? "success", message })}
                 />
               </section>
             ) : null}

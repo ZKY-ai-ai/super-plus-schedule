@@ -4,6 +4,7 @@ import {
   dayDiff,
   formatWeekRange,
   getDateForSlot,
+  getDefaultStartDate,
   getTermPosition,
   getWeekDates,
   getWeekNumber,
@@ -49,6 +50,12 @@ describe("date helpers", () => {
 
   it("counts calendar days independent of time", () => {
     expect(dayDiff(parseDateKey("2026-11-09"), parseDateKey("2026-11-12"))).toBe(3);
+  });
+
+  it("defaults the first week to August 31 of the current academic year", () => {
+    expect(getDefaultStartDate(parseDateKey("2026-11-17"))).toBe("2026-08-31");
+    expect(getDefaultStartDate(parseDateKey("2027-01-10"))).toBe("2026-08-31");
+    expect(getDefaultStartDate(parseDateKey("2026-03-01"))).toBe("2025-08-31");
   });
 
   it("supports a configurable week start day", () => {

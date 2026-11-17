@@ -3,6 +3,7 @@ import {
   CloudDownload,
   Database,
   Download,
+  FileUp,
   FlaskConical,
   LoaderCircle,
   Pencil,
@@ -41,6 +42,7 @@ import "../../styles/academic-import.css";
 
 interface AcademicImportPanelProps {
   onImport: (seeds: ParsedCourseSeed[]) => { courses: number; slots: number };
+  onOpenImportSchedule?: () => void;
 }
 
 interface EditorState {
@@ -108,7 +110,7 @@ function statusMeta(profile: SchoolProfile): { label: string; tone: string } {
   return { label: "上次测试失败", tone: "error" };
 }
 
-export function AcademicImportPanel({ onImport }: AcademicImportPanelProps) {
+export function AcademicImportPanel({ onImport, onOpenImportSchedule }: AcademicImportPanelProps) {
   const [profiles, setProfiles] = useState<SchoolProfile[]>(() => loadSchoolProfiles());
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
@@ -355,6 +357,20 @@ export function AcademicImportPanel({ onImport }: AcademicImportPanelProps) {
         <p className={`inline-notice inline-notice--${notice.tone}`} role="status">
           {notice.message}
         </p>
+      ) : null}
+
+      {onOpenImportSchedule ? (
+        <button className="data-card" type="button" onClick={onOpenImportSchedule}>
+          <span className="data-card-icon">
+            <FileUp size={18} />
+          </span>
+          <span>
+            <strong>用文件导入课表</strong>
+            <small>
+              没有可用的教务接口也没关系：图片、Word、PDF、Excel / CSV、文本或 ICS 都能导入，复用「周课表」的 AI 识别。
+            </small>
+          </span>
+        </button>
       ) : null}
 
       <div className="academic-platform-note">

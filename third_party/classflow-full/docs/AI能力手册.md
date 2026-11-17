@@ -18,7 +18,7 @@
 3. AI **不能**绕过权限直接读取数据。分项授权默认只开课表；笔记正文、笔记标题标签、任务、考试默认关闭。
 4. 任何写操作都必须由用户在确认卡上点「执行」。删除、清空、覆盖导入属于高风险动作，执行器还会使用应用自身的二次确认。
 5. AI 不应编造课程、任务、考试、笔记的 ID。只能使用上下文中提供的 ID；找不到就让用户先打开对应页面确认。
-6. 外部服务（WebDAV、Google Calendar、原生系统日历、截图识课）是否可用取决于浏览器权限、网络和用户自己的凭据，不能把「代码存在」当成「当前环境已验证」。
+6. 外部服务（如原生系统日历）是否可用取决于浏览器权限、网络和用户自己的凭据，不能把「代码存在」当成「当前环境已验证」。
 
 ---
 
@@ -41,8 +41,8 @@
 - 新建/编辑课程：`CourseEditor`（快捷键 `N`）。
 - 新建/编辑日程：`EventEditor`（快捷键 `E`）。
 - 命令面板：`Ctrl/Cmd + K`，可搜索页面、课程和操作。
-- 设置：`SettingsModal`，包含学期、作息、任务、成绩、提醒、日历、Google 日历、教务导入、WebDAV、数据、AI、QQQ 游乐场、木鱼。
-- 文本导入、Excel 导入、第三方导入、截图识课、课表分享、多课表管理、壁纸、周次选择。
+- 设置：`SettingsModal`，包含学期、作息、任务、成绩、提醒、日历、教务导入、数据、AI、QQQ 游乐场、木鱼。
+- 文本导入、课表分享、多课表管理、壁纸、周次选择。
 
 全局快捷键：`N` 新建课程，`E` 新建日程，`T` 回到今天，`←/→` 切换周，`Ctrl/Cmd+Z` 撤销，`Ctrl/Cmd+Shift+Z` 或 `Ctrl/Cmd+Y` 重做，`Ctrl/Cmd+K` 命令面板。
 
@@ -86,7 +86,6 @@
 | `kexu:reminders:v1`、`kexu:reminders:sent:v1` | 提醒设置与已发送记录 |
 | `kexu:templates:v1` | 课表模板 |
 | `kexu:planner:*` | 选课规划、课程池、空档偏好、学习记录等 |
-| `kexu:webdav:v1` | WebDAV 备份配置 |
 | `kexu:woodfish:v1` | 木鱼计数 |
 | `kexu:study:focus:v1` | 专注计时状态 |
 
@@ -223,31 +222,21 @@
 
 ### 8.2 Excel / 表格导入
 
-设置 → 数据 → Excel 导入。可选择工作表、映射列（课程名、教师、地点、星期、节次、周次等），并按班次筛选。当前使用轻量 XLSX 解析，不执行宏。
+在 AI 助手对话里拖入 xlsx / csv / tsv 附件，本机会解析行列并生成课程草稿；「导入课表」的 CSV/TSV 通道也可直接读取表格。当前使用轻量 XLSX 解析，不执行宏。
 
-### 8.3 第三方导入
-
-支持 WakeUp 课程表备份与星链分享码等格式，导入前先解析为课表草稿，再选择替换或合并。合并规则：同名同教师课程合并时段，不重复建课。
-
-### 8.4 截图识课
-
-设置 → 数据 → 截图识课：上传课表截图，调用已配置的视觉模型提取课程。需要可用的 OpenAI 兼容视觉模型；没有凭据或模型不支持图片时无法完成，不能保证一次识别正确，导入前必须预览。
-
-### 8.5 JSON / ICS / 文件导入导出
+### 8.3 JSON / ICS / 文件导入导出
 
 - 导出 JSON：完整课表数据，可用于备份或迁移。
 - 导出 ICS：日历文件，受当前节假日/调休过滤影响。
 - 导入文件：支持本应用 JSON、ICS、CSV/TSV、TXT/MD/HTML 等文本格式；导入前生成草稿，可替换、合并或稍后继续。
 - 模板：可把当前课表保存为模板，之后应用到新/现有课表。
 
-### 8.6 分享
+### 8.4 分享
 
 课表分享弹窗支持 PNG 图片、纯文字、Markdown、分享链接。图片渲染由 `src/lib/timetableImage.ts` 完成；分享链接读取后走文本导入预览。
 
-### 8.7 同步与备份
+### 8.5 同步与备份
 
-- **WebDAV**：手动备份/恢复与自动策略，配置存本机；属于文件备份，不是实时双向同步。
-- **Google Calendar**：PKCE OAuth，写入专用日历；需要用户自己的 Client ID，未配置时不可用。
 - **系统日历**：原生应用优先写系统日历，Web 端回退到 ICS；真机行为需实际验证。
 - 以上功能都不代表存在云端账号或跨设备实时同步。
 
@@ -263,10 +252,8 @@
 | 成绩 | 考试、成绩、GPA、隐私开关 |
 | 提醒 | 今日/明日摘要时间、任务 DDL 提醒、通知权限 |
 | 日历 | 放假/补课覆盖、自动节假日 |
-| Google 日历 | OAuth 配置与同步 |
 | 教务导入 | 可配置适配器与学校档案；无预置学校、无登录流程 |
-| WebDAV | 备份/恢复/自动备份 |
-| 数据 | JSON/ICS/文件导入导出、模板、文本/Excel/第三方/截图导入、清空数据 |
+| 数据 | JSON/ICS/文件导入导出、模板、文本导入、清空数据 |
 | AI | AI 提供方、密钥、模型、人格、分项授权、长期记忆 |
 | QQQ 游乐场 | 参考页面视觉复刻的小游戏/彩蛋 |
 | 木鱼 | 3D 木雕风格木鱼与计数 |
@@ -337,9 +324,9 @@
 |---|---|---|
 | `navigate` | `{ page: "timetable" \| "agenda" \| "plan" \| "notes" \| "ai" \| "courses" \| "profile", planTab?: "gaps" \| "study" \| "select" }` | 切换页面；`plan` 可指定子页 |
 | `set_week` | `{ week: number }` | 跳到指定教学周并打开周课表 |
-| `open_settings` | `{ tab?: "term" \| "periods" \| "tasks" \| "grades" \| "reminders" \| "calendar" \| "google-calendar" \| "academic" \| "webdav" \| "data" \| "ai" \| "playground" \| "woodfish" }` | 打开设置页 |
+| `open_settings` | `{ tab?: "term" \| "periods" \| "tasks" \| "grades" \| "reminders" \| "calendar" \| "academic" \| "data" \| "ai" \| "playground" \| "woodfish" }` | 打开设置页 |
 | `open_text_import` | `{ text: string }` | 打开文本导入并预填内容，由用户预览确认 |
-| `open_dialog` | `{ dialog: "text-import" \| "excel-import" \| "third-party-import" \| "screenshot-import" \| "share" \| "timetables" \| "wallpaper" \| "week-picker" \| "command-palette" }` | 打开对应弹窗或面板，由用户完成文件选择与授权 |
+| `open_dialog` | `{ dialog: "text-import" \| "share" \| "timetables" \| "wallpaper" \| "week-picker" \| "command-palette" }` | 打开对应弹窗或面板，由用户完成文件选择与授权 |
 | `print` | `{}` | 打印当前课表 |
 | `undo` | `{}` | 撤销上一次数据修改 |
 | `redo` | `{}` | 重做被撤销的修改 |
@@ -474,9 +461,6 @@
 | `apply_template` | `{ id }` | 模板课程追加到当前课表 |
 | `delete_template` | `{ id }` | 删除模板 |
 | `export_data` | `{ format: "json" \| "ics" }` | 导出文件 |
-| `webdav_backup` | `{}` | 用已保存配置备份到 WebDAV |
-| `webdav_restore_latest` | `{}` | 恢复 WebDAV 最新备份，会替换当前全部课表 |
-| `sync_google_calendar` | `{}` | 用已授权账号同步 Google 日历 |
 | `sync_widget` | `{}` | 同步安卓桌面小组件 |
 | `clear_scope` | `{ scope: "notes" \| "tasks" \| "exams" \| "grades" \| "planner" \| "woodfish" }` | 按范围清空；`planner` 含选课池、方案、学习记录和空档偏好 |
 
@@ -532,7 +516,7 @@
 | 「加考试：12 月 20 日高数期末，教一 401」 | 匹配课程后 `create_exam` |
 | 「把这段课表导进去」 | 只生成一个 `add_courses_from_text`，把所有行一次性写进 `text`；不再拆分批次 |
 | 「拖入课表 Excel」 | 本地解析全部行后，合并成一个 `add_courses_from_text` 动作卡，不直接写入 |
-| 「拖入课表 Word / PDF」 | 本地提取正文与表格文字后，合并成一个 `add_courses_from_text` 动作卡；PDF 扫描件提取不到文字时会提示先截图 |
+| 「拖入课表 Word / PDF」 | 本地提取正文与表格文字后，合并成一个 `add_courses_from_text` 动作卡；PDF 扫描件提取不到文字时会提示改用图片附件 |
 | 「看看这张成绩单图片」 | 远程视觉模型读图后，按内容生成 `create_note`、`create_exam` 或 `create_task` |
 | 「清空所有数据」 | 只在用户明确确认影响后 `clear_all`，并提示不可恢复 |
 | 「把成绩录一下」 | 匹配 `courseId` 后 `set_grade`；批量时逐个生成动作（最多 40 个） |
@@ -540,8 +524,6 @@
 | 「下周三的课挪到周四」 | `override_session`，`kind: "move"` 并给出 `toDay/toStart/toEnd` |
 | 「换深色主题」 | `set_preferences` → `{ theme: "dark" }` |
 | 「自动配一套选课方案」 | `auto_combine_plan`；没有选课池时先提示用户添加候选班次 |
-| 「同步到 Google 日历」 | 已授权才调用 `sync_google_calendar`；未授权时用 `open_settings` 打开 `google-calendar` |
-| 「备份到 WebDAV」 | 已配置才调用 `webdav_backup`；否则提示先到设置页填写服务器 |
 
 ---
 
@@ -618,7 +600,7 @@ findManualSection(idOrTitle): ManualSection | null
 | 任务/考试看不到 | 当前课表 ID 与数据所属课表不同 | 确认当前课表；任务/考试按课表隔离 |
 | 提醒不触发 | 页面未打开或未授权通知 | 保持页面打开，允许浏览器通知 |
 | 导入失败 | 文件格式/列映射/编码不匹配 | 先导出 JSON 备份；用文本导入逐行排查 |
-| 数据丢失 | 清空、覆盖导入或浏览器清理存储 | 从 WebDAV/JSON 备份恢复；高风险操作前先备份 |
+| 数据丢失 | 清空、覆盖导入或浏览器清理存储 | 从导出的 JSON 备份恢复；高风险操作前先备份 |
 
 ---
 
@@ -639,7 +621,7 @@ findManualSection(idOrTitle): ManualSection | null
 | 图片 | png / jpg / webp / gif | 压缩到最长边 1600px 后，随消息发送给已配置的 OpenAI 兼容视觉模型；模型必须支持图片输入。第一次请求失败或返回空内容时，会自动改用精简视觉请求重试一次 |
 | 表格 | xlsx / csv / tsv | 本地解析行列，兼容带 `x:row` 命名空间前缀的 xlsx；列名能匹配「课程名 / 星期 / 节次 / 周次」时，同时生成课程草稿和「导入 N 门课」按钮 |
 | Word | docx | 本地解压并读取正文与表格；Word 表格列名匹配时同样生成课程草稿。旧版 .doc 需另存为 .docx |
-| PDF | pdf | 本地用 pdf.js 提取文字并按坐标还原行与列，最多读取前 20 页；扫描件或纯图片 PDF 提取不到文字时会提示先截图 |
+| PDF | pdf | 本地用 pdf.js 提取文字并按坐标还原行与列，最多读取前 20 页；扫描件或纯图片 PDF 提取不到文字时会提示改用图片附件 |
 | 日历 | ics | 解析全部 VEVENT，按「课程/系列」归并后输出完整摘要（星期、时间、地点、教师、周次、次数），不再按原文截断 |
 | 文本 | txt / md / json / html 等 UTF-8 文本 | 本地读取并截断过长内容；能识别出课表行时同样生成课程草稿 |
 | 其他 | xls / doc / ppt / zip 等 | 暂不支持，直接提示转换格式，不会静默失败 |
