@@ -730,7 +730,10 @@ function normalizeChatAttachments(value: unknown): AiChatAttachmentMeta[] {
     const name = text(item.name, 120);
     if (!name) continue;
     const kind: AiAttachmentKind =
-      item.kind === "image" || item.kind === "spreadsheet" || item.kind === "text"
+      item.kind === "image" ||
+      item.kind === "spreadsheet" ||
+      item.kind === "document" ||
+      item.kind === "text"
         ? item.kind
         : "unsupported";
     const size =

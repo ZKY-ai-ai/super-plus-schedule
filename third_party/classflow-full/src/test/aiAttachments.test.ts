@@ -29,6 +29,97 @@ function loadPrefixedFixtureFile(): File {
   });
 }
 
+function buildStoredZip(entries: Record<string, string>): Uint8Array {
+  const encoder = new TextEncoder();
+  const locals: Uint8Array[] = [];
+  const centrals: Uint8Array[] = [];
+  let offset = 0;
+  for (const [name, content] of Object.entries(entries)) {
+    const nameBytes = encoder.encode(name);
+    const data = encoder.encode(content);
+    const local = new Uint8Array(30 + nameBytes.length + data.length);
+    const localView = new DataView(local.buffer);
+    localView.setUint32(0, 0x04034b50, true);
+    localView.setUint16(4, 20, true);
+    localView.setUint16(8, 0, true);
+    localView.setUint32(18, data.length, true);
+    localView.setUint32(22, data.length, true);
+    localView.setUint16(26, nameBytes.length, true);
+    local.set(nameBytes, 30);
+    local.set(data, 30 + nameBytes.length);
+    locals.push(local);
+
+    const central = new Uint8Array(46 + nameBytes.length);
+    const centralView = new DataView(central.buffer);
+    centralView.setUint32(0, 0x02014b50, true);
+    centralView.setUint16(4, 20, true);
+    centralView.setUint16(6, 20, true);
+    centralView.setUint32(20, data.length, true);
+    centralView.setUint32(24, data.length, true);
+    centralView.setUint16(28, nameBytes.length, true);
+    centralView.setUint32(42, offset, true);
+    central.set(nameBytes, 46);
+    centrals.push(central);
+    offset += local.length;
+  }
+
+  const centralSize = centrals.reduce((total, entry) => total + entry.length, 0);
+  const end = new Uint8Array(22);
+  const endView = new DataView(end.buffer);
+  endView.setUint32(0, 0x06054b50, true);
+  endView.setUint16(8, centrals.length, true);
+  endView.setUint16(10, centrals.length, true);
+  endView.setUint32(12, centralSize, true);
+  endView.setUint32(16, offset, true);
+
+  const output = new Uint8Array(offset + centralSize + end.length);
+  let cursor = 0;
+  for (const part of [...locals, ...centrals, end]) {
+    output.set(part, cursor);
+    cursor += part.length;
+  }
+  return output;
+}
+
+function loadDocxFile(): File {
+  const xml = [
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">',
+    "<w:body>",
+    "<w:p><w:r><w:t>2026 秋季课表</w:t></w:r></w:p>",
+    "<w:tbl>",
+    "<w:tr>",
+    "<w:tc><w:p><w:r><w:t>课程名称</w:t></w:r></w:p></w:tc>",
+    "<w:tc><w:p><w:r><w:t>星期</w:t></w:r></w:p></w:tc>",
+    "<w:tc><w:p><w:r><w:t>节次</w:t></w:r></w:p></w:tc>",
+    "<w:tc><w:p><w:r><w:t>周次</w:t></w:r></w:p></w:tc>",
+    "<w:tc><w:p><w:r><w:t>教室</w:t></w:r></w:p></w:tc>",
+    "</w:tr>",
+    "<w:tr>",
+    "<w:tc><w:p><w:r><w:t>高等数学</w:t></w:r></w:p></w:tc>",
+    "<w:tc><w:p><w:r><w:t>周一</w:t></w:r></w:p></w:tc>",
+    "<w:tc><w:p><w:r><w:t>1-2节</w:t></w:r></w:p></w:tc>",
+    "<w:tc><w:p><w:r><w:t>1-16周</w:t></w:r></w:p></w:tc>",
+    "<w:tc><w:p><w:r><w:t>教一401</w:t></w:r></w:p></w:tc>",
+    "</w:tr>",
+    "<w:tr>",
+    "<w:tc><w:p><w:r><w:t>大学英语</w:t></w:r></w:p></w:tc>",
+    "<w:tc><w:p><w:r><w:t>周三</w:t></w:r></w:p></w:tc>",
+    "<w:tc><w:p><w:r><w:t>5-6节</w:t></w:r></w:p></w:tc>",
+    "<w:tc><w:p><w:r><w:t>1-16周</w:t></w:r></w:p></w:tc>",
+    "<w:tc><w:p><w:r><w:t>外语楼302</w:t></w:r></w:p></w:tc>",
+    "</w:tr>",
+    "</w:tbl>",
+    "<w:p><w:r><w:t>备注：以教务系统为准</w:t></w:r></w:p>",
+    "</w:body>",
+    "</w:document>",
+  ].join("");
+  const zip = buildStoredZip({ "word/document.xml": xml });
+  return new File([zip.buffer as ArrayBuffer], "课表.docx", {
+    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  });
+}
+
 function buildIcs(events: Array<{ title: string; date: string; start: string; end: string; location?: string; note?: string }>): string {
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//test//CN"];
   events.forEach((event, index) => {
@@ -55,8 +146,10 @@ describe("attachment classification", () => {
     expect(classifyAttachment("选课.csv", "text/csv")).toBe("spreadsheet");
     expect(classifyAttachment("笔记.md", "text/markdown")).toBe("text");
     expect(classifyAttachment("备份.json")).toBe("text");
-    expect(classifyAttachment("讲义.pdf", "application/pdf")).toBe("unsupported");
+    expect(classifyAttachment("讲义.pdf", "application/pdf")).toBe("document");
+    expect(classifyAttachment("课表.docx")).toBe("document");
     expect(classifyAttachment("旧表.xls")).toBe("unsupported");
+    expect(classifyAttachment("旧讲义.doc")).toBe("unsupported");
   });
 
   it("parses quoted delimited rows", () => {
@@ -157,6 +250,20 @@ describe("attachment extraction", () => {
     ]);
   });
 
+  it("extracts course drafts from a Word table", async () => {
+    const attachment = await extractAiAttachment(loadDocxFile(), { totalWeeks: 20 });
+    expect(attachment.status).toBe("ready");
+    expect(attachment.kind).toBe("document");
+    expect(attachment.courseSeeds?.map((course) => course.name).sort()).toEqual([
+      "大学英语",
+      "高等数学",
+    ].sort());
+    expect(attachment.summary).toContain("Word 文档");
+    expect(attachment.summary).toContain("识别到 2 门课程");
+    expect(attachment.text).toContain("2026 秋季课表");
+    expect(attachment.text).toContain("备注：以教务系统为准");
+  });
+
   it("recognizes timetable lines in plain text", async () => {
     const text = [
       "高等数学 周一 第1-2节 教一401 1-16周",
@@ -173,11 +280,9 @@ describe("attachment extraction", () => {
   });
 
   it("reports unsupported or empty files instead of throwing", async () => {
-    const pdf = await extractAiAttachment(
-      new File([new Uint8Array([1, 2, 3])], "讲义.pdf", { type: "application/pdf" }),
-    );
-    expect(pdf.status).toBe("error");
-    expect(pdf.error).toContain("暂不支持");
+    const doc = await extractAiAttachment(new File([new Uint8Array([1, 2, 3])], "旧讲义.doc"));
+    expect(doc.status).toBe("error");
+    expect(doc.error).toContain("另存为 .docx");
 
     const empty = await extractAiAttachment(new File([], "空.txt", { type: "text/plain" }));
     expect(empty.status).toBe("error");
@@ -199,8 +304,8 @@ describe("attachment prompt", () => {
   };
 
   it("keeps the prompt under budget and includes the user message", () => {
-    const block = buildAttachmentPromptBlock([attachment], "把这些课导入", 600);
-    expect(block.length).toBeLessThanOrEqual(600);
+    const block = buildAttachmentPromptBlock([attachment], "把这些课导入", 900);
+    expect(block.length).toBeLessThanOrEqual(900);
     expect(block).toContain("【本轮附件");
     expect(block).toContain("课表.xlsx");
     expect(block).toContain("【附件使用要求】");

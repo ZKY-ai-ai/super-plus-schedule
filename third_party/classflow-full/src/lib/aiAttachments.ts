@@ -7,6 +7,8 @@ import {
   mappingReady,
 } from "./excelMapping";
 import { readXlsxRows, type XlsxSheet } from "./xlsx";
+import { readDocx } from "./docx";
+import { readPdfText } from "./pdf";
 import { parseIcsEvents } from "./transfer";
 import {
   MAX_SCREENSHOT_BYTES,
@@ -15,7 +17,7 @@ import {
   validateImageFile,
 } from "./screenshotImport";
 
-export type AiAttachmentKind = "text" | "spreadsheet" | "image" | "unsupported";
+export type AiAttachmentKind = "text" | "spreadsheet" | "image" | "document" | "unsupported";
 export type AiAttachmentStatus = "reading" | "ready" | "error";
 
 export interface AiAttachment {
@@ -53,6 +55,8 @@ export const AI_ATTACHMENT_ACCEPT = [
   ".csv",
   ".tsv",
   ".xlsx",
+  ".docx",
+  ".pdf",
   ".ics",
   ".html",
   ".htm",
@@ -77,7 +81,9 @@ const TEXT_EXTENSIONS = new Set([
   "yml",
 ]);
 const SHEET_EXTENSIONS = new Set(["xlsx", "csv", "tsv"]);
-const LEGACY_EXTENSIONS = new Set(["xls", "doc", "docx", "pdf", "ppt", "pptx", "zip", "rar", "7z"]);
+const DOCUMENT_EXTENSIONS = new Set(["docx", "pdf"]);
+const LEGACY_EXTENSIONS = new Set(["xls", "doc", "ppt", "pptx", "zip", "rar", "7z"]);
+const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 const DAY_NAMES = ["", "周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 
@@ -93,6 +99,13 @@ export function classifyAttachment(name: string, mime = ""): AiAttachmentKind {
     return "image";
   }
   if (SHEET_EXTENSIONS.has(extension)) return "spreadsheet";
+  if (
+    DOCUMENT_EXTENSIONS.has(extension) ||
+    type === "application/pdf" ||
+    type === DOCX_MIME
+  ) {
+    return "document";
+  }
   if (TEXT_EXTENSIONS.has(extension) || type.startsWith("text/")) return "text";
   return "unsupported";
 }
@@ -100,6 +113,7 @@ export function classifyAttachment(name: string, mime = ""): AiAttachmentKind {
 export function attachmentKindLabel(kind: AiAttachmentKind): string {
   if (kind === "image") return "图片";
   if (kind === "spreadsheet") return "表格";
+  if (kind === "document") return "文档";
   if (kind === "text") return "文本";
   return "不支持";
 }
@@ -134,11 +148,14 @@ function unsupportedMessage(name: string, mime = ""): string {
   if (extension === "xls") {
     return "旧版 .xls 暂不支持，请另存为 .xlsx 或 .csv 后再拖入。";
   }
+  if (extension === "doc") {
+    return "旧版 .doc 暂不支持，请用 Word 另存为 .docx 后再拖入。";
+  }
   if (LEGACY_EXTENSIONS.has(extension)) {
-    return `.${extension} 暂不支持，请先转换成 .txt、.md、.csv 或 .xlsx。`;
+    return `.${extension} 暂不支持，请先转换成 .docx、.pdf、.txt、.md、.csv 或 .xlsx。`;
   }
   const type = mime ? `（${mime}）` : "";
-  return `暂不支持这种文件${type}。支持图片、xlsx/csv/tsv 表格和 txt/md/json/ics 等文本。`;
+  return `暂不支持这种文件${type}。支持图片、Word/PDF、xlsx/csv/tsv 表格和 txt/md/json/ics 等文本。`;
 }
 
 function guessKindFromContent(name: string, value: string): AiAttachmentKind {
@@ -517,6 +534,51 @@ async function extractSpreadsheet(
   };
 }
 
+async function extractDocument(
+  file: File,
+  totalWeeks: number,
+): Promise<Partial<AiAttachment>> {
+  const buffer = await file.arrayBuffer();
+  const isPdf =
+    attachmentExtension(file.name) === "pdf" || file.type.toLocaleLowerCase() === "application/pdf";
+  const tableSeeds: ParsedCourseSeed[] = [];
+  let rawText = "";
+  let label = "";
+  let pageCount = 0;
+
+  if (isPdf) {
+    const content = await readPdfText(buffer);
+    rawText = content.text;
+    pageCount = content.pages;
+    label = `PDF · ${content.pages} 页`;
+    if (!rawText.trim()) {
+      throw new Error("PDF 里没有可提取的文字，可能是扫描件；可以先截图后再拖入。");
+    }
+    tableSeeds.push(...courseSeedsFromRows(content.rows, totalWeeks));
+  } else {
+    const content = await readDocx(buffer);
+    rawText = content.text;
+    label = "Word 文档";
+    if (!rawText.trim()) {
+      throw new Error("Word 文档里没有可读取的文字，可能全是图片或文本框。");
+    }
+    for (const table of content.tables) {
+      tableSeeds.push(...courseSeedsFromRows(table, totalWeeks));
+    }
+  }
+
+  const textSeeds = parseCourseText(rawText.slice(0, 50_000), totalWeeks).courses;
+  const courseSeeds = uniqueCourseSeeds([...tableSeeds, ...textSeeds]);
+  return {
+    text: clipText(rawText),
+    ...(courseSeeds.length > 0 ? { courseSeeds } : {}),
+    summary:
+      courseSeeds.length > 0
+        ? `${label} · 识别到 ${courseSeeds.length} 门课程`
+        : `${label} · ${pageCount > 0 ? "未识别到课程" : "已读取文字"}`,
+  };
+}
+
 async function extractText(
   file: File,
   totalWeeks: number,
@@ -582,6 +644,10 @@ export async function extractAiAttachment(
       const result = await extractSpreadsheet(file, options.totalWeeks ?? 20);
       return { ...base, ...result };
     }
+    if (base.kind === "document") {
+      const result = await extractDocument(file, options.totalWeeks ?? 20);
+      return { ...base, ...result };
+    }
     if (attachmentExtension(file.name) === "ics") {
       const result = await extractIcs(file);
       return { ...base, ...result };
@@ -614,7 +680,7 @@ export async function extractAiAttachment(
 
 export const AI_ATTACHMENT_SYSTEM_RULES = [
   "用户这一轮带了附件。先判断每个附件是什么、用户想用它做什么，再决定是否生成动作。",
-  "课程表/选课表：优先把逐行课程放进 add_courses_from_text，保留课程名、星期、节次、周次、地点和老师；文字导入页预览更稳妥。",
+  "课程表/选课表（文本、Excel、CSV、ICS、Word、PDF、截图）：优先把逐行课程一次性放进同一个 add_courses_from_text，保留课程名、星期、节次、周次、地点和老师；不要分批。",
   "成绩单、考试安排或作业清单：整理成 create_exam、create_task 或 create_note，不要把整张表的原文塞进动作。",
   "图片：直接读取随消息发送的视觉内容；看不清或与课表无关时先说明，不要编造字段。",
   "不确定用途时，先用一两句话概括附件内容并询问用户，不要擅自清空、覆盖或批量删除数据。",

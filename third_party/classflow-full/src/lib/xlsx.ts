@@ -27,7 +27,10 @@ async function inflateRaw(bytes: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-async function readZipEntries(buffer: ArrayBuffer): Promise<Map<string, Uint8Array>> {
+export async function readZipEntries(
+  buffer: ArrayBuffer,
+  label = "xlsx",
+): Promise<Map<string, Uint8Array>> {
   const bytes = new Uint8Array(buffer);
   let eocd = -1;
   for (let index = bytes.length - 22; index >= Math.max(0, bytes.length - 65_557); index -= 1) {
@@ -36,7 +39,7 @@ async function readZipEntries(buffer: ArrayBuffer): Promise<Map<string, Uint8Arr
       break;
     }
   }
-  if (eocd < 0) throw new Error("不是有效的 xlsx 文件。");
+  if (eocd < 0) throw new Error(`不是有效的 ${label} 文件。`);
   const count = u16(bytes, eocd + 10);
   let cursor = u32(bytes, eocd + 16);
   const entries = new Map<string, Uint8Array>();
@@ -63,7 +66,7 @@ async function readZipEntries(buffer: ArrayBuffer): Promise<Map<string, Uint8Arr
   return entries;
 }
 
-function decodeEntities(value: string): string {
+export function decodeXmlEntities(value: string): string {
   return value
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
@@ -78,7 +81,7 @@ function decodeEntities(value: string): string {
 
 function attr(tag: string, name: string): string {
   const match = tag.match(new RegExp(`${name}="([^"]*)"`));
-  return match ? decodeEntities(match[1]) : "";
+  return match ? decodeXmlEntities(match[1]) : "";
 }
 
 // Excel 生成器有的不写前缀（<row>），有的写命名空间前缀（<x:row>）。
@@ -87,7 +90,7 @@ const TAG = String.raw`(?:[A-Za-z_][\w.-]*:)?`;
 function collectText(xml: string): string {
   let text = "";
   for (const match of xml.matchAll(new RegExp(`<${TAG}t\\b[^>]*>([\\s\\S]*?)<\\/${TAG}t>`, "g"))) {
-    text += decodeEntities(match[1]);
+    text += decodeXmlEntities(match[1]);
   }
   return text;
 }
@@ -112,7 +115,7 @@ function cellValue(attrs: string, inner: string, shared: string[]): string {
   if (type === "inlineStr") return collectText(inner);
   const value = inner.match(new RegExp(`<${TAG}v\\b[^>]*>([\\s\\S]*?)<\\/${TAG}v>`))?.[1];
   if (value === undefined) return "";
-  const decoded = decodeEntities(value);
+  const decoded = decodeXmlEntities(value);
   if (type === "s") return shared[Number(decoded)] ?? "";
   return decoded;
 }

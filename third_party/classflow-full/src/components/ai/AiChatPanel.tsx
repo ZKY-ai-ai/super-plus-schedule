@@ -462,7 +462,7 @@ export function AiChatPanel({
         <div className="ai-drop-overlay" aria-hidden="true">
           <UploadCloud size={28} />
           <strong>松开即可交给小序</strong>
-          <span>图片、Excel / CSV、文本都行，单个不超过 15 MB</span>
+          <span>图片、Word / PDF、Excel / CSV、文本都行，单个不超过 15 MB</span>
         </div>
       ) : null}
       <header className="ai-chat-head">
@@ -505,7 +505,7 @@ export function AiChatPanel({
             <h3>今天想先看哪节课？</h3>
             <p>
               我看到的是第 {snapshot.week} 周的课表。可以问时间、教室、下一节，
-              也可以让我建任务、记笔记或打开某个页面。把课表截图、Excel 或笔记文件拖进来，我会自己判断怎么用。
+              也可以让我建任务、记笔记或打开某个页面。把课表截图、Word、PDF、Excel 或笔记文件拖进来，我会自己判断怎么用。
             </p>
             <div className="ai-suggestions">
               {suggestions.map((item) => (
@@ -701,7 +701,7 @@ export function AiChatPanel({
               void send(input);
             }
           }}
-          placeholder="问点什么，或拖入课表 / Excel / 笔记文件"
+          placeholder="问点什么，或拖入课表 / Word / PDF / Excel 文件"
           aria-label="输入问题"
           disabled={locked}
         />
@@ -738,7 +738,7 @@ export function AiChatPanel({
           ? "本地规则模式，不联网；支持固定指令与查课。"
           : "远程模式下，只会发送你授权范围内的数据和本轮附件。"}
         {" "}
-        可拖入图片、Excel、文本；按 Enter 发送，Shift + Enter 换行。
+        可拖入图片、Word、PDF、Excel、文本；按 Enter 发送，Shift + Enter 换行。
       </p>
 
       {clearOpen ? (
