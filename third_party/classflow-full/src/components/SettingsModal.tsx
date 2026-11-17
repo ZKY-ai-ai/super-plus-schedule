@@ -524,11 +524,11 @@ export function SettingsModal({
               );
             })}
             <div className="settings-tabs-foot">
-              <a href="https://github.com/lcymxm/classflow" target="_blank" rel="noreferrer">
+              <a href="https://github.com/ZKY-ai-ai/super-plus-schedule" target="_blank" rel="noreferrer">
                 <ArrowUpRight size={15} />
                 GitHub
               </a>
-              <span>课序 v1.11.1</span>
+              <span>课序PLUS v1.11.1</span>
             </div>
           </nav>
 

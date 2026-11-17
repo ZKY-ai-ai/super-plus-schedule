@@ -69,7 +69,7 @@ function cleanFilename(value: string): string {
 }
 
 export function timetableImageFilename(input: WeekShareInput): string {
-  return `课序-${cleanFilename(input.title)}-第${input.week}周.png`;
+  return `课序PLUS-${cleanFilename(input.title)}-第${input.week}周.png`;
 }
 
 function roundRect(
@@ -150,7 +150,7 @@ export async function renderTimetableImage(
 
   context.fillStyle = ACCENT;
   context.font = `600 14px ${FONT}`;
-  context.fillText("课序 CLASSFLOW", MARGIN + 28, 64);
+  context.fillText("课序PLUS", MARGIN + 28, 64);
 
   context.fillStyle = INK;
   context.font = `700 42px ${FONT}`;
@@ -320,7 +320,7 @@ export async function renderTimetableImage(
 
   context.fillStyle = MUTED;
   context.font = `400 13px ${FONT}`;
-  context.fillText("课序 ClassFlow · 把一周，排成喜欢的样子", MARGIN, bodyBottom + 42);
+  context.fillText("课序PLUS · 把一周，排成喜欢的样子", MARGIN, bodyBottom + 42);
   context.textAlign = "right";
   context.fillText("LOCAL FIRST", width - MARGIN, bodyBottom + 42);
   context.textAlign = "left";
@@ -345,7 +345,7 @@ function dayHeading(day: number, date: Date | undefined): string {
 
 export function buildWeekText(input: WeekShareInput): string {
   const lines = [
-    `课序 · ${input.term}`,
+    `课序PLUS · ${input.term}`,
     `第 ${input.week} 周 · ${input.dateRange}`,
     "",
   ];
@@ -430,7 +430,7 @@ function weekRuns(slot: CourseSlot): string[] {
 
 /** Converts the whole timetable into lines accepted by the text importer. */
 export function buildCourseShareText(courses: { name: string; teacher: string; location: string; slots: CourseSlot[] }[]): string {
-  const lines = ["# 课序课表分享", "# 打开课序后粘贴到「文本建课」，即可还原课程与全部时间段", ""];
+  const lines = ["# 课序PLUS课表分享", "# 打开课序PLUS后粘贴到「文本建课」，即可还原课程与全部时间段", ""];
   for (const course of courses) {
     const name = course.name.replace(/\s+/g, " ").trim() || "未命名课程";
     for (const slot of course.slots) {

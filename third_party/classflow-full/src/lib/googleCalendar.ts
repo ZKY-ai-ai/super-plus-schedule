@@ -10,7 +10,7 @@ export const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 export const GOOGLE_REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke";
 export const GOOGLE_CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 export const GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
-export const GOOGLE_CALENDAR_NAME = "课序课表";
+export const GOOGLE_CALENDAR_NAME = "课序PLUS课表";
 export const GOOGLE_AUTH_STORAGE_KEY = "kexu:google-calendar:v1";
 export const GOOGLE_CLIENT_ID_STORAGE_KEY = "kexu:google-calendar:client-id:v1";
 export const GOOGLE_PENDING_STORAGE_KEY = "kexu:google-calendar:pending:v1";
@@ -525,7 +525,7 @@ export async function exchangeCodeForToken(
   const token = parseTokenPayload(payload);
   if (!token.refreshToken) {
     throw new GoogleCalendarError(
-      "Google 没有返回 refresh_token。请到 Google 账号的「第三方应用」中移除课序授权后重新连接。",
+      "Google 没有返回 refresh_token。请到 Google 账号的「第三方应用」中移除课序PLUS授权后重新连接。",
       { code: "missing-refresh-token" },
     );
   }
@@ -661,7 +661,7 @@ export async function findOrCreateCalendar(
       body: {
         summary: GOOGLE_CALENDAR_NAME,
         timeZone,
-        description: "由课序创建并同步课表，请勿手动修改。",
+        description: "由课序PLUS创建并同步课表，请勿手动修改。",
       },
     },
     fetchImpl,

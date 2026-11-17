@@ -116,7 +116,7 @@ export function shareToText(share: WeeklyShare, code: string): string {
   const hours = (minutes: number) =>
     minutes >= 60 ? `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分` : `${minutes} 分钟`;
   return [
-    `【课序周报】第 ${share.week} 周${share.term ? ` · ${share.term}` : ""} · ${share.name}`,
+    `【课序PLUS周报】第 ${share.week} 周${share.term ? ` · ${share.term}` : ""} · ${share.name}`,
     `课程 ${share.courseCount} 门 · 课时 ${hours(share.classMinutes)}`,
     `自习 ${hours(share.studyMinutes)} · 完成待办 ${share.tasksDone} 项`,
     `专注分 ${shareScore(share)}`,

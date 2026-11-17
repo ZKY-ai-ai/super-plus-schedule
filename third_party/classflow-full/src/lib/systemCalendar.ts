@@ -509,7 +509,7 @@ export async function syncTimetableToSystemCalendar(
   if (permission === "denied") {
     return {
       status: "denied",
-      message: "日历权限被拒绝，请在系统设置 → 应用 → 课序 → 权限中允许日历读写。",
+      message: "日历权限被拒绝，请在系统设置 → 应用 → 课序PLUS → 权限中允许日历读写。",
     };
   }
   if (permission === "error" || permission === "unsupported") {

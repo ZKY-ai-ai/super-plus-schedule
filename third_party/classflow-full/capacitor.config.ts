@@ -2,7 +2,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
   appId: "io.github.lcymxm.classflow",
-  appName: "课序",
+  appName: "课序PLUS",
   webDir: "dist",
   server: {
     androidScheme: "https",

@@ -66,7 +66,7 @@ export async function deliverTextFile(
       });
       return "saved";
     } catch {
-      throw new Error("无法保存文件，请使用浏览器版课序导出备份。");
+      throw new Error("无法保存文件，请使用浏览器版课序PLUS导出备份。");
     }
   }
 }

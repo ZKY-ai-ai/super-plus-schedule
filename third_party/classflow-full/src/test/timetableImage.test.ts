@@ -70,7 +70,7 @@ function input(extra: Partial<WeekShareInput> = {}): WeekShareInput {
 describe("timetable image helpers", () => {
   it("builds readable plain text for the week", () => {
     const text = buildWeekText(input());
-    expect(text).toContain("课序 · 2026 秋季学期");
+    expect(text).toContain("课序PLUS · 2026 秋季学期");
     expect(text).toContain("第 10 周 · 11月9日 — 15日");
     expect(text).toContain("周一 11/09");
     expect(text).toContain("第 1–2 节  高等数学 · 教一401 · @张老师");
@@ -100,7 +100,7 @@ describe("timetable image helpers", () => {
 
   it("sanitizes the png filename", () => {
     expect(timetableImageFilename(input({ title: "2026/秋:课表?" }))).toBe(
-      "课序-2026 秋 课表-第10周.png",
+      "课序PLUS-2026 秋 课表-第10周.png",
     );
   });
 });

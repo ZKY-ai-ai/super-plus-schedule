@@ -4,7 +4,7 @@
   "version": "1.11.1",
   "type": "module",
   "packageManager": "pnpm@11.28.5",
-  "description": "课序 · 本地优先的大学课表。首页显示周数+日期、紧凑七天网格、年年循环的作息、我的功能页、dsh-pet 鲸鱼娘互动桌宠与鲸海夜航壁纸。",
+  "description": "课序PLUS · 本地优先的大学课表。首页显示周数+日期、紧凑七天网格、年年循环的作息、我的功能页、dsh-pet 鲸鱼娘互动桌宠与鲸海夜航壁纸。",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
@@ -31,10 +31,10 @@
     "vite": "^8.3.8",
     "vitest": "^5.1.0"
   },
-  "homepage": "https://lcymxm.github.io/classflow/",
+  "homepage": "https://github.com/ZKY-ai-ai/super-plus-schedule",
   "repository": {
     "type": "git",
-    "url": "https://github.com/lcymxm/classflow.git"
+    "url": "https://github.com/ZKY-ai-ai/super-plus-schedule.git"
   },
   "license": "MIT",
   "keywords": [

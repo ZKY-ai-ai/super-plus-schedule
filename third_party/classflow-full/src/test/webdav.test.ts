@@ -237,7 +237,7 @@ describe("本机配置", () => {
       url: "",
       username: "",
       password: "",
-      remoteDir: "课序备份",
+      remoteDir: "课序PLUS备份",
       autoBackup: false,
       autoBackupMinutes: 30,
       retainCount: 10,
@@ -246,6 +246,6 @@ describe("本机配置", () => {
       remoteDir: "",
       autoBackup: false,
     });
-    expect(loadWebDavConfig(null)).toMatchObject({ url: "", remoteDir: "课序备份" });
+    expect(loadWebDavConfig(null)).toMatchObject({ url: "", remoteDir: "课序PLUS备份" });
   });
 });

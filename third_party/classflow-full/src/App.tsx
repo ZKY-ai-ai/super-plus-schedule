@@ -716,8 +716,8 @@ export default function App() {
           )}
 
           <footer className="site-footer">
-            <span>课序 · 把一周，排成喜欢的样子。</span>
-            <a href="https://github.com/lcymxm/classflow" target="_blank" rel="noreferrer">
+            <span>课序PLUS · 把一周，排成喜欢的样子。</span>
+            <a href="https://github.com/ZKY-ai-ai/super-plus-schedule" target="_blank" rel="noreferrer">
               <ArrowUpRight size={14} />
               GitHub
             </a>

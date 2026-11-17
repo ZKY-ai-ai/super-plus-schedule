@@ -490,7 +490,7 @@ export function useScheduleActions({
     message: string,
   ): ImportResult => {
     const next = normalizeSchedule(data);
-    if (!next) return { ok: false, message: "第三方课表无法转换为课序格式。" };
+    if (!next) return { ok: false, message: "第三方课表无法转换为课序PLUS格式。" };
     onPreviewImport({
       id: uid("draft"),
       fileName,

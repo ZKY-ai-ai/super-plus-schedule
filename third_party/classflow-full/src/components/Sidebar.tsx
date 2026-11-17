@@ -68,7 +68,7 @@ export function Sidebar({
       <div className="brand">
         <LogoMark />
         <div className="brand-copy">
-          <span className="brand-name">课序</span>
+          <span className="brand-name">课序PLUS</span>
           <span className="brand-en">CLASSFLOW</span>
         </div>
       </div>

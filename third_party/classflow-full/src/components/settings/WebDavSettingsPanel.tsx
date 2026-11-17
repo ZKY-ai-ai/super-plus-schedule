@@ -368,7 +368,7 @@ export function WebDavSettingsPanel({
         <h3>WebDAV 自动备份</h3>
         <p>
           把课表备份到自己的网盘，例如 Nextcloud、坚果云、群晖。备份由这台设备直接上传，
-          不经过课序的中转服务器。
+          不经过课序PLUS的中转服务器。
         </p>
       </div>
 
@@ -445,7 +445,7 @@ export function WebDavSettingsPanel({
           <input
             id="webdav-dir"
             value={config.remoteDir}
-            placeholder="课序备份"
+            placeholder="课序PLUS备份"
             spellCheck={false}
             onChange={(event) => patchConfig({ remoteDir: event.target.value })}
           />

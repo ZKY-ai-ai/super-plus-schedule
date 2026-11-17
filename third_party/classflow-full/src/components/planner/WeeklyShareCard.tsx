@@ -113,7 +113,7 @@ export function WeeklyShareCard({
     event.preventDefault();
     const peer = decodeShare(importText);
     if (!peer) {
-      setNotice("口令无法识别，确认粘贴的是完整的课序周报口令。");
+      setNotice("口令无法识别，确认粘贴的是完整的课序PLUS周报口令。");
       return;
     }
     const key = `${peer.name}|${peer.week}|${peer.createdAt}`;

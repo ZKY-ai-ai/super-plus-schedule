@@ -34,7 +34,7 @@ export function exportEnvelope(data: ScheduleData): ExportEnvelope {
 }
 
 export function sanitizeFilename(value: string): string {
-  return value.replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim() || "课序";
+  return value.replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim() || "课序PLUS";
 }
 
 function activeTimetable(data: ScheduleData): Timetable {
@@ -46,7 +46,7 @@ function activeTimetable(data: ScheduleData): Timetable {
 
 export async function downloadScheduleJson(data: ScheduleData): Promise<ExportResult> {
   const active = activeTimetable(data);
-  const filename = `课序-${sanitizeFilename(active.semester.name)}-${dateKey(new Date())}.json`;
+  const filename = `课序PLUS-${sanitizeFilename(active.semester.name)}-${dateKey(new Date())}.json`;
   const delivery = await deliverTextFile(
     filename,
     JSON.stringify(exportEnvelope(data), null, 2),
@@ -110,7 +110,7 @@ export function buildIcs(
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//ClassFlow//Kexu 2.0//CN",
+    "PRODID:-//ClassFlow PLUS//Kexu 2.0//CN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     `X-WR-CALNAME:${icsEscape(`${active.name}·${semester.name}`)}`,
@@ -229,7 +229,7 @@ export async function downloadScheduleIcs(
 ): Promise<ExportResult & { count: number }> {
   const active = activeTimetable(data);
   const { content, count } = buildIcs(data, autoHolidays);
-  const filename = `课序-${sanitizeFilename(active.semester.name)}.ics`;
+  const filename = `课序PLUS-${sanitizeFilename(active.semester.name)}.ics`;
   const delivery: FileDelivery = await deliverTextFile(
     filename,
     content,

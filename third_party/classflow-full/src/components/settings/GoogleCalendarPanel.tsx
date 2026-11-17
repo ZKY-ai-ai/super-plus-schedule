@@ -182,7 +182,7 @@ export function GoogleCalendarPanel({ timetable, periodProfiles }: GoogleCalenda
         <p className="eyebrow">GOOGLE CALENDAR</p>
         <h3>Google 日历同步</h3>
         <p>
-          使用你自己的 Google OAuth Client ID 授权，课序只把当前课表写入专用日历「
+          使用你自己的 Google OAuth Client ID 授权，课序PLUS只把当前课表写入专用日历「
           {GOOGLE_CALENDAR_NAME}」。令牌与日历 ID 只保存在本机。
         </p>
       </div>

@@ -87,10 +87,10 @@ export function ProfilePage({
     <div className="profile-page">
       <section className="profile-hero">
         <div>
-          <p className="eyebrow">MY CLASSFLOW</p>
-          <h1>我的课序</h1>
+          <p className="eyebrow">MY CLASSFLOW PLUS</p>
+          <h1>我的课序PLUS</h1>
           <p className="profile-hero-sub">没有账号，没有云端；你的课表、日程和壁纸都只在这台设备上。</p>
-          <p className="profile-version">课序 v1.11.1 · {storageOk ? "本机保存正常" : "保存失败，请检查浏览器空间"}</p>
+          <p className="profile-version">课序PLUS v1.11.1 · {storageOk ? "本机保存正常" : "保存失败，请检查浏览器空间"}</p>
         </div>
         {prefs.theme === "whale" ? <WhaleMascot size={124} /> : null}
       </section>
@@ -227,7 +227,7 @@ export function ProfilePage({
                 <span>打印课表</span>
               </button>
             ) : null}
-            <a href="https://github.com/lcymxm/classflow" target="_blank" rel="noreferrer">
+            <a href="https://github.com/ZKY-ai-ai/super-plus-schedule" target="_blank" rel="noreferrer">
               <BookOpen size={17} />
               <span>GitHub</span>
               <ArrowUpRight size={11} />
@@ -248,7 +248,7 @@ export function ProfilePage({
             <span className="profile-about-divider">·</span>
             离线可用
           </div>
-          <p className="profile-widget-note">Android 桌面小组件：长按桌面 → 小组件 → 课序 · 今日课程。</p>
+          <p className="profile-widget-note">Android 桌面小组件：长按桌面 → 小组件 → 课序PLUS · 今日课程。</p>
         </section>
       </div>
     </div>

@@ -2,10 +2,10 @@ import type { ScheduleData } from "../types";
 import { normalizeSchedule } from "./storage";
 
 export const WEBDAV_CONFIG_KEY = "kexu:webdav:v1";
-export const WEBDAV_DEFAULT_DIR = "课序备份";
+export const WEBDAV_DEFAULT_DIR = "课序PLUS备份";
 export const WEBDAV_TIMEOUT_MS = 20000;
 export const WEBDAV_CREDENTIAL_NOTICE =
-  "WebDAV 账号与密码只保存在这台设备的本地存储里，仅用于直接连接你填写的网盘；课序没有服务器，也不会上传凭据。公用设备请谨慎保存。";
+  "WebDAV 账号与密码只保存在这台设备的本地存储里，仅用于直接连接你填写的网盘；课序PLUS没有服务器，也不会上传凭据。公用设备请谨慎保存。";
 
 const BACKUP_NAME_RE = /^kexu-backup-\d{8}-\d{6}(?:-\d{3})?\.json$/;
 const PROPFIND_BODY =
@@ -306,7 +306,7 @@ export function parseBackupDate(name: string): Date | null {
 
 export function assertBackupFileName(name: string): void {
   if (!isBackupFileName(name)) {
-    throw configError("这不是课序生成的 WebDAV 备份文件名，已停止操作。");
+    throw configError("这不是课序PLUS生成的 WebDAV 备份文件名，已停止操作。");
   }
 }
 
@@ -585,7 +585,7 @@ export function parseBackupText(text: string): ScheduleData {
   }
   const schedule = normalizeSchedule(parsed);
   if (!schedule) {
-    throw new WebDavError("parse", "远程备份不是课序能识别的课表格式，未做任何修改。");
+    throw new WebDavError("parse", "远程备份不是课序PLUS能识别的课表格式，未做任何修改。");
   }
   return schedule;
 }

@@ -230,7 +230,7 @@ export function DataSettingsTab({
           </span>
           <span>
             <strong>导入课表</strong>
-            <small>课序 JSON 备份、ICS 日历、CSV 表格或课程文本</small>
+            <small>课序PLUS JSON 备份、ICS 日历、CSV 表格或课程文本</small>
           </span>
         </button>
         <button className="data-card" type="button" onClick={onOpenThirdPartyImport}>
