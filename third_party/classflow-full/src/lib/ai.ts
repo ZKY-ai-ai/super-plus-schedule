@@ -18,6 +18,14 @@ import {
 } from "./date";
 import { buildSessions } from "./schedule";
 import { searchNotes, MAX_NOTES, type Note } from "./notes";
+import { AI_ACTION_GUIDE, parseLocalCommand } from "./aiActions";
+import { buildAiManualPrompt, findManualSection } from "./aiManual";
+import {
+  AI_ATTACHMENT_SYSTEM_RULES,
+  type AiAttachmentKind,
+} from "./aiAttachments";
+import type { Task } from "./tasks";
+import type { Exam } from "./exams";
 
 /* ------------------------------ 课表快照 ------------------------------ */
 
@@ -574,11 +582,18 @@ export interface AiSettings {
   permissions: AiPermissions;
 }
 
+export interface AiChatAttachmentMeta {
+  name: string;
+  kind: AiAttachmentKind;
+  size: number;
+}
+
 export interface AiChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   createdAt: string;
+  attachments?: AiChatAttachmentMeta[];
 }
 
 export interface AiChatData {
@@ -707,16 +722,39 @@ export function saveAiSettings(settings: AiSettings, storage: StorageLike | null
   }
 }
 
+function normalizeChatAttachments(value: unknown): AiChatAttachmentMeta[] {
+  if (!Array.isArray(value)) return [];
+  const attachments: AiChatAttachmentMeta[] = [];
+  for (const item of value.slice(0, 8)) {
+    if (!isRecord(item)) continue;
+    const name = text(item.name, 120);
+    if (!name) continue;
+    const kind: AiAttachmentKind =
+      item.kind === "image" || item.kind === "spreadsheet" || item.kind === "text"
+        ? item.kind
+        : "unsupported";
+    const size =
+      typeof item.size === "number" && Number.isFinite(item.size)
+        ? Math.max(0, Math.round(item.size))
+        : 0;
+    attachments.push({ name, kind, size });
+  }
+  return attachments;
+}
+
 export function createChatMessage(
   role: AiChatMessage["role"],
   content: string,
   now = new Date(),
+  attachments?: AiChatAttachmentMeta[],
 ): AiChatMessage {
+  const normalized = attachments ? normalizeChatAttachments(attachments) : [];
   return {
     id: `msg-${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     role,
     content: content.trim().slice(0, 8000),
     createdAt: now.toISOString(),
+    ...(normalized.length > 0 ? { attachments: normalized } : {}),
   };
 }
 
@@ -733,11 +771,13 @@ export function normalizeChat(raw: unknown, now = new Date()): AiChatData {
       const id = text(item.id, 80) || `msg-${messages.length}`;
       if (ids.has(id)) continue;
       ids.add(id);
+      const attachments = normalizeChatAttachments(item.attachments);
       messages.push({
         id,
         role,
         content,
         createdAt: text(item.createdAt, 40, now.toISOString()),
+        ...(attachments.length > 0 ? { attachments } : {}),
       });
     }
   }
@@ -946,8 +986,8 @@ function memoryBlock(entries: AiMemoryEntry[]): string {
 export interface AiContextSources {
   snapshot?: AiScheduleSnapshot;
   notes?: Note[];
-  tasks?: unknown[];
-  exams?: unknown[];
+  tasks?: Task[];
+  exams?: Exam[];
 }
 
 export interface PermissionDescriptor {
@@ -1003,6 +1043,11 @@ export function buildAiContext(
       `学期：${snapshot.semesterName}（第 ${snapshot.week}/${snapshot.totalWeeks} 周）`,
       `课程：${snapshot.courses.length} 门`,
     ];
+    for (const course of snapshot.courses.slice(0, 20)) {
+      lines.push(
+        `- id=${course.id} ${course.name}${course.teacher ? ` · ${course.teacher}` : ""}${course.location ? ` · ${course.location}` : ""}`,
+      );
+    }
     const busyDays = snapshot.days.filter((day) => day.sessions.length > 0);
     for (const day of busyDays.slice(0, 14)) {
       lines.push(
@@ -1026,18 +1071,28 @@ export function buildAiContext(
     const notes = sources.notes.slice(0, 20).map((note) => {
       const meta = note.tags.length > 0 ? ` [${note.tags.map((tag) => `#${tag}`).join(" ")}]` : "";
       if (permissions.notes) {
-        return `- ${note.title}${meta}：${note.body.replace(/\s+/g, " ").slice(0, 500)}`;
+        return `- id=${note.id} ${note.title}${meta}：${note.body.replace(/\s+/g, " ").slice(0, 500)}`;
       }
-      return `- ${note.title}${meta}`;
+      return `- id=${note.id} ${note.title}${meta}`;
     });
     sections.push(`【笔记】\n${notes.join("\n")}`);
   }
 
   if (permissions.tasks && sources.tasks?.length) {
-    sections.push(`【任务】\n共 ${sources.tasks.length} 条（乙的任务模块接入后提供详情）`);
+    const tasks = sources.tasks.slice(0, 30).map((task) => {
+      const due = task.dueDate
+        ? `截止 ${task.dueDate}${task.dueTime ? ` ${task.dueTime}` : ""}`
+        : "无截止日期";
+      return `- id=${task.id} ${task.done ? "[已完成] " : ""}${task.title}（${due}${task.courseId ? `，课程 ${task.courseId}` : ""}）`;
+    });
+    sections.push(`【任务】\n${tasks.join("\n")}`);
   }
   if (permissions.exams && sources.exams?.length) {
-    sections.push(`【考试】\n共 ${sources.exams.length} 条（乙的考试模块接入后提供详情）`);
+    const exams = sources.exams.slice(0, 20).map((exam) => {
+      const time = exam.startTime ? ` ${exam.startTime}${exam.endTime ? `-${exam.endTime}` : ""}` : "";
+      return `- id=${exam.id} ${exam.title}（${exam.date}${time}${exam.location ? `，${exam.location}` : ""}）`;
+    });
+    sections.push(`【考试】\n${exams.join("\n")}`);
   }
 
   return sections.length > 0 ? sections.join("\n\n") : "（当前没有授权任何上下文）";
@@ -1052,13 +1107,20 @@ export interface AiCompletionRequest {
   system?: string;
   snapshot?: AiScheduleSnapshot;
   notes?: Note[];
+  tasks?: Task[];
+  exams?: Exam[];
   memory?: AiMemoryEntry[];
+  /** 本轮图片附件的 data URL，仅远程视觉模型使用。 */
+  images?: string[];
+  /** 本轮是否带附件，用于注入附件处理规则。 */
+  hasAttachments?: boolean;
 }
 
 export interface AiCompletionResult {
   content: string;
   provider: string;
   error?: string;
+  truncated?: boolean;
 }
 
 function toneInstruction(tone: AiTone): string {
@@ -1071,15 +1133,17 @@ export function buildSystemPrompt(
   settings: AiSettings,
   sources: AiContextSources,
   memory: AiMemoryEntry[] = [],
+  question = "",
 ): string {
   return [
     `你是「${settings.persona.name}」，一个住在课表里的 AI 助手。`,
     toneInstruction(settings.persona.tone),
-    "只依据下面授权上下文中的事实回答；没有数据就直说没有，不要编造课程、时间或老师。",
+    "只依据下面授权上下文中的事实回答；没有数据就直说没有，不要编造课程、时间、老师或 ID。",
     settings.persona.customPrompt ? `用户的人格补充：${settings.persona.customPrompt}` : "",
     memory.length > 0 ? memoryBlock(memory) : "",
     "以下是用户本次授权的上下文：",
     buildAiContext(sources, settings.permissions),
+    buildAiManualPrompt(question),
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -1126,6 +1190,51 @@ function localFallback(settings: AiSettings): string {
   return `${intro}\n试试：「今天有什么课」「明天几点有课」「下一节是什么」「高数在哪上」「第 8 周有几节课」。`;
 }
 
+interface RemoteMessage {
+  content: string;
+  finishReason: string;
+  refusal: string;
+}
+
+function readRemoteMessage(payload: unknown): RemoteMessage {
+  if (!isRecord(payload) || !Array.isArray(payload.choices) || payload.choices.length === 0) {
+    return { content: "", finishReason: "", refusal: "" };
+  }
+  const choice = payload.choices[0];
+  if (!isRecord(choice)) return { content: "", finishReason: "", refusal: "" };
+  const finishReason = typeof choice.finish_reason === "string" ? choice.finish_reason : "";
+  const message = isRecord(choice.message) ? choice.message : {};
+  const refusal = typeof message.refusal === "string" ? message.refusal.trim() : "";
+  let content = "";
+  if (typeof message.content === "string") {
+    content = message.content.trim();
+  } else if (Array.isArray(message.content)) {
+    content = message.content
+      .map((part) => (isRecord(part) && typeof part.text === "string" ? part.text : ""))
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+  }
+  if (!content && typeof choice.text === "string") content = choice.text.trim();
+  return { content, finishReason, refusal };
+}
+
+function providerErrorText(payload: unknown): string {
+  if (!isRecord(payload)) return "";
+  if (isRecord(payload.error)) {
+    const message = typeof payload.error.message === "string" ? payload.error.message : "";
+    const code =
+      typeof payload.error.code === "string" || typeof payload.error.code === "number"
+        ? String(payload.error.code)
+        : "";
+    if (message) return code ? `${message}（${code}）` : message;
+  }
+  if (typeof payload.message === "string" && payload.choices === undefined) {
+    return payload.message.trim();
+  }
+  return "";
+}
+
 async function completeRemote(
   request: AiCompletionRequest,
   settings: AiSettings,
@@ -1138,23 +1247,127 @@ async function completeRemote(
       error: "missing-api-key",
     };
   }
+  const question = [...request.messages]
+    .reverse()
+    .find((message) => message.role === "user")
+    ?.content.trim() ?? "";
   const system = buildSystemPrompt(
     settings,
     {
       snapshot: request.snapshot,
       notes: request.notes,
+      tasks: request.tasks,
+      exams: request.exams,
     },
     request.memory,
+    question,
   );
+  const images = (request.images ?? [])
+    .filter((url) => typeof url === "string" && url.startsWith("data:image/"))
+    .slice(0, 4);
+  const withAttachments = Boolean(request.hasAttachments || images.length > 0);
+  const attachmentRules = withAttachments
+    ? `\n\n【附件处理】\n${AI_ATTACHMENT_SYSTEM_RULES}`
+    : "";
+  const history = request.messages
+    .filter((message) => message.role === "user" || message.role === "assistant")
+    .slice(-20);
+  let lastUserIndex = -1;
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    if (history[index].role === "user") {
+      lastUserIndex = index;
+      break;
+    }
+  }
   const messages = [
-    { role: "system", content: request.system ? `${request.system}\n\n${system}` : system },
-    ...request.messages
-      .filter((message) => message.role === "user" || message.role === "assistant")
-      .slice(-20)
-      .map((message) => ({ role: message.role, content: message.content })),
+    {
+      role: "system",
+      content: request.system
+        ? `${request.system}\n\n${system}${attachmentRules}`
+        : `${system}${attachmentRules}`,
+    },
+    ...history.map((message, index) => {
+      if (images.length > 0 && index === lastUserIndex) {
+        return {
+          role: message.role,
+          content: [
+            { type: "text", text: message.content },
+            ...images.map((url) => ({
+              type: "image_url",
+              image_url: { url, detail: "auto" },
+            })),
+          ],
+        };
+      }
+      return { role: message.role, content: message.content };
+    }),
   ];
+  const tryLeanVision = async (): Promise<AiCompletionResult | null> => {
+    const lastUser = [...request.messages].reverse().find((message) => message.role === "user");
+    if (!lastUser) return null;
+    const visionSystem = [
+      `你是「${settings.persona.name}」，负责读取图片并完成用户请求。`,
+      "只依据图片与用户消息回答；看不清就直说，不要编造课程、日期或 ID。",
+      AI_ATTACHMENT_SYSTEM_RULES,
+      "需要修改应用数据时，按下面的动作协议在回复末尾输出 kexu-action 代码块，等待用户确认。",
+      AI_ACTION_GUIDE,
+    ].join("\n\n");
+    const controller = typeof AbortController === "undefined" ? null : new AbortController();
+    const timer = setTimeout(() => controller?.abort(), 90_000);
+    try {
+      const response = await fetchImpl(
+        `${settings.baseUrl.replace(/\/$/, "")}/chat/completions`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${settings.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: settings.model,
+            messages: [
+              { role: "system", content: visionSystem },
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: lastUser.content || "请读取图片内容。" },
+                  ...images.map((url) => ({
+                    type: "image_url",
+                    image_url: { url, detail: "auto" },
+                  })),
+                ],
+              },
+            ],
+            temperature: 0.2,
+            max_tokens: 4000,
+          }),
+          ...(controller ? { signal: controller.signal } : {}),
+        },
+      );
+      const raw = await response.text();
+      if (!response.ok) return null;
+      let parsed: unknown = null;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        return null;
+      }
+      if (providerErrorText(parsed)) return null;
+      const message = readRemoteMessage(parsed);
+      if (!message.content) return null;
+      return {
+        content: message.content,
+        provider: "openai-compatible",
+        ...(message.finishReason === "length" ? { truncated: true } : {}),
+      };
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
   const controller = typeof AbortController === "undefined" ? null : new AbortController();
-  const timer = setTimeout(() => controller?.abort(), 30_000);
+  const timer = setTimeout(() => controller?.abort(), 90_000);
   try {
     const response = await fetchImpl(
       `${settings.baseUrl.replace(/\/$/, "")}/chat/completions`,
@@ -1167,16 +1380,30 @@ async function completeRemote(
         body: JSON.stringify({
           model: settings.model,
           messages,
-          temperature: 0.6,
-          max_tokens: 600,
+          temperature: 0.4,
+          max_tokens: withAttachments ? 6000 : 8000,
         }),
         ...(controller ? { signal: controller.signal } : {}),
       },
     );
     const raw = await response.text();
     if (!response.ok) {
+      let detail = "";
+      try {
+        detail = providerErrorText(JSON.parse(raw));
+      } catch {
+        detail = raw.trim().slice(0, 200);
+      }
+      if (images.length > 0 && (response.status === 400 || response.status === 422)) {
+        const fallback = await tryLeanVision();
+        if (fallback) return fallback;
+      }
+      const suffix = detail ? `：${detail}` : "";
       return {
-        content: `AI 服务返回 ${response.status}。请检查 Base URL、模型名和 API Key。`,
+        content:
+          response.status === 400 && images.length > 0
+            ? `AI 服务返回 400${suffix}。如果附件是图片，请确认模型支持图片输入（例如 gpt-4o-mini、gpt-4.1-mini、qwen-vl 等），并检查 Base URL 与模型名。`
+            : `AI 服务返回 ${response.status}${suffix}。请检查 Base URL、模型名和 API Key。`,
         provider: "openai-compatible",
         error: `http-${response.status}`,
       };
@@ -1191,22 +1418,38 @@ async function completeRemote(
         error: "bad-json",
       };
     }
-    const content =
-      isRecord(parsed) &&
-      Array.isArray(parsed.choices) &&
-      isRecord(parsed.choices[0]) &&
-      isRecord(parsed.choices[0].message) &&
-      typeof parsed.choices[0].message.content === "string"
-        ? parsed.choices[0].message.content
-        : "";
-    if (!content) {
+    const providerError = providerErrorText(parsed);
+    if (providerError) {
       return {
-        content: "AI 服务没有返回内容，请稍后再试。",
+        content: `AI 服务返回错误：${providerError}`,
+        provider: "openai-compatible",
+        error: "provider-error",
+      };
+    }
+    const message = readRemoteMessage(parsed);
+    if (!message.content) {
+      if (images.length > 0) {
+        const fallback = await tryLeanVision();
+        if (fallback) return fallback;
+      }
+      const reason = message.refusal
+        ? `模型拒绝处理这次请求：${message.refusal}`
+        : message.finishReason === "length"
+          ? "模型输出被截断（finish_reason=length），没有留下正文。推理模型可能把输出额度用在了思考上，请换用普通视觉模型，或调高服务端输出上限。"
+          : images.length > 0
+            ? `模型没有返回文字内容${message.finishReason ? `（finish_reason=${message.finishReason}）` : ""}。请确认当前模型「${settings.model}」支持图片输入（如 gpt-4o-mini、qwen-vl-max、glm-4v 等），并检查图片是否过大或格式不被接受。`
+            : `AI 服务返回了空结果${message.finishReason ? `（finish_reason=${message.finishReason}）` : ""}，请稍后再试或换一个模型。`;
+      return {
+        content: reason,
         provider: "openai-compatible",
         error: "empty-content",
       };
     }
-    return { content, provider: "openai-compatible" };
+    return {
+      content: message.content,
+      provider: "openai-compatible",
+      ...(message.finishReason === "length" ? { truncated: true } : {}),
+    };
   } catch {
     return {
       content: "网络请求失败，请检查 Base URL、网络连接，或稍后再试。",
@@ -1240,12 +1483,56 @@ export async function complete(
       provider: "local",
     };
   }
+  if (request.images?.length) {
+    return {
+      content:
+        "本地规则模式不能读图。请到「人与授权」把提供方切换成 OpenAI 兼容，并填写支持图片输入的模型（例如 gpt-4o-mini、qwen-vl），再把图片发给我。",
+      provider: "local",
+      error: "vision-requires-remote",
+    };
+  }
+  if (request.hasAttachments) {
+    return {
+      content:
+        "附件已经在本地读取，但本地规则模式只会处理固定指令和课程表文本。切换到「OpenAI 兼容」后，我就能按文件内容自由整理任务、笔记或考试。",
+      provider: "local",
+      error: "attachments-require-remote",
+    };
+  }
   if (/记得什么|有哪些记忆|我的记忆|你记得/.test(question)) {
     const memory = request.memory ?? [];
     return {
       content: memory.length > 0
         ? `我记得这些：\n${memory.map((entry) => `· ${entry.text}`).join("\n")}\n这些只保存在本机，随时可以删掉。`
         : "还没有保存任何记忆。说「记住……」我就会记下来，之后可以在「人与授权」里管理。",
+      provider: "local",
+    };
+  }
+  if (/(查看|打开|阅读).*手册|手册.*(章节|内容)/.test(question)) {
+    const idMatch = /(\d{2})/.exec(question);
+    const section = idMatch ? findManualSection(idMatch[1]) : findManualSection(question.replace(/.*手册/, "").trim());
+    return {
+      content: section
+        ? `${section.title}\n\n${section.body.slice(0, 4000)}`
+        : "手册分节：01 应用地图、02 数据与存储、03 课表与课程、05 任务与考试、06 笔记、08 导入导出、10 AI 助手、11 动作协议。可以说「查看手册 11」。",
+      provider: "local",
+    };
+  }
+
+  const localActions = parseLocalCommand(
+    question,
+    {
+      totalWeeks: request.snapshot?.totalWeeks,
+      courses: request.snapshot?.courses.map((course) => ({ id: course.id, name: course.name })),
+      tasks: request.tasks?.map((task) => ({ id: task.id, title: task.title })),
+      exams: request.exams?.map((exam) => ({ id: exam.id, title: exam.title })),
+      notes: request.notes?.map((note) => ({ id: note.id, title: note.title })),
+    },
+    now,
+  );
+  if (localActions.length > 0) {
+    return {
+      content: `已准备好这些操作，请在下方的动作卡上确认后再执行。\n\n\`\`\`kexu-action\n${JSON.stringify(localActions)}\n\`\`\``,
       provider: "local",
     };
   }

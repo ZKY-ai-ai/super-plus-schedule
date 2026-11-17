@@ -11,7 +11,18 @@ import {
   Tag,
   Undo2,
 } from "lucide-react";
-import type { AppPage, Course, ImportDraft, ScheduleEvent, Session } from "./types";
+import type {
+  AppPage,
+  Course,
+  EventRepeat,
+  ImportDraft,
+  Period,
+  ScheduleEvent,
+  Session,
+  SettingsTab,
+  Wallpaper,
+  WeekPattern,
+} from "./types";
 import { dateKey, formatWeekRange } from "./lib/date";
 import { readCourseShareFromHash } from "./lib/courseShare";
 import { wallpaperStyle } from "./lib/wallpaper";
@@ -54,10 +65,92 @@ import { CommandPalette, type CommandItem } from "./components/CommandPalette";
 import { PlanPage, type PlanTab } from "./components/planner/PlanPage";
 import { NotesWorkspace } from "./components/notes/NotesWorkspace";
 import { AiWorkspace } from "./components/ai/AiWorkspace";
-import { loadGapPreferences, type GapPreferences } from "./lib/gaps";
-import { loadTasks } from "./lib/tasks";
-import { loadExams } from "./lib/exams";
+import {
+  DEFAULT_GAP_PREFERENCES,
+  loadGapPreferences,
+  saveGapPreferences,
+  type GapPreferences,
+} from "./lib/gaps";
+import {
+  addSubtask,
+  completeTask,
+  loadTasks,
+  makeTask,
+  removeSubtask,
+  saveTasks,
+  toggleSubtask,
+  type RepeatRule,
+  type Task,
+} from "./lib/tasks";
+import { loadExams, saveExams, makeExam, type ExamType } from "./lib/exams";
+import {
+  createChapter,
+  createNote,
+  deleteChapter,
+  deleteNote,
+  emptyNotes,
+  loadNotes,
+  moveNoteToChapter,
+  saveNotes,
+  updateNote,
+  upsertChapter,
+  upsertNote,
+  type NotePatch,
+} from "./lib/notes";
+import { getActiveTimetable, makeCourse, makeEvent, makeSlot, nextTone } from "./lib/factory";
+import { parseCourseText } from "./lib/textImport";
+import type { AiAction } from "./lib/aiActions";
 import { toggleEventCheckIn } from "./lib/eventRepeat";
+import {
+  loadGradeSettings,
+  loadGrades,
+  saveGradeSettings,
+  saveGrades,
+  type CourseStatus,
+  type GradeRecord,
+} from "./lib/grades";
+import { loadReminderSettings, saveReminderSettings } from "./lib/reminders";
+import { loadTemplates } from "./lib/storage";
+import {
+  autoCombine,
+  createEmptyCatalog,
+  createSection,
+  loadCatalog,
+  saveCatalog,
+  withPlanCreated,
+  withPlanRemoved,
+  withPlanSections,
+  withSectionAdded,
+  withSectionDeleted,
+  withSectionRemoved,
+  withSectionsMerged,
+  type CourseCategory,
+} from "./lib/planner";
+import {
+  addStudyLog,
+  loadStudyLogs,
+  saveStudyLogs,
+  type StudyLog,
+} from "./lib/stats";
+import { emptyWoodfish, loadWoodfish, saveWoodfish, tapWoodfish } from "./lib/woodfish";
+import {
+  downloadBackup,
+  listRemoteBackups,
+  loadWebDavConfig,
+  uploadScheduleBackup,
+  webDavErrorMessage,
+} from "./lib/webdav";
+import { syncTimetableToGoogle } from "./lib/googleCalendar";
+import { syncAndroidWidget } from "./lib/widget";
+import {
+  addMemory as addAiMemory,
+  clearMemory as clearAiMemory,
+  loadAiSettings,
+  loadMemory as loadAiMemory,
+  removeMemory as removeAiMemory,
+  saveAiSettings,
+  saveMemory as saveAiMemory,
+} from "./lib/ai";
 
 interface ConfirmState {
   title: string;
@@ -65,6 +158,22 @@ interface ConfirmState {
   confirmLabel: string;
   tone: "danger" | "default";
 }
+
+const PAGE_NAMES: Record<AppPage, string> = {
+  timetable: "周课表",
+  agenda: "日程与单日",
+  plan: "空档与规划",
+  notes: "笔记与看板",
+  ai: "AI 助手",
+  courses: "课程库",
+  profile: "我的",
+};
+
+const PLAN_TAB_NAMES: Record<PlanTab, string> = {
+  gaps: "空档评估",
+  study: "学习与统计",
+  select: "选课规划",
+};
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -91,6 +200,7 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [planTab, setPlanTab] = useState<PlanTab>("gaps");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("term");
   const [timetablesOpen, setTimetablesOpen] = useState(false);
   const [wallpaperOpen, setWallpaperOpen] = useState(false);
   const [weekPickerOpen, setWeekPickerOpen] = useState(false);
@@ -248,6 +358,1042 @@ export default function App() {
     void actions.requestDeleteEvent(event).then((deleted) => {
       if (deleted) setEventSeed(null);
     });
+  };
+
+  const runAiAction = async (
+    rawAction: AiAction,
+  ): Promise<{ ok: boolean; message: string }> => {
+    const { action, args } = rawAction;
+    const fail = (message: string) => ({ ok: false, message });
+    try {
+      switch (action) {
+        case "navigate": {
+          const target = args.page as AppPage;
+          const planTabArg = args.planTab as PlanTab | undefined;
+          if (target === "plan" && planTabArg) setPlanTab(planTabArg);
+          navigate(target);
+          const suffix =
+            target === "plan" && planTabArg ? ` · ${PLAN_TAB_NAMES[planTabArg]}` : "";
+          return { ok: true, message: `已打开「${PAGE_NAMES[target]}${suffix}」。` };
+        }
+
+        case "set_week": {
+          const week = Number(args.week);
+          view.goToWeek(week);
+          navigate("timetable");
+          return { ok: true, message: `已跳到第 ${week} 周。` };
+        }
+
+        case "open_settings": {
+          const tab = (args.tab as SettingsTab | undefined) ?? "term";
+          setSettingsTab(tab);
+          setSettingsOpen(true);
+          return { ok: true, message: "已打开设置。" };
+        }
+
+        case "open_text_import": {
+          setSharedCourseText(String(args.text));
+          setTextImportOpen(true);
+          return { ok: true, message: "已打开文本导入并填入内容。" };
+        }
+
+        case "create_note": {
+          const notes = loadNotes();
+          const note = createNote({
+            title: String(args.title),
+            body: typeof args.body === "string" ? args.body : "",
+            tags: args.tags as string[] | undefined,
+            courseId: (args.courseId as string | undefined) ?? null,
+            pinned: args.pinned === true,
+          });
+          if (!saveNotes(upsertNote(notes, note))) return fail("笔记保存失败，本机存储可能已满。");
+          return { ok: true, message: `已新建笔记《${note.title}》。` };
+        }
+
+        case "update_note": {
+          const notes = loadNotes();
+          const current = notes.notes.find((note) => note.id === args.id);
+          if (!current) return fail("没有找到这条笔记。");
+          const patch: NotePatch = {};
+          if (typeof args.title === "string") patch.title = args.title;
+          if (typeof args.body === "string") patch.body = args.body;
+          if (Array.isArray(args.tags)) patch.tags = args.tags as string[];
+          if (typeof args.pinned === "boolean") patch.pinned = args.pinned;
+          const next = updateNote(current, patch);
+          if (!saveNotes(upsertNote(notes, next))) return fail("笔记保存失败，本机存储可能已满。");
+          return { ok: true, message: `已更新笔记《${next.title}》。` };
+        }
+
+        case "delete_note": {
+          const notes = loadNotes();
+          const target = notes.notes.find((note) => note.id === args.id);
+          if (!target) return fail("没有找到这条笔记。");
+          if (!saveNotes(deleteNote(notes, target.id))) return fail("笔记保存失败。");
+          return { ok: true, message: `已删除笔记《${target.title}》。` };
+        }
+
+        case "create_task": {
+          const tasks = loadTasks(timetable.id);
+          const task = makeTask({
+            title: String(args.title),
+            courseId: (args.courseId as string | undefined) ?? null,
+            dueDate: typeof args.dueDate === "string" ? args.dueDate : undefined,
+            dueTime: typeof args.dueTime === "string" ? args.dueTime : undefined,
+            note: typeof args.note === "string" ? args.note : undefined,
+            repeat: args.repeat as RepeatRule | undefined,
+            estimatedMinutes:
+              typeof args.estimatedMinutes === "number" ? args.estimatedMinutes : undefined,
+          });
+          if (!saveTasks(timetable.id, [...tasks, task])) return fail("任务保存失败。");
+          return { ok: true, message: `已新建任务《${task.title}》。` };
+        }
+
+        case "complete_task": {
+          const tasks = loadTasks(timetable.id);
+          const target = tasks.find((task) => task.id === args.id);
+          if (!target) return fail("没有找到这个任务。");
+          const next = tasks.map((task) => (task.id === target.id ? completeTask(task) : task));
+          if (!saveTasks(timetable.id, next)) return fail("任务保存失败。");
+          return { ok: true, message: `已把任务《${target.title}》标记完成。` };
+        }
+
+        case "delete_task": {
+          const tasks = loadTasks(timetable.id);
+          const target = tasks.find((task) => task.id === args.id);
+          if (!target) return fail("没有找到这个任务。");
+          if (!saveTasks(timetable.id, tasks.filter((task) => task.id !== target.id))) {
+            return fail("任务保存失败。");
+          }
+          return { ok: true, message: `已删除任务《${target.title}》。` };
+        }
+
+        case "create_exam": {
+          const exams = loadExams(timetable.id);
+          const exam = makeExam({
+            title: String(args.title),
+            date: String(args.date),
+            courseId: (args.courseId as string | undefined) ?? null,
+            type: args.type as ExamType | undefined,
+            startTime: typeof args.startTime === "string" ? args.startTime : undefined,
+            endTime: typeof args.endTime === "string" ? args.endTime : undefined,
+            location: typeof args.location === "string" ? args.location : undefined,
+            seat: typeof args.seat === "string" ? args.seat : undefined,
+            note: typeof args.note === "string" ? args.note : undefined,
+          });
+          if (!exam.date) return fail("考试日期无效。");
+          if (!saveExams(timetable.id, [...exams, exam])) return fail("考试保存失败。");
+          return { ok: true, message: `已新建考试《${exam.title}》。` };
+        }
+
+        case "delete_exam": {
+          const exams = loadExams(timetable.id);
+          const target = exams.find((exam) => exam.id === args.id);
+          if (!target) return fail("没有找到这个考试。");
+          if (!saveExams(timetable.id, exams.filter((exam) => exam.id !== target.id))) {
+            return fail("考试保存失败。");
+          }
+          return { ok: true, message: `已删除考试《${target.title}》。` };
+        }
+
+        case "add_course": {
+          const totalWeeks = currentSemester.totalWeeks;
+          const slots = (args.slots as Array<Record<string, unknown>>).map((slot) =>
+            makeSlot(
+              {
+                day: Number(slot.day),
+                start: Number(slot.start),
+                end: Number(slot.end),
+                weekStart: Number(slot.weekStart ?? 1),
+                weekEnd: Number(slot.weekEnd ?? totalWeeks),
+                pattern: (slot.pattern as WeekPattern | undefined) ?? "all",
+              },
+              totalWeeks,
+            ),
+          );
+          const course = makeCourse({
+            name: String(args.name),
+            teacher: typeof args.teacher === "string" ? args.teacher : undefined,
+            location: typeof args.location === "string" ? args.location : undefined,
+            note: typeof args.note === "string" ? args.note : undefined,
+            tone: nextTone(courses),
+            slots,
+          });
+          actions.saveCourse(course);
+          return { ok: true, message: `已新建课程《${course.name}》，共 ${slots.length} 个时段。` };
+        }
+
+        case "update_course": {
+          const course = courses.find((item) => item.id === args.id);
+          if (!course) return fail("没有找到这门课程。");
+          const next: Course = {
+            ...course,
+            ...(typeof args.name === "string" ? { name: args.name } : {}),
+            ...(typeof args.teacher === "string" ? { teacher: args.teacher } : {}),
+            ...(typeof args.location === "string" ? { location: args.location } : {}),
+            ...(typeof args.note === "string" ? { note: args.note } : {}),
+            updatedAt: new Date().toISOString(),
+          };
+          actions.saveCourse(next);
+          return { ok: true, message: `已更新课程《${next.name}》。` };
+        }
+
+        case "delete_course": {
+          const course = courses.find((item) => item.id === args.id);
+          if (!course) return fail("没有找到这门课程。");
+          const deleted = await actions.requestDeleteCourse(course);
+          return deleted
+            ? { ok: true, message: `已删除课程《${course.name}》。` }
+            : fail("已取消删除课程。");
+        }
+
+        case "add_event": {
+          const event = makeEvent({
+            title: String(args.title),
+            date: String(args.date),
+            allDay: args.allDay === true,
+            start: typeof args.start === "string" ? args.start : undefined,
+            end: typeof args.end === "string" ? args.end : undefined,
+            note: typeof args.note === "string" ? args.note : undefined,
+            repeat: args.repeat as EventRepeat | undefined,
+            repeatUntil: typeof args.repeatUntil === "string" ? args.repeatUntil : undefined,
+          });
+          actions.saveEvent(event);
+          return { ok: true, message: `已新建日程《${event.title}》。` };
+        }
+
+        case "delete_event": {
+          const event = events.find((item) => item.id === args.id);
+          if (!event) return fail("没有找到这条日程。");
+          const deleted = await actions.requestDeleteEvent(event);
+          return deleted
+            ? { ok: true, message: `已删除日程《${event.title}》。` }
+            : fail("已取消删除日程。");
+        }
+
+        case "update_semester": {
+          const next = {
+            ...currentSemester,
+            ...(typeof args.name === "string" ? { name: args.name } : {}),
+            ...(typeof args.startDate === "string" ? { startDate: args.startDate } : {}),
+            ...(typeof args.totalWeeks === "number" ? { totalWeeks: args.totalWeeks } : {}),
+            ...(typeof args.showWeekends === "boolean" ? { showWeekends: args.showWeekends } : {}),
+          };
+          actions.saveSemester(
+            next,
+            timetable.periodProfileId,
+            data.periodProfiles,
+            timetable.periodRules,
+          );
+          return { ok: true, message: "已更新当前学期设置。" };
+        }
+
+        case "switch_timetable": {
+          const target = data.timetables.find((item) => item.id === args.id);
+          if (!target) return fail("没有找到这套课表。");
+          actions.switchTimetable(target.id);
+          return { ok: true, message: `已切换到课表「${target.name}」。` };
+        }
+
+        case "add_courses_from_text": {
+          const parsed = parseCourseText(String(args.text), currentSemester.totalWeeks);
+          if (parsed.courses.length === 0) return fail("文本里没有解析出课程。");
+          const added = actions.addTextCourses(parsed.courses);
+          return {
+            ok: true,
+            message: `已导入 ${added.courses} 门课程、${added.slots} 个时段。`,
+          };
+        }
+
+        case "clear_all": {
+          const cleared = await actions.clearAll();
+          return cleared ? { ok: true, message: "已清空当前数据。" } : fail("已取消清空。");
+        }
+
+        case "open_dialog": {
+          switch (args.dialog) {
+            case "text-import":
+              setSharedCourseText("");
+              setTextImportOpen(true);
+              break;
+            case "excel-import":
+              setExcelImportOpen(true);
+              break;
+            case "third-party-import":
+              setThirdPartyImportOpen(true);
+              break;
+            case "screenshot-import":
+              setScreenshotImportOpen(true);
+              break;
+            case "share":
+              setShareOpen(true);
+              break;
+            case "timetables":
+              setTimetablesOpen(true);
+              break;
+            case "wallpaper":
+              setWallpaperOpen(true);
+              break;
+            case "week-picker":
+              setWeekPickerOpen(true);
+              break;
+            case "command-palette":
+              setPaletteOpen(true);
+              break;
+            default:
+              return fail("未知的弹窗。");
+          }
+          return { ok: true, message: "已打开对应入口。" };
+        }
+
+        case "print": {
+          printTimetable();
+          return { ok: true, message: "已打开打印预览。" };
+        }
+
+        case "undo": {
+          const done = store.undo();
+          return done ? { ok: true, message: "已撤销上一次修改。" } : fail("没有可撤销的修改。");
+        }
+
+        case "redo": {
+          const done = store.redo();
+          return done ? { ok: true, message: "已重做修改。" } : fail("没有可重做的修改。");
+        }
+
+        case "set_preferences": {
+          if (typeof args.theme === "string") {
+            store.setTheme(args.theme as "light" | "dark" | "whale");
+          }
+          if (typeof args.layout === "string") {
+            store.setLayout(args.layout as "grid" | "list");
+          }
+          if (typeof args.showAliases === "boolean") {
+            store.setShowAliases(args.showAliases);
+          }
+          if (typeof args.autoHolidays === "boolean") {
+            store.setAutoHolidays(args.autoHolidays);
+          }
+          return { ok: true, message: "已更新界面偏好。" };
+        }
+
+        case "set_wallpaper": {
+          actions.updateWallpaper({
+            preset: args.preset as Wallpaper["preset"],
+            dataUrl: "",
+            dim: typeof args.dim === "number" ? args.dim : 20,
+          });
+          notify("壁纸已更新。");
+          return { ok: true, message: "已更新课表壁纸。" };
+        }
+
+        case "create_chapter": {
+          const notes = loadNotes();
+          const chapter = createChapter({
+            title: String(args.title),
+            courseId: typeof args.courseId === "string" ? args.courseId : null,
+            order: typeof args.order === "number" ? args.order : undefined,
+          });
+          if (!saveNotes(upsertChapter(notes, chapter))) return fail("章节保存失败。");
+          return { ok: true, message: `已新建章节《${chapter.title}》。` };
+        }
+
+        case "rename_chapter": {
+          const notes = loadNotes();
+          const chapter = notes.chapters.find((item) => item.id === args.id);
+          if (!chapter) return fail("没有找到这个章节。");
+          const next = { ...chapter, title: String(args.title) };
+          if (!saveNotes(upsertChapter(notes, next))) return fail("章节保存失败。");
+          return { ok: true, message: `章节已改名为《${next.title}》。` };
+        }
+
+        case "delete_chapter": {
+          const notes = loadNotes();
+          const chapter = notes.chapters.find((item) => item.id === args.id);
+          if (!chapter) return fail("没有找到这个章节。");
+          if (!saveNotes(deleteChapter(notes, chapter.id))) return fail("章节保存失败。");
+          return { ok: true, message: `已删除章节《${chapter.title}》，笔记回到未归档。` };
+        }
+
+        case "move_note": {
+          const notes = loadNotes();
+          const note = notes.notes.find((item) => item.id === args.noteId);
+          if (!note) return fail("没有找到这条笔记。");
+          const chapterId = typeof args.chapterId === "string" ? args.chapterId : null;
+          if (!saveNotes(moveNoteToChapter(notes, note.id, chapterId))) {
+            return fail("笔记保存失败。");
+          }
+          return { ok: true, message: `已移动笔记《${note.title}》。` };
+        }
+
+        case "update_task": {
+          const tasks = loadTasks(timetable.id);
+          const target = tasks.find((task) => task.id === args.id);
+          if (!target) return fail("没有找到这个任务。");
+          const next: Task = {
+            ...target,
+            ...(typeof args.title === "string" ? { title: args.title } : {}),
+            ...(typeof args.dueDate === "string" ? { dueDate: args.dueDate } : {}),
+            ...(typeof args.dueTime === "string" ? { dueTime: args.dueTime } : {}),
+            ...(args.courseId !== undefined
+              ? { courseId: (args.courseId as string | null) ?? null }
+              : {}),
+            ...(typeof args.note === "string" ? { note: args.note } : {}),
+            ...(typeof args.estimatedMinutes === "number"
+              ? { estimatedMinutes: args.estimatedMinutes }
+              : {}),
+            ...(typeof args.repeat === "string"
+              ? { repeat: args.repeat as RepeatRule }
+              : {}),
+            updatedAt: new Date().toISOString(),
+          };
+          if (!next.dueDate) next.dueTime = "";
+          if (next.repeat !== "none" && !next.dueDate) next.repeat = "none";
+          if (!saveTasks(timetable.id, tasks.map((task) => (task.id === next.id ? next : task)))) {
+            return fail("任务保存失败。");
+          }
+          return { ok: true, message: `已更新任务《${next.title}》。` };
+        }
+
+        case "reopen_task": {
+          const tasks = loadTasks(timetable.id);
+          const target = tasks.find((task) => task.id === args.id);
+          if (!target) return fail("没有找到这个任务。");
+          const next: Task = { ...target, done: false, updatedAt: new Date().toISOString() };
+          if (!saveTasks(timetable.id, tasks.map((task) => (task.id === next.id ? next : task)))) {
+            return fail("任务保存失败。");
+          }
+          return { ok: true, message: `任务《${next.title}》已改回未完成。` };
+        }
+
+        case "add_subtask": {
+          const tasks = loadTasks(timetable.id);
+          const target = tasks.find((task) => task.id === args.taskId);
+          if (!target) return fail("没有找到这个任务。");
+          const next = addSubtask(target, String(args.title));
+          if (!saveTasks(timetable.id, tasks.map((task) => (task.id === next.id ? next : task)))) {
+            return fail("任务保存失败。");
+          }
+          return { ok: true, message: "已添加子任务。" };
+        }
+
+        case "toggle_subtask": {
+          const tasks = loadTasks(timetable.id);
+          const target = tasks.find((task) => task.id === args.taskId);
+          if (!target) return fail("没有找到这个任务。");
+          if (!target.subtasks.some((item) => item.id === args.subtaskId)) {
+            return fail("没有找到这个子任务。");
+          }
+          const next = toggleSubtask(target, String(args.subtaskId));
+          if (!saveTasks(timetable.id, tasks.map((task) => (task.id === next.id ? next : task)))) {
+            return fail("任务保存失败。");
+          }
+          return { ok: true, message: "已切换子任务状态。" };
+        }
+
+        case "delete_subtask": {
+          const tasks = loadTasks(timetable.id);
+          const target = tasks.find((task) => task.id === args.taskId);
+          if (!target) return fail("没有找到这个任务。");
+          const next = removeSubtask(target, String(args.subtaskId));
+          if (!saveTasks(timetable.id, tasks.map((task) => (task.id === next.id ? next : task)))) {
+            return fail("任务保存失败。");
+          }
+          return { ok: true, message: "已删除子任务。" };
+        }
+
+        case "update_exam": {
+          const exams = loadExams(timetable.id);
+          const target = exams.find((exam) => exam.id === args.id);
+          if (!target) return fail("没有找到这个考试。");
+          const next = {
+            ...target,
+            ...(typeof args.title === "string" ? { title: args.title } : {}),
+            ...(typeof args.date === "string" ? { date: args.date } : {}),
+            ...(args.courseId !== undefined
+              ? { courseId: (args.courseId as string | null) ?? null }
+              : {}),
+            ...(typeof args.type === "string" ? { type: args.type as ExamType } : {}),
+            ...(typeof args.startTime === "string" ? { startTime: args.startTime } : {}),
+            ...(typeof args.endTime === "string" ? { endTime: args.endTime } : {}),
+            ...(typeof args.location === "string" ? { location: args.location } : {}),
+            ...(typeof args.seat === "string" ? { seat: args.seat } : {}),
+            ...(typeof args.note === "string" ? { note: args.note } : {}),
+            updatedAt: new Date().toISOString(),
+          };
+          if (!next.startTime) next.endTime = "";
+          if (!saveExams(timetable.id, exams.map((exam) => (exam.id === next.id ? next : exam)))) {
+            return fail("考试保存失败。");
+          }
+          return { ok: true, message: `已更新考试《${next.title}》。` };
+        }
+
+        case "set_grade": {
+          const records = loadGrades(timetable.id);
+          const existing = records.find((record) => record.courseId === args.courseId);
+          const record: GradeRecord = {
+            courseId: String(args.courseId),
+            score:
+              "score" in args ? (args.score as number | null) : existing?.score ?? null,
+            credits:
+              "credits" in args ? (args.credits as number | null) : existing?.credits ?? null,
+            status:
+              typeof args.status === "string"
+                ? (args.status as CourseStatus)
+                : existing?.status ?? "normal",
+            updatedAt: new Date().toISOString(),
+          };
+          const next = existing
+            ? records.map((item) => (item.courseId === record.courseId ? record : item))
+            : [...records, record];
+          if (!saveGrades(timetable.id, next)) return fail("成绩保存失败。");
+          return { ok: true, message: "成绩已保存。" };
+        }
+
+        case "delete_grade": {
+          const records = loadGrades(timetable.id);
+          if (!records.some((record) => record.courseId === args.courseId)) {
+            return fail("这门课还没有成绩记录。");
+          }
+          if (
+            !saveGrades(
+              timetable.id,
+              records.filter((record) => record.courseId !== args.courseId),
+            )
+          ) {
+            return fail("成绩保存失败。");
+          }
+          return { ok: true, message: "成绩已删除。" };
+        }
+
+        case "update_grade_settings": {
+          const current = loadGradeSettings();
+          saveGradeSettings({
+            hideScores:
+              typeof args.hideScores === "boolean" ? args.hideScores : current.hideScores,
+            requiredCredits:
+              typeof args.requiredCredits === "number"
+                ? args.requiredCredits
+                : current.requiredCredits,
+          });
+          return { ok: true, message: "成绩设置已更新。" };
+        }
+
+        case "set_course_slots": {
+          const course = courses.find((item) => item.id === args.courseId);
+          if (!course) return fail("没有找到这门课程。");
+          const slots = (args.slots as Array<Record<string, unknown>>).map((slot) =>
+            makeSlot(
+              {
+                day: Number(slot.day),
+                start: Number(slot.start),
+                end: Number(slot.end),
+                weekStart: Number(slot.weekStart ?? 1),
+                weekEnd: Number(slot.weekEnd ?? currentSemester.totalWeeks),
+                pattern: (slot.pattern as WeekPattern | undefined) ?? "all",
+                weeks: Array.isArray(slot.weeks) ? (slot.weeks as number[]) : undefined,
+              },
+              currentSemester.totalWeeks,
+            ),
+          );
+          actions.saveCourse({ ...course, slots, updatedAt: new Date().toISOString() });
+          return { ok: true, message: `已替换《${course.name}》的时段。` };
+        }
+
+        case "restore_course": {
+          actions.restoreCourse(String(args.courseId));
+          return { ok: true, message: "已恢复显示这门课。" };
+        }
+
+        case "override_session": {
+          const course = courses.find((item) => item.id === args.courseId);
+          if (!course) return fail("没有找到这门课程。");
+          const weekNumber = Number(args.week);
+          if (args.kind === "hide") {
+            actions.hideCourseFromWeek(course.id, weekNumber);
+            return { ok: true, message: `已从第 ${weekNumber} 周起隐藏《${course.name}》。` };
+          }
+          const slot = course.slots.find((item) => item.id === args.slotId);
+          if (!slot) return fail("没有找到这个上课时段。");
+          const session: Session = {
+            id: `${course.id}-${slot.id}`,
+            course,
+            slot,
+            day: slot.day,
+            start: slot.start,
+            end: slot.end,
+          };
+          if (args.kind === "cancel") {
+            actions.cancelSession(session, weekNumber);
+            return { ok: true, message: `已停掉第 ${weekNumber} 周《${course.name}》的这一次课。` };
+          }
+          actions.moveSession(
+            session,
+            weekNumber,
+            Number(args.toDay),
+            Number(args.toStart),
+            Number(args.toEnd),
+          );
+          return { ok: true, message: `已调整第 ${weekNumber} 周《${course.name}》的上课时间。` };
+        }
+
+        case "remove_override": {
+          actions.removeOverride(String(args.id));
+          return { ok: true, message: "已撤销这条单次调整。" };
+        }
+
+        case "update_event": {
+          const event = events.find((item) => item.id === args.id);
+          if (!event) return fail("没有找到这条日程。");
+          const next: ScheduleEvent = {
+            ...event,
+            ...(typeof args.title === "string" ? { title: args.title } : {}),
+            ...(typeof args.date === "string" ? { date: args.date } : {}),
+            ...(typeof args.allDay === "boolean" ? { allDay: args.allDay } : {}),
+            ...(typeof args.start === "string" ? { start: args.start } : {}),
+            ...(typeof args.end === "string" ? { end: args.end } : {}),
+            ...(typeof args.note === "string" ? { note: args.note } : {}),
+            ...(typeof args.repeat === "string"
+              ? { repeat: args.repeat as EventRepeat }
+              : {}),
+            ...(typeof args.repeatUntil === "string"
+              ? { repeatUntil: args.repeatUntil }
+              : {}),
+            updatedAt: new Date().toISOString(),
+          };
+          if (!next.start) next.end = "";
+          if (next.repeat === "none") next.repeatUntil = "";
+          actions.saveEvent(next);
+          return { ok: true, message: `已更新日程《${next.title}》。` };
+        }
+
+        case "check_in_event": {
+          const event = events.find((item) => item.id === args.id);
+          if (!event) return fail("没有找到这条日程。");
+          actions.saveEvent(toggleEventCheckIn(event, String(args.date)));
+          return { ok: true, message: "已切换这天的打卡状态。" };
+        }
+
+        case "create_timetable": {
+          actions.createTimetable({
+            name: String(args.name),
+            semesterName: typeof args.semesterName === "string" ? args.semesterName : "",
+            startDate: typeof args.startDate === "string" ? args.startDate : "",
+            totalWeeks:
+              typeof args.totalWeeks === "number" ? args.totalWeeks : currentSemester.totalWeeks,
+            showWeekends:
+              typeof args.showWeekends === "boolean"
+                ? args.showWeekends
+                : currentSemester.showWeekends,
+            weekStartsOn:
+              typeof args.weekStartsOn === "number"
+                ? args.weekStartsOn
+                : currentSemester.weekStartsOn,
+            periodProfileId:
+              typeof args.periodProfileId === "string"
+                ? args.periodProfileId
+                : data.periodProfiles[0]?.id ?? "",
+            ...(typeof args.templateId === "string" ? { templateId: args.templateId } : {}),
+          });
+          return { ok: true, message: `已新建课表《${args.name}》。` };
+        }
+
+        case "rename_timetable": {
+          actions.renameTimetable(String(args.id), String(args.name));
+          return { ok: true, message: "课表已改名。" };
+        }
+
+        case "duplicate_timetable": {
+          actions.duplicateTimetable(String(args.id));
+          return { ok: true, message: "已复制这套课表。" };
+        }
+
+        case "delete_timetable": {
+          const deleted = await actions.requestDeleteTimetable(String(args.id));
+          return deleted
+            ? { ok: true, message: "已删除这套课表。" }
+            : fail("已取消删除课表。");
+        }
+
+        case "set_periods": {
+          const periods = (args.periods as Array<{ index: number; start: string; end: string }>).map(
+            (period) => ({ ...period }),
+          ) as Period[];
+          const profileId =
+            typeof args.profileId === "string" ? args.profileId : timetable.periodProfileId;
+          const periodProfiles = data.periodProfiles.map((profile) =>
+            profile.id === profileId ? { ...profile, periods } : profile,
+          );
+          actions.saveSemester(
+            { ...currentSemester, periods },
+            profileId ?? null,
+            periodProfiles,
+            timetable.periodRules,
+          );
+          return { ok: true, message: `已把作息改为 ${periods.length} 节。` };
+        }
+
+        case "rename_period_profile": {
+          actions.renamePeriodProfile(String(args.id), String(args.name));
+          return { ok: true, message: "作息方案已重命名。" };
+        }
+
+        case "set_calendar_override": {
+          const result = actions.setCalendarOverride(
+            String(args.date),
+            args.kind === "workday" ? "workday" : "holiday",
+            typeof args.name === "string" ? args.name : "",
+            typeof args.borrowFrom === "number" ? args.borrowFrom : null,
+          );
+          return result.ok
+            ? { ok: true, message: "已更新这天的放假/补课安排。" }
+            : fail(result.message);
+        }
+
+        case "delete_calendar_override": {
+          actions.removeCalendarOverride(String(args.id));
+          return { ok: true, message: "已删除这天的自定义安排。" };
+        }
+
+        case "update_reminders": {
+          const current = loadReminderSettings();
+          saveReminderSettings({
+            ...current,
+            ...(typeof args.enabled === "boolean" ? { enabled: args.enabled } : {}),
+            ...(typeof args.leadMinutes === "number" ? { leadMinutes: args.leadMinutes } : {}),
+            ...(typeof args.todaySummary === "boolean"
+              ? { todaySummary: args.todaySummary }
+              : {}),
+            ...(typeof args.todaySummaryTime === "string"
+              ? { todaySummaryTime: args.todaySummaryTime }
+              : {}),
+            ...(typeof args.tomorrowSummary === "boolean"
+              ? { tomorrowSummary: args.tomorrowSummary }
+              : {}),
+            ...(typeof args.tomorrowSummaryTime === "string"
+              ? { tomorrowSummaryTime: args.tomorrowSummaryTime }
+              : {}),
+            ...(typeof args.examReminders === "boolean"
+              ? { examReminders: args.examReminders }
+              : {}),
+            ...(typeof args.taskReminders === "boolean"
+              ? { taskReminders: args.taskReminders }
+              : {}),
+          });
+          return { ok: true, message: "提醒设置已更新。" };
+        }
+
+        case "save_template": {
+          const result = actions.saveCurrentAsTemplate(String(args.name));
+          return result.ok ? { ok: true, message: result.message } : fail(result.message);
+        }
+
+        case "apply_template": {
+          const template = loadTemplates().find((item) => item.id === args.id);
+          if (!template) return fail("没有找到这个模板。");
+          const result = actions.applyTemplate(template);
+          return result.ok ? { ok: true, message: result.message } : fail(result.message);
+        }
+
+        case "delete_template": {
+          actions.deleteTemplate(String(args.id));
+          return { ok: true, message: "模板已删除。" };
+        }
+
+        case "export_data": {
+          if (args.format === "ics") actions.exportIcs();
+          else actions.exportJson();
+          return { ok: true, message: `已导出 ${String(args.format).toUpperCase()} 文件。` };
+        }
+
+        case "webdav_backup": {
+          const config = loadWebDavConfig();
+          if (!config.url) return fail("请先在「设置 → WebDAV」填好服务器地址和账号。");
+          const result = await uploadScheduleBackup(config, data);
+          return { ok: true, message: `已备份到 WebDAV：${result.name}` };
+        }
+
+        case "webdav_restore_latest": {
+          const config = loadWebDavConfig();
+          if (!config.url) return fail("请先在「设置 → WebDAV」填好服务器地址和账号。");
+          try {
+            const backups = await listRemoteBackups(config);
+            if (backups.length === 0) return fail("WebDAV 上没有可恢复的备份。");
+            const latest = backups[0];
+            const restored = await downloadBackup(config, latest.name);
+            store.setData(restored);
+            view.resetToTimetable(getActiveTimetable(restored));
+            return { ok: true, message: `已从 WebDAV 恢复备份 ${latest.name}。` };
+          } catch (error) {
+            return fail(webDavErrorMessage(error));
+          }
+        }
+
+        case "sync_google_calendar": {
+          const result = await syncTimetableToGoogle(timetable, {
+            periodProfiles: data.periodProfiles,
+          });
+          return {
+            ok: true,
+            message: `已同步 ${result.succeeded} 条到 Google 日历「${result.calendarName}」，跳过 ${result.skipped} 条，失败 ${result.failed} 条。`,
+          };
+        }
+
+        case "sync_widget": {
+          await syncAndroidWidget(data, prefs.autoHolidays);
+          return {
+            ok: true,
+            message: nativeApp ? "桌面小组件已刷新。" : "当前是网页端，小组件只在安卓 App 内可用。",
+          };
+        }
+
+        case "clear_scope": {
+          switch (args.scope) {
+            case "notes":
+              if (!saveNotes(emptyNotes())) return fail("笔记清空失败。");
+              break;
+            case "tasks":
+              if (!saveTasks(timetable.id, [])) return fail("任务清空失败。");
+              break;
+            case "exams":
+              if (!saveExams(timetable.id, [])) return fail("考试清空失败。");
+              break;
+            case "grades":
+              if (!saveGrades(timetable.id, [])) return fail("成绩清空失败。");
+              break;
+            case "planner":
+              saveCatalog(createEmptyCatalog());
+              saveStudyLogs([]);
+              saveGapPreferences(DEFAULT_GAP_PREFERENCES);
+              setGapPrefs(DEFAULT_GAP_PREFERENCES);
+              break;
+            case "woodfish":
+              saveWoodfish(emptyWoodfish());
+              break;
+            default:
+              return fail("未知的清空范围。");
+          }
+          return { ok: true, message: "已按范围清空。" };
+        }
+
+        case "update_gap_preferences": {
+          const next: GapPreferences = {
+            ...gapPrefs,
+            ...(typeof args.walkSpeed === "number" ? { walkSpeed: args.walkSpeed } : {}),
+            ...(typeof args.bufferMinutes === "number"
+              ? { bufferMinutes: args.bufferMinutes }
+              : {}),
+            ...(typeof args.lunchEnabled === "boolean"
+              ? { lunchEnabled: args.lunchEnabled }
+              : {}),
+            ...(typeof args.lunchStart === "string" ? { lunchStart: args.lunchStart } : {}),
+            ...(typeof args.lunchEnd === "string" ? { lunchEnd: args.lunchEnd } : {}),
+            ...(typeof args.lunchMinutes === "number"
+              ? { lunchMinutes: args.lunchMinutes }
+              : {}),
+            ...(typeof args.accessMode === "boolean" ? { accessMode: args.accessMode } : {}),
+            ...(typeof args.accessibleExtra === "number"
+              ? { accessibleExtra: args.accessibleExtra }
+              : {}),
+            ...(args.aliases && typeof args.aliases === "object"
+              ? { aliases: { ...gapPrefs.aliases, ...(args.aliases as Record<string, string>) } }
+              : {}),
+            ...(args.customWalks && typeof args.customWalks === "object"
+              ? {
+                  customWalks: {
+                    ...gapPrefs.customWalks,
+                    ...(args.customWalks as Record<string, number>),
+                  },
+                }
+              : {}),
+          };
+          saveGapPreferences(next);
+          setGapPrefs(next);
+          return { ok: true, message: "空档偏好已更新。" };
+        }
+
+        case "add_catalog_section": {
+          const section = createSection({
+            name: String(args.name),
+            credits: Number(args.credits),
+            category: args.category as CourseCategory,
+            day: Number(args.day),
+            start: Number(args.start),
+            end: Number(args.end),
+            teacher: typeof args.teacher === "string" ? args.teacher : undefined,
+            location: typeof args.location === "string" ? args.location : undefined,
+            code: typeof args.code === "string" ? args.code : undefined,
+            difficulty: typeof args.difficulty === "number" ? args.difficulty : undefined,
+            examWeek: typeof args.examWeek === "number" ? args.examWeek : undefined,
+            weekStart: typeof args.weekStart === "number" ? args.weekStart : undefined,
+            weekEnd: typeof args.weekEnd === "number" ? args.weekEnd : undefined,
+          });
+          if (args.pattern === "odd" || args.pattern === "even") {
+            section.meetings[0].pattern = args.pattern;
+          }
+          const catalog = loadCatalog();
+          saveCatalog(withSectionAdded(withSectionsMerged(catalog, [section]), section.id));
+          return { ok: true, message: `已把《${section.name}》加入选课池和当前方案。` };
+        }
+
+        case "update_catalog_section": {
+          const catalog = loadCatalog();
+          const target = catalog.sections.find((item) => item.id === args.id);
+          if (!target) return fail("没有找到这个候选班次。");
+          const next = catalog.sections.map((section) =>
+            section.id === target.id
+              ? {
+                  ...section,
+                  ...(typeof args.name === "string" ? { name: args.name } : {}),
+                  ...(typeof args.credits === "number" ? { credits: args.credits } : {}),
+                  ...(typeof args.category === "string"
+                    ? { category: args.category as CourseCategory }
+                    : {}),
+                  ...(typeof args.teacher === "string" ? { teacher: args.teacher } : {}),
+                  ...(typeof args.location === "string" ? { location: args.location } : {}),
+                  ...(typeof args.code === "string" ? { code: args.code } : {}),
+                  ...(typeof args.note === "string" ? { note: args.note } : {}),
+                  ...(typeof args.difficulty === "number"
+                    ? { difficulty: args.difficulty }
+                    : {}),
+                  ...(typeof args.examWeek === "number" ? { examWeek: args.examWeek } : {}),
+                }
+              : section,
+          );
+          saveCatalog({ ...catalog, sections: next });
+          return { ok: true, message: "候选班次已更新。" };
+        }
+
+        case "delete_catalog_section": {
+          saveCatalog(withSectionDeleted(loadCatalog(), String(args.id)));
+          return { ok: true, message: "已从选课池删除这个班次。" };
+        }
+
+        case "select_catalog_section": {
+          saveCatalog(withSectionAdded(loadCatalog(), String(args.id)));
+          return { ok: true, message: "已加入当前选课方案。" };
+        }
+
+        case "unselect_catalog_section": {
+          saveCatalog(withSectionRemoved(loadCatalog(), String(args.id)));
+          return { ok: true, message: "已从当前选课方案移除。" };
+        }
+
+        case "create_selection_plan": {
+          const catalog = loadCatalog();
+          saveCatalog(withPlanCreated(catalog, String(args.name)));
+          return { ok: true, message: `已新建选课方案《${args.name}》。` };
+        }
+
+        case "switch_selection_plan": {
+          const catalog = loadCatalog();
+          if (!catalog.plans.some((plan) => plan.id === args.id)) {
+            return fail("没有找到这个选课方案。");
+          }
+          saveCatalog({ ...catalog, activePlanId: String(args.id) });
+          return { ok: true, message: "已切换选课方案。" };
+        }
+
+        case "delete_selection_plan": {
+          saveCatalog(withPlanRemoved(loadCatalog(), String(args.id)));
+          return { ok: true, message: "选课方案已删除。" };
+        }
+
+        case "auto_combine_plan": {
+          const catalog = loadCatalog();
+          const ids = autoCombine(catalog.sections, {
+            ...(typeof args.maxCredits === "number" ? { maxCredits: args.maxCredits } : {}),
+            ...(typeof args.maxWeeklyPeriods === "number"
+              ? { maxWeeklyPeriods: args.maxWeeklyPeriods }
+              : {}),
+            ...(Array.isArray(args.categories)
+              ? { categories: args.categories as CourseCategory[] }
+              : {}),
+          });
+          saveCatalog(withPlanSections(catalog, ids));
+          return { ok: true, message: `已自动选中 ${ids.length} 个班次。` };
+        }
+
+        case "add_study_log": {
+          const start = typeof args.start === "string" ? new Date(args.start) : new Date();
+          const log: Omit<StudyLog, "id" | "createdAt"> = {
+            subject: String(args.subject),
+            minutes: Number(args.minutes),
+            start: Number.isNaN(start.getTime()) ? new Date().toISOString() : start.toISOString(),
+            kind:
+              args.kind === "pomodoro" || args.kind === "review" ? args.kind : "manual",
+            ...(typeof args.courseId === "string" ? { courseId: args.courseId } : {}),
+            ...(typeof args.note === "string" ? { note: args.note } : {}),
+          };
+          saveStudyLogs(addStudyLog(loadStudyLogs(), log));
+          return { ok: true, message: `已记录 ${log.minutes} 分钟学习。` };
+        }
+
+        case "update_ai_settings": {
+          const current = loadAiSettings();
+          const permissions =
+            args.permissions && typeof args.permissions === "object"
+              ? (args.permissions as Partial<typeof current.permissions>)
+              : undefined;
+          const next = {
+            ...current,
+            ...(typeof args.provider === "string"
+              ? { provider: args.provider as "local" | "openai-compatible" }
+              : {}),
+            ...(typeof args.baseUrl === "string" ? { baseUrl: args.baseUrl } : {}),
+            ...(typeof args.model === "string" ? { model: args.model } : {}),
+            persona: {
+              ...current.persona,
+              ...(typeof args.personaName === "string" ? { name: args.personaName } : {}),
+              ...(typeof args.tone === "string"
+                ? { tone: args.tone as typeof current.persona.tone }
+                : {}),
+              ...(typeof args.customPrompt === "string"
+                ? { customPrompt: args.customPrompt }
+                : {}),
+            },
+            permissions: permissions
+              ? { ...current.permissions, ...permissions }
+              : current.permissions,
+          };
+          if (!saveAiSettings(next)) return fail("AI 设置保存失败。");
+          return { ok: true, message: "AI 设置已更新（密钥未改动）。" };
+        }
+
+        case "add_memory": {
+          const next = addAiMemory(loadAiMemory(), String(args.text));
+          saveAiMemory(next);
+          return { ok: true, message: "已加入长期记忆。" };
+        }
+
+        case "delete_memory": {
+          saveAiMemory(removeAiMemory(loadAiMemory(), String(args.id)));
+          return { ok: true, message: "已删除这条长期记忆。" };
+        }
+
+        case "clear_memory": {
+          saveAiMemory(clearAiMemory(loadAiMemory()));
+          return { ok: true, message: "长期记忆已清空。" };
+        }
+
+        case "tap_woodfish": {
+          let stats = loadWoodfish();
+          const times = typeof args.times === "number" ? args.times : 1;
+          for (let index = 0; index < times; index += 1) {
+            stats = tapWoodfish(stats);
+          }
+          saveWoodfish(stats);
+          return { ok: true, message: `敲了 ${times} 下木鱼。` };
+        }
+
+        case "read_manual":
+          return { ok: true, message: "手册内容已在对话中展示。" };
+
+        default:
+          return fail(`不支持的动作「${action}」。`);
+      }
+    } catch (error) {
+      return fail(error instanceof Error ? error.message : "执行动作时出错。");
+    }
   };
 
   const jumpToWeek = (nextWeek: number) => {
@@ -668,9 +1814,18 @@ export default function App() {
             <NotesWorkspace courses={courses} onNotify={notify} />
           ) : page === "ai" ? (
             <AiWorkspace
+              timetableId={timetable.id}
+              timetable={timetable}
+              timetables={data.timetables.map((item) => ({ id: item.id, name: item.name }))}
+              periodProfiles={data.periodProfiles.map((item) => ({
+                id: item.id,
+                name: item.name,
+              }))}
               courses={courses}
+              events={events}
               semester={currentSemester}
               now={now}
+              onRunAction={runAiAction}
               onNotify={notify}
             />
           ) : page === "profile" ? (
@@ -881,6 +2036,7 @@ export default function App() {
           data={data}
           theme={prefs.theme}
           autoHolidays={prefs.autoHolidays}
+          initialTab={settingsTab}
           onClose={() => setSettingsOpen(false)}
           onSaveSemester={actions.saveSemester}
           onExportJson={actions.exportJson}
