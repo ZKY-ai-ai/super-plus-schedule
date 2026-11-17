@@ -157,7 +157,7 @@ export function SystemCalendarPanel({
     } else if (state === "denied") {
       setNotice({
         tone: "error",
-        message: "日历权限被拒绝，请到系统设置 → 应用 → 课序 → 权限中手动允许日历读写。",
+        message: "日历权限被拒绝，请到系统设置 → 应用 → 课序PLUS → 权限中手动允许日历读写。",
       });
     } else if (state === "error") {
       setNotice({ tone: "error", message: "无法请求日历权限，请重新打开 App 后再试。" });
