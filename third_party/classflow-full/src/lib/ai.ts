@@ -4,10 +4,10 @@
  * 设计原则：
  * 1. 本地规则模式零配置可用，不联网也能查课。
  * 2. OpenAI 兼容接口是可选项，密钥只存本机。
- * 3. 任何上下文都必须经过分项授权裁剪，默认最小授权。
+ * 3. 上下文注入本机全部结构化数据（含课表清单与各类 ID），默认全部授权，仍可按项关闭。
  * 4. 长期记忆只保存用户主动说「记住」的内容，可逐条删除。
  */
-import type { Course, Semester } from "../types";
+import type { Course, Preferences, ScheduleEvent, Semester } from "../types";
 import {
   addDays,
   dateKey,
@@ -556,8 +556,185 @@ export function answerScheduleQuestion(
 
 /* --------------------------- 人格与设置 --------------------------- */
 
-export type AiProviderId = "local" | "openai-compatible";
+export type AiModelProviderId =
+  | "openai"
+  | "deepseek"
+  | "zhipu"
+  | "qwen"
+  | "moonshot"
+  | "siliconflow"
+  | "openrouter"
+  | "openai-compatible"
+  | "ollama"
+  | "lmstudio"
+  | "custom-local";
+
+export type AiProviderId = "local" | AiModelProviderId;
+export type AiProviderGroup = "cloud" | "local";
 export type AiTone = "concise" | "warm" | "playful";
+
+export interface AiProviderPreset {
+  id: AiModelProviderId;
+  label: string;
+  group: AiProviderGroup;
+  baseUrl: string;
+  model: string;
+  models: string[];
+  requiresApiKey: boolean;
+  hint: string;
+}
+
+export const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
+  {
+    id: "openai",
+    label: "OpenAI",
+    group: "cloud",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini",
+    models: ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4o"],
+    requiresApiKey: true,
+    hint: "官方接口，支持图片输入",
+  },
+  {
+    id: "deepseek",
+    label: "DeepSeek",
+    group: "cloud",
+    baseUrl: "https://api.deepseek.com",
+    model: "deepseek-flash",
+    models: ["deepseek-flash", "deepseek-chat", "deepseek-reasoner"],
+    requiresApiKey: true,
+    hint: "中文对话与推理",
+  },
+  {
+    id: "zhipu",
+    label: "智谱 GLM",
+    group: "cloud",
+    baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+    model: "glm-4-flash",
+    models: ["glm-4-flash", "glm-4-plus", "glm-4v-flash"],
+    requiresApiKey: true,
+    hint: "GLM 系列，含视觉模型",
+  },
+  {
+    id: "qwen",
+    label: "通义千问",
+    group: "cloud",
+    baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    model: "qwen-plus",
+    models: ["qwen-plus", "qwen-turbo", "qwen-vl-max"],
+    requiresApiKey: true,
+    hint: "DashScope 兼容模式",
+  },
+  {
+    id: "moonshot",
+    label: "Kimi / Moonshot",
+    group: "cloud",
+    baseUrl: "https://api.moonshot.cn/v1",
+    model: "moonshot-v1-8k",
+    models: ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
+    requiresApiKey: true,
+    hint: "月之暗面长文本模型",
+  },
+  {
+    id: "siliconflow",
+    label: "硅基流动",
+    group: "cloud",
+    baseUrl: "https://api.siliconflow.cn/v1",
+    model: "Qwen/Qwen2.5-7B-Instruct",
+    models: [
+      "Qwen/Qwen2.5-7B-Instruct",
+      "deepseek-ai/DeepSeek-V3",
+      "THUDM/glm-4-9b-chat",
+    ],
+    requiresApiKey: true,
+    hint: "多模型托管服务",
+  },
+  {
+    id: "openrouter",
+    label: "OpenRouter",
+    group: "cloud",
+    baseUrl: "https://openrouter.ai/api/v1",
+    model: "openai/gpt-4o-mini",
+    models: [
+      "openai/gpt-4o-mini",
+      "anthropic/claude-3.5-sonnet",
+      "google/gemini-2.0-flash-001",
+    ],
+    requiresApiKey: true,
+    hint: "聚合多家云端模型",
+  },
+  {
+    id: "openai-compatible",
+    label: "自定义云端",
+    group: "cloud",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini",
+    models: [],
+    requiresApiKey: true,
+    hint: "任意 OpenAI 协议地址",
+  },
+  {
+    id: "ollama",
+    label: "Ollama",
+    group: "local",
+    baseUrl: "http://localhost:11434/v1",
+    model: "qwen2.5:7b",
+    models: ["qwen2.5:7b", "llama3.1:8b", "deepseek-r1:7b"],
+    requiresApiKey: false,
+    hint: "本机模型，默认服务",
+  },
+  {
+    id: "lmstudio",
+    label: "LM Studio",
+    group: "local",
+    baseUrl: "http://localhost:1234/v1",
+    model: "local-model",
+    models: ["local-model"],
+    requiresApiKey: false,
+    hint: "LM Studio 本地服务",
+  },
+  {
+    id: "custom-local",
+    label: "自定义本地",
+    group: "local",
+    baseUrl: "http://127.0.0.1:8000/v1",
+    model: "",
+    models: [],
+    requiresApiKey: false,
+    hint: "自建 OpenAI 兼容服务",
+  },
+];
+
+export const AI_PROVIDER_IDS: readonly AiProviderId[] = [
+  "local",
+  ...AI_PROVIDER_PRESETS.map((preset) => preset.id),
+];
+
+export function getAiProviderPreset(id: AiProviderId): AiProviderPreset | null {
+  return AI_PROVIDER_PRESETS.find((preset) => preset.id === id) ?? null;
+}
+
+export function isRemoteAiProvider(id: AiProviderId): boolean {
+  return id !== "local";
+}
+
+export function aiProviderRequiresApiKey(id: AiProviderId): boolean {
+  return getAiProviderPreset(id)?.requiresApiKey ?? true;
+}
+
+export function aiProviderLabel(id: AiProviderId): string {
+  if (id === "local") return "本地规则";
+  return getAiProviderPreset(id)?.label ?? "远程模型";
+}
+
+export function isValidAiBaseUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 export interface AiPersona {
   name: string;
@@ -610,6 +787,7 @@ export interface StorageLike {
 
 export const AI_SETTINGS_KEY = "kexu:ai:settings:v1";
 export const AI_CHAT_KEY = "kexu:ai:chat:v1";
+const AI_FULL_ACCESS_KEY = "kexu:ai:full-access:v1";
 export const MAX_CHAT_MESSAGES = 120;
 
 export const DEFAULT_PERSONA: AiPersona = {
@@ -620,10 +798,10 @@ export const DEFAULT_PERSONA: AiPersona = {
 
 export const DEFAULT_AI_PERMISSIONS: AiPermissions = {
   schedule: true,
-  notes: false,
-  noteTags: false,
-  tasks: false,
-  exams: false,
+  notes: true,
+  noteTags: true,
+  tasks: true,
+  exams: true,
 };
 
 export const DEFAULT_AI_SETTINGS: AiSettings = {
@@ -667,36 +845,59 @@ function normalizePermissions(value: unknown): AiPermissions {
   const object = isRecord(value) ? value : {};
   return {
     schedule: object.schedule !== false,
-    notes: object.notes === true,
-    noteTags: object.noteTags === true,
-    tasks: object.tasks === true,
-    exams: object.exams === true,
+    notes: object.notes !== false,
+    noteTags: object.noteTags !== false,
+    tasks: object.tasks !== false,
+    exams: object.exams !== false,
   };
 }
 
-function normalizeBaseUrl(value: unknown): string {
-  const raw = text(value, 300, DEFAULT_AI_SETTINGS.baseUrl);
+function normalizeProvider(value: unknown): AiProviderId {
+  return typeof value === "string" && (AI_PROVIDER_IDS as readonly string[]).includes(value)
+    ? (value as AiProviderId)
+    : "local";
+}
+
+function normalizeBaseUrl(value: unknown, fallback: string): string {
+  const raw = text(value, 300, fallback);
   try {
     const url = new URL(raw);
     if (url.protocol !== "http:" && url.protocol !== "https:") {
-      return DEFAULT_AI_SETTINGS.baseUrl;
+      return fallback;
     }
     return url.toString().replace(/\/$/, "");
   } catch {
-    return DEFAULT_AI_SETTINGS.baseUrl;
+    return fallback;
   }
 }
 
 export function normalizeAiSettings(raw: unknown): AiSettings {
   const object = isRecord(raw) ? raw : {};
+  const provider = normalizeProvider(object.provider);
+  const preset = getAiProviderPreset(provider);
   return {
-    provider: object.provider === "openai-compatible" ? "openai-compatible" : "local",
-    baseUrl: normalizeBaseUrl(object.baseUrl),
+    provider,
+    baseUrl: normalizeBaseUrl(object.baseUrl, preset?.baseUrl ?? DEFAULT_AI_SETTINGS.baseUrl),
     apiKey: text(object.apiKey, 300),
-    model: text(object.model, 80, DEFAULT_AI_SETTINGS.model),
+    model: text(object.model, 80, preset ? preset.model : DEFAULT_AI_SETTINGS.model),
     persona: normalizePersona(object.persona),
     permissions: normalizePermissions(object.permissions),
   };
+}
+
+export function validateAiSettings(settings: AiSettings): string | null {
+  if (!settings.persona.name.trim()) return "给 AI 起一个名字吧。";
+  if (!isRemoteAiProvider(settings.provider)) return null;
+  if (!isValidAiBaseUrl(settings.baseUrl)) {
+    return "Base URL 需要是 http(s) 地址，例如 https://api.openai.com/v1。";
+  }
+  if (!settings.model.trim()) {
+    return "请填写模型名称；本地模型可以先用「测试连接」确认是否可用。";
+  }
+  if (aiProviderRequiresApiKey(settings.provider) && !settings.apiKey.trim()) {
+    return "这个云端服务需要 API Key；也可以改用本地模型（Ollama）。";
+  }
+  return null;
 }
 
 export function loadAiSettings(
@@ -706,7 +907,16 @@ export function loadAiSettings(
   try {
     const raw = storage.getItem(AI_SETTINGS_KEY);
     if (!raw) return normalizeAiSettings(null);
-    return normalizeAiSettings(JSON.parse(raw));
+    const settings = normalizeAiSettings(JSON.parse(raw));
+    if (storage.getItem(AI_FULL_ACCESS_KEY) === "1") return settings;
+    // 一次性把旧版本保存的分项授权补全为全部开启，之后仍可在界面里逐项关闭。
+    const upgraded: AiSettings = {
+      ...settings,
+      permissions: { schedule: true, notes: true, noteTags: true, tasks: true, exams: true },
+    };
+    storage.setItem(AI_SETTINGS_KEY, JSON.stringify(upgraded));
+    storage.setItem(AI_FULL_ACCESS_KEY, "1");
+    return upgraded;
   } catch {
     return normalizeAiSettings(null);
   }
@@ -986,11 +1196,46 @@ function memoryBlock(entries: AiMemoryEntry[]): string {
 
 /* --------------------------- 分项授权与上下文 --------------------------- */
 
+export interface AiTimetableSummary {
+  id: string;
+  name: string;
+  semesterName: string;
+  courseCount: number;
+  eventCount: number;
+  active: boolean;
+}
+
+export interface AiNamedRef {
+  id: string;
+  name: string;
+}
+
+export interface AiGradeInfo {
+  courseId: string;
+  courseName: string;
+  score: number | null;
+  credits: number | null;
+}
+
+/** 本机全部结构化数据，供 AI 查看与定位 ID，不包含 API Key 等凭据。 */
+export interface AiInventory {
+  timetables: AiTimetableSummary[];
+  events: ScheduleEvent[];
+  grades: AiGradeInfo[];
+  periodProfiles: AiNamedRef[];
+  templates: AiNamedRef[];
+  catalogSections: AiNamedRef[];
+  selectionPlans: AiNamedRef[];
+  chapters: Array<{ id: string; title: string }>;
+  preferences?: Preferences;
+}
+
 export interface AiContextSources {
   snapshot?: AiScheduleSnapshot;
   notes?: Note[];
   tasks?: Task[];
   exams?: Exam[];
+  inventory?: AiInventory;
 }
 
 export interface PermissionDescriptor {
@@ -1012,25 +1257,25 @@ export function describePermissions(permissions: AiPermissions): PermissionDescr
       key: "notes",
       label: "笔记正文",
       enabled: permissions.notes,
-      hint: "授权后 AI 可以阅读并摘录笔记内容",
+      hint: "AI 可以阅读并摘录笔记内容",
     },
     {
       key: "noteTags",
       label: "笔记标题与标签",
       enabled: permissions.noteTags,
-      hint: "只共享标题和标签，不包含正文",
+      hint: "共享标题和标签，可单独关闭",
     },
     {
       key: "tasks",
       label: "任务与 DDL",
       enabled: permissions.tasks,
-      hint: "乙的任务模块接入后生效",
+      hint: "AI 可以看到任务、截止时间与子任务 ID",
     },
     {
       key: "exams",
       label: "考试与成绩",
       enabled: permissions.exams,
-      hint: "乙的考试模块接入后生效",
+      hint: "AI 可以看到考试安排与已录入成绩",
     },
   ];
 }
@@ -1041,11 +1286,26 @@ export function buildAiContext(
 ): string {
   const sections: string[] = [];
   const snapshot = sources.snapshot;
+  const inventory = sources.inventory;
+  const activeTimetable = inventory?.timetables.find((item) => item.active) ?? null;
+
+  if (inventory?.timetables.length) {
+    const lines = inventory.timetables.map(
+      (item, index) =>
+        `${index + 1}. id=${item.id}《${item.name}》${item.active ? "（当前）" : ""} · ${item.semesterName || "未命名学期"} · ${item.courseCount} 门课程 · ${item.eventCount} 条日程`,
+    );
+    lines.push("切换、重命名、删除或导入课表时必须使用上面的 id，不要编造。");
+    sections.push(
+      `【课表清单】\n本机共 ${inventory.timetables.length} 套课表：\n${lines.join("\n")}`,
+    );
+  }
+
   if (permissions.schedule && snapshot) {
     const lines = [
+      activeTimetable ? `当前课表：《${activeTimetable.name}》id=${activeTimetable.id}` : "",
       `学期：${snapshot.semesterName}（第 ${snapshot.week}/${snapshot.totalWeeks} 周）`,
       `课程：${snapshot.courses.length} 门`,
-    ];
+    ].filter(Boolean);
     for (const course of snapshot.courses.slice(0, 20)) {
       lines.push(
         `- id=${course.id} ${course.name}${course.teacher ? ` · ${course.teacher}` : ""}${course.location ? ` · ${course.location}` : ""}`,
@@ -1068,6 +1328,14 @@ export function buildAiContext(
       );
     }
     sections.push(`【课表】\n${lines.join("\n")}`);
+  }
+
+  if (permissions.schedule && inventory?.events.length) {
+    const events = inventory.events.slice(0, 40).map((event) => {
+      const when = event.allDay ? "全天" : `${event.start}-${event.end}`;
+      return `- id=${event.id} ${event.date} ${when} ${event.title}`;
+    });
+    sections.push(`【日程】\n修改或删除日程时使用上面的 id：\n${events.join("\n")}`);
   }
 
   if ((permissions.notes || permissions.noteTags) && sources.notes?.length) {
@@ -1097,8 +1365,45 @@ export function buildAiContext(
     });
     sections.push(`【考试】\n${exams.join("\n")}`);
   }
+  if (permissions.exams && inventory?.grades.length) {
+    const grades = inventory.grades.slice(0, 60).map((grade) => {
+      const score = grade.score === null ? "未录入" : String(grade.score);
+      const credits = grade.credits === null ? "" : ` · ${grade.credits} 学分`;
+      return `- ${grade.courseName}（课程 id=${grade.courseId}）：${score}${credits}`;
+    });
+    sections.push(`【成绩】\n${grades.join("\n")}`);
+  }
 
-  return sections.length > 0 ? sections.join("\n\n") : "（当前没有授权任何上下文）";
+  if (inventory) {
+    const extras: string[] = [];
+    const pushRefs = (label: string, items?: AiNamedRef[]) => {
+      if (items?.length) {
+        extras.push(`${label}：${items
+          .slice(0, 30)
+          .map((item) => `id=${item.id}《${item.name}》`)
+          .join("、")}`);
+      }
+    };
+    pushRefs("作息方案", inventory.periodProfiles);
+    pushRefs("课程模板", inventory.templates);
+    pushRefs("培养方案", inventory.catalogSections);
+    pushRefs("选课方案", inventory.selectionPlans);
+    if (inventory.chapters.length) {
+      extras.push(`笔记分章：${inventory.chapters
+        .slice(0, 30)
+        .map((item) => `id=${item.id}《${item.title}》`)
+        .join("、")}`);
+    }
+    const prefs = inventory.preferences;
+    if (prefs) {
+      extras.push(
+        `界面偏好：主题=${prefs.theme}，视图=${prefs.view}，布局=${prefs.layout}，自动节假日=${prefs.autoHolidays ? "开" : "关"}，显示别名=${prefs.showAliases ? "开" : "关"}`,
+      );
+    }
+    if (extras.length > 0) sections.push(`【其他数据】\n${extras.join("\n")}`);
+  }
+
+  return sections.length > 0 ? sections.join("\n\n") : "（本机暂时没有可用的数据）";
 }
 
 /* --------------------------- 聊天与提供方 --------------------------- */
@@ -1112,6 +1417,7 @@ export interface AiCompletionRequest {
   notes?: Note[];
   tasks?: Task[];
   exams?: Exam[];
+  inventory?: AiInventory;
   memory?: AiMemoryEntry[];
   /** 本轮图片附件的 data URL，仅远程视觉模型使用。 */
   images?: string[];
@@ -1141,10 +1447,10 @@ export function buildSystemPrompt(
   return [
     `你是「${settings.persona.name}」，一个住在课表里的 AI 助手。`,
     toneInstruction(settings.persona.tone),
-    "只依据下面授权上下文中的事实回答；没有数据就直说没有，不要编造课程、时间、老师或 ID。",
+    "只依据下面本机数据快照中的事实回答；没有的数据就直说没有，不要编造课程、时间、老师或 ID。已有 ID 时可以直接使用，不需要让用户再提供。",
     settings.persona.customPrompt ? `用户的人格补充：${settings.persona.customPrompt}` : "",
     memory.length > 0 ? memoryBlock(memory) : "",
-    "以下是用户本次授权的上下文：",
+    "以下是你可访问的本机全部数据（已按授权裁剪，不含 API Key 等凭据）：",
     buildAiContext(sources, settings.permissions),
     buildAiManualPrompt(question),
   ]
@@ -1238,15 +1544,124 @@ function providerErrorText(payload: unknown): string {
   return "";
 }
 
+export interface AiConnectionTestResult {
+  ok: boolean;
+  message: string;
+  latencyMs: number;
+}
+
+const AI_CONNECTION_TIMEOUT_MS = 15_000;
+
+async function fetchWithAiTimeout(
+  fetchImpl: FetchLike,
+  url: string,
+  init: RequestInit,
+): Promise<Response> {
+  const controller = typeof AbortController === "undefined" ? null : new AbortController();
+  const timer = setTimeout(() => controller?.abort(), AI_CONNECTION_TIMEOUT_MS);
+  try {
+    return await fetchImpl(url, controller ? { ...init, signal: controller.signal } : init);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function testAiConnection(
+  settings: AiSettings,
+  fetchImpl: FetchLike = (input, init) => fetch(input, init),
+): Promise<AiConnectionTestResult> {
+  const startedAt = Date.now();
+  const elapsed = () => Date.now() - startedAt;
+  const base = settings.baseUrl.trim().replace(/\/+$/, "");
+  if (!isValidAiBaseUrl(base)) {
+    return { ok: false, message: "Base URL 需要是 http(s) 地址。", latencyMs: 0 };
+  }
+  if (aiProviderRequiresApiKey(settings.provider) && !settings.apiKey.trim()) {
+    return { ok: false, message: "请先填写 API Key 再测试连接。", latencyMs: 0 };
+  }
+  const preset = getAiProviderPreset(settings.provider);
+  const model = settings.model.trim() || preset?.model || "";
+  if (!model) {
+    return { ok: false, message: "请先填写模型名称。", latencyMs: 0 };
+  }
+  const localHint =
+    preset?.group === "local"
+      ? "请确认本地服务已启动；Ollama 需运行 ollama serve，跨域受限时需设置 OLLAMA_ORIGINS。"
+      : "请检查 Base URL、模型名、API Key 和网络。";
+  try {
+    const response = await fetchWithAiTimeout(fetchImpl, `${base}/chat/completions`, {
+      method: "POST",
+      headers: aiRequestHeaders(settings),
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: "ping" }],
+        temperature: 0,
+        max_tokens: 8,
+        stream: false,
+      }),
+    });
+    const raw = await response.text();
+    const latencyMs = elapsed();
+    if (!response.ok) {
+      let detail = "";
+      try {
+        detail = providerErrorText(JSON.parse(raw));
+      } catch {
+        detail = raw.trim().slice(0, 160);
+      }
+      return {
+        ok: false,
+        message: `连接失败（HTTP ${response.status}）${detail ? `：${detail}` : ""}。${localHint}`,
+        latencyMs,
+      };
+    }
+    let parsed: unknown = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return {
+        ok: false,
+        message: `接口有响应，但不是合法的 JSON，可能不是 OpenAI 兼容服务。${localHint}`,
+        latencyMs,
+      };
+    }
+    const providerError = providerErrorText(parsed);
+    if (providerError) {
+      return { ok: false, message: `连接失败：${providerError}。${localHint}`, latencyMs };
+    }
+    return {
+      ok: true,
+      message: `连接成功（${latencyMs} ms），模型「${model}」已响应。`,
+      latencyMs,
+    };
+  } catch {
+    return {
+      ok: false,
+      message: `无法连接到 ${base}。${localHint}`,
+      latencyMs: elapsed(),
+    };
+  }
+}
+
+function aiAuthHeaders(settings: AiSettings): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (settings.apiKey.trim()) headers.Authorization = `Bearer ${settings.apiKey.trim()}`;
+  return headers;
+}
+
+function aiRequestHeaders(settings: AiSettings): Record<string, string> {
+  return { "Content-Type": "application/json", ...aiAuthHeaders(settings) };
+}
+
 async function completeRemote(
   request: AiCompletionRequest,
   settings: AiSettings,
   fetchImpl: FetchLike,
 ): Promise<AiCompletionResult> {
-  if (!settings.apiKey.trim()) {
+  if (aiProviderRequiresApiKey(settings.provider) && !settings.apiKey.trim()) {
     return {
-      content: "还没有填写 API Key。可以继续用「本地规则」模式查课，或在设置里填入兼容 OpenAI 的服务。",
-      provider: "openai-compatible",
+      content: "还没有填写 API Key。请到「AI 助手」设置里填入云端服务的密钥，或改用本机 Ollama / LM Studio。",
+      provider: settings.provider,
       error: "missing-api-key",
     };
   }
@@ -1261,6 +1676,7 @@ async function completeRemote(
       notes: request.notes,
       tasks: request.tasks,
       exams: request.exams,
+      inventory: request.inventory,
     },
     request.memory,
     question,
@@ -1310,9 +1726,20 @@ async function completeRemote(
     if (!lastUser) return null;
     const visionSystem = [
       `你是「${settings.persona.name}」，负责读取图片并完成用户请求。`,
-      "只依据图片与用户消息回答；看不清就直说，不要编造课程、日期或 ID。",
+      "只依据图片、用户消息与本机数据快照回答；看不清就直说，不要编造课程、日期或 ID。",
       AI_ATTACHMENT_SYSTEM_RULES,
       "需要修改应用数据时，按下面的动作协议在回复末尾输出 kexu-action 代码块，等待用户确认。",
+      "以下是你可访问的本机全部数据（已按授权裁剪）：",
+      buildAiContext(
+        {
+          snapshot: request.snapshot,
+          notes: request.notes,
+          tasks: request.tasks,
+          exams: request.exams,
+          inventory: request.inventory,
+        },
+        settings.permissions,
+      ),
       AI_ACTION_GUIDE,
     ].join("\n\n");
     const controller = typeof AbortController === "undefined" ? null : new AbortController();
@@ -1322,10 +1749,7 @@ async function completeRemote(
         `${settings.baseUrl.replace(/\/$/, "")}/chat/completions`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${settings.apiKey}`,
-          },
+          headers: aiRequestHeaders(settings),
           body: JSON.stringify({
             model: settings.model,
             messages: [
@@ -1360,7 +1784,7 @@ async function completeRemote(
       if (!message.content) return null;
       return {
         content: message.content,
-        provider: "openai-compatible",
+        provider: settings.provider,
         ...(message.finishReason === "length" ? { truncated: true } : {}),
       };
     } catch {
@@ -1376,10 +1800,7 @@ async function completeRemote(
       `${settings.baseUrl.replace(/\/$/, "")}/chat/completions`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${settings.apiKey}`,
-        },
+        headers: aiRequestHeaders(settings),
         body: JSON.stringify({
           model: settings.model,
           messages,
@@ -1407,7 +1828,7 @@ async function completeRemote(
           response.status === 400 && images.length > 0
             ? `AI 服务返回 400${suffix}。如果附件是图片，请确认模型支持图片输入（例如 gpt-4o-mini、gpt-4.1-mini、qwen-vl 等），并检查 Base URL 与模型名。`
             : `AI 服务返回 ${response.status}${suffix}。请检查 Base URL、模型名和 API Key。`,
-        provider: "openai-compatible",
+        provider: settings.provider,
         error: `http-${response.status}`,
       };
     }
@@ -1417,7 +1838,7 @@ async function completeRemote(
     } catch {
       return {
         content: "AI 服务返回了无法解析的内容，请检查 Base URL 是否指向兼容 OpenAI 的接口。",
-        provider: "openai-compatible",
+        provider: settings.provider,
         error: "bad-json",
       };
     }
@@ -1425,7 +1846,7 @@ async function completeRemote(
     if (providerError) {
       return {
         content: `AI 服务返回错误：${providerError}`,
-        provider: "openai-compatible",
+        provider: settings.provider,
         error: "provider-error",
       };
     }
@@ -1444,19 +1865,19 @@ async function completeRemote(
             : `AI 服务返回了空结果${message.finishReason ? `（finish_reason=${message.finishReason}）` : ""}，请稍后再试或换一个模型。`;
       return {
         content: reason,
-        provider: "openai-compatible",
+        provider: settings.provider,
         error: "empty-content",
       };
     }
     return {
       content: message.content,
-      provider: "openai-compatible",
+      provider: settings.provider,
       ...(message.finishReason === "length" ? { truncated: true } : {}),
     };
   } catch {
     return {
       content: "网络请求失败，请检查 Base URL、网络连接，或稍后再试。",
-      provider: "openai-compatible",
+      provider: settings.provider,
       error: "network",
     };
   } finally {
@@ -1470,7 +1891,7 @@ export async function complete(
   fetchImpl: FetchLike = (input, init) => fetch(input, init),
   now = new Date(),
 ): Promise<AiCompletionResult> {
-  if (settings.provider === "openai-compatible") {
+  if (isRemoteAiProvider(settings.provider)) {
     return completeRemote(request, settings, fetchImpl);
   }
 
@@ -1489,7 +1910,7 @@ export async function complete(
   if (request.images?.length) {
     return {
       content:
-        "本地规则模式不能读图。请到「人与授权」把提供方切换成 OpenAI 兼容，并填写支持图片输入的模型（例如 gpt-4o-mini、qwen-vl），再把图片发给我。",
+        "本地规则模式不能读图。请到「人格与授权」切换云端或本地模型，并选择支持图片输入的模型（例如 gpt-4o-mini、qwen-vl），再把图片发给我。",
       provider: "local",
       error: "vision-requires-remote",
     };
@@ -1497,7 +1918,7 @@ export async function complete(
   if (request.hasAttachments) {
     return {
       content:
-        "附件已经在本地读取，但本地规则模式只会处理固定指令和课程表文本。切换到「OpenAI 兼容」后，我就能按文件内容自由整理任务、笔记或考试。",
+        "附件已经在本地读取，但本地规则模式只会处理固定指令和课程表文本。接入云端或本地模型后，我就能按文件内容自由整理任务、笔记或考试。",
       provider: "local",
       error: "attachments-require-remote",
     };
@@ -1535,7 +1956,7 @@ export async function complete(
   );
   if (localActions.length > 0) {
     return {
-      content: `已准备好这些操作，请在下方的动作卡上确认后再执行。\n\n\`\`\`kexu-action\n${JSON.stringify(localActions)}\n\`\`\``,
+      content: `收到，我直接处理。\n\n\`\`\`kexu-action\n${JSON.stringify(localActions)}\n\`\`\``,
       provider: "local",
     };
   }
@@ -1564,7 +1985,7 @@ export async function complete(
   if (/你是谁|介绍一下|能做什么/.test(question)) {
     return {
       content:
-        `我是${settings.persona.name}，本地课表助手。不联网也能回答今天/明天/周几的课、下一节、课程地点和数量；开启笔记授权后还能帮你找笔记。换到 OpenAI 兼容模式后可以自由聊天。`,
+        `我是${settings.persona.name}，本地课表助手。不联网也能回答今天/明天/周几的课、下一节、课程地点和数量；开启笔记授权后还能帮你找笔记。接入云端或本地模型后可以自由聊天。`,
       provider: "local",
     };
   }

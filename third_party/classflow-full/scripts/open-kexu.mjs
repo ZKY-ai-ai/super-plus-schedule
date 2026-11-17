@@ -25,7 +25,8 @@ async function isKexu(port) {
       signal: AbortSignal.timeout(800),
     });
     if (!response.ok) return false;
-    return (await response.text()).includes("课序 · ClassFlow");
+    const html = await response.text();
+    return html.includes("课序PLUS") || html.includes("课序 · ClassFlow");
   } catch {
     return false;
   }
@@ -49,7 +50,7 @@ function openBrowser(url) {
 }
 
 async function waitUntilReady(port, child) {
-  for (let attempt = 0; attempt < 80; attempt += 1) {
+  for (let attempt = 0; attempt < 160; attempt += 1) {
     if (child.exitCode !== null) return false;
     if (await isKexu(port)) return true;
     await sleep(250);

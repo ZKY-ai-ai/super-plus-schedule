@@ -10,15 +10,14 @@ import {
   Image as ImageIcon,
   LoaderCircle,
   Paperclip,
-  Play,
   Send,
   Settings2,
   Sparkles,
-  TriangleAlert,
   UploadCloud,
   X,
 } from "lucide-react";
 import {
+  aiProviderLabel,
   appendChat,
   complete,
   createChatMessage,
@@ -26,13 +25,12 @@ import {
   loadChat,
   saveChat,
   type AiChatData,
+  type AiInventory,
   type AiMemoryEntry,
   type AiScheduleSnapshot,
   type AiSettings,
 } from "../../lib/ai";
 import {
-  describeAiAction,
-  isDestructiveAction,
   parseAiActions,
   validateAiAction,
   type AiAction,
@@ -65,6 +63,7 @@ interface AiChatPanelProps {
   notes: Note[];
   tasks: Task[];
   exams: Exam[];
+  inventory: AiInventory;
   memory: AiMemoryEntry[];
   actionContext: AiActionContext;
   onRemember: (text: string) => AiMemoryEntry[];
@@ -80,12 +79,6 @@ const TONE_LABEL: Record<AiSettings["persona"]["tone"], string> = {
   playful: "俏皮",
 };
 
-interface PreparedActions {
-  id: string;
-  actions: AiAction[];
-  errors: string[];
-}
-
 function attachmentIcon(kind: AiAttachment["kind"]) {
   if (kind === "image") return <ImageIcon size={14} />;
   if (kind === "spreadsheet") return <FileSpreadsheet size={14} />;
@@ -98,6 +91,7 @@ export function AiChatPanel({
   notes,
   tasks,
   exams,
+  inventory,
   memory,
   actionContext,
   onRemember,
@@ -109,7 +103,6 @@ export function AiChatPanel({
   const [chat, setChat] = useState<AiChatData>(() => loadChat());
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [prepared, setPrepared] = useState<PreparedActions[]>([]);
   const [runningId, setRunningId] = useState<string | null>(null);
   const [clearOpen, setClearOpen] = useState(false);
   const [attachments, setAttachments] = useState<AiAttachment[]>([]);
@@ -128,7 +121,7 @@ export function AiChatPanel({
   useEffect(() => {
     const log = logRef.current;
     if (log) log.scrollTop = log.scrollHeight;
-  }, [chat.messages.length, busy, prepared.length, runningId, attachments.length]);
+  }, [chat.messages.length, busy, runningId, attachments.length]);
 
   const hasUserMessage = chat.messages.some((message) => message.role === "user");
   const suggestions = [
@@ -146,28 +139,6 @@ export function AiChatPanel({
     return message.id;
   };
 
-  const handleReply = (raw: string, truncated = false) => {
-    const parsed = parseAiActions(raw);
-    let display =
-      parsed.text ||
-      (parsed.actions.length > 0
-        ? "我已准备好操作，请核对下面的动作卡后确认。"
-        : "这次没有拿到内容，再试一次？");
-    if (truncated) {
-      display += parsed.text
-        ? "\n\n> 这条回复达到模型单次输出上限，后面可能没有说完。可以回复「继续」让我接着补全。"
-        : "回复在生成时被截断了，没有形成完整内容。请让我减少单次输出的课程数量，或分两次处理。";
-    }
-    const reply = createChatMessage("assistant", display, new Date());
-    setChat((current) => appendChat(current, reply, new Date()));
-    if (parsed.actions.length > 0 || parsed.errors.length > 0) {
-      setPrepared((current) => [
-        ...current,
-        { id: reply.id, actions: parsed.actions, errors: parsed.errors },
-      ]);
-    }
-  };
-
   const readManual = (action: AiAction): string => {
     const section = findManualSection(String(action.args.section ?? ""));
     if (!section) {
@@ -177,12 +148,10 @@ export function AiChatPanel({
     return `已读取手册「${section.title}」。`;
   };
 
-  const executePrepared = async (item: PreparedActions) => {
-    if (runningId !== null) return;
-    setRunningId(item.id);
+  const runActions = async (actions: AiAction[]) => {
     const results: string[] = [];
     let allOk = true;
-    for (const action of item.actions) {
+    for (const action of actions) {
       if (action.action === "read_manual") {
         results.push(readManual(action));
         continue;
@@ -202,20 +171,43 @@ export function AiChatPanel({
         results.push("未完成：执行时出现异常，请稍后再试。");
       }
     }
+    return { results, allOk };
+  };
+
+  const executeActions = async (actions: AiAction[]) => {
+    const { results, allOk } = await runActions(actions);
     pushAssistant(
-      `${allOk ? "动作处理完成" : "部分动作没有完成"}：\n${results
+      `${allOk ? "操作完成" : "部分操作未完成"}：\n${results
         .map((result) => `· ${result}`)
         .join("\n")}`,
     );
-    setPrepared((current) => current.filter((entry) => entry.id !== item.id));
-    setRunningId(null);
     onAfterAction?.();
-    onNotify(allOk ? "动作已处理。" : "动作没有全部完成，请查看结果。", allOk ? "success" : "error");
+    onNotify(allOk ? "操作已处理。" : "有操作没有完成，请查看结果。", allOk ? "success" : "error");
   };
 
-  const cancelPrepared = (item: PreparedActions) => {
-    setPrepared((current) => current.filter((entry) => entry.id !== item.id));
-    pushAssistant("已取消这次操作，没有修改任何数据。");
+  const handleReply = async (raw: string, truncated = false) => {
+    const parsed = parseAiActions(raw);
+    let display =
+      parsed.text ||
+      (parsed.actions.length > 0 ? "收到，我直接处理。" : "这次没有拿到内容，再试一次？");
+    if (truncated) {
+      display += parsed.text
+        ? "\n\n> 这条回复达到模型单次输出上限，后面可能没有说完。可以回复「继续」让我接着补全。"
+        : "回复在生成时被截断了，没有形成完整内容。请让我减少单次输出的课程数量，或分两次处理。";
+    }
+    const reply = createChatMessage("assistant", display, new Date());
+    setChat((current) => appendChat(current, reply, new Date()));
+    if (parsed.errors.length > 0) {
+      pushAssistant(`动作没有执行：${parsed.errors.join("；")}`);
+    }
+    if (parsed.actions.length > 0) {
+      setRunningId(reply.id);
+      try {
+        await executeActions(parsed.actions);
+      } finally {
+        setRunningId(null);
+      }
+    }
   };
 
   const removeAttachment = (id: string) => {
@@ -277,28 +269,25 @@ export function AiChatPanel({
     }
   };
 
-  const prepareCourseImport = (attachment: AiAttachment) => {
+  const prepareCourseImport = async (attachment: AiAttachment) => {
     const seeds = attachment.courseSeeds ?? [];
     if (seeds.length === 0) return;
     const replyId = pushAssistant(
-      `我从「${attachment.name}」解析出 ${seeds.length} 门课程，已整理成导入动作。请核对下面的动作卡后确认。`,
+      `我从「${attachment.name}」解析出 ${seeds.length} 门课程，正在导入。`,
     );
-    setPrepared((current) => [
-      ...current,
-      {
-        id: replyId,
-        actions: [
-          {
-            action: "add_courses_from_text",
-            args: { text: courseSeedsToText(seeds), parsedCount: seeds.length },
-            reason: `来自附件「${attachment.name}」`,
-          },
-        ],
-        errors: [],
-      },
-    ]);
     setAttachments((current) => current.filter((item) => item.id !== attachment.id));
-    onNotify("已生成课程导入动作，请确认。");
+    setRunningId(replyId);
+    try {
+      await executeActions([
+        {
+          action: "add_courses_from_text",
+          args: { text: courseSeedsToText(seeds), parsedCount: seeds.length },
+          reason: `来自附件「${attachment.name}」`,
+        },
+      ]);
+    } finally {
+      setRunningId(null);
+    }
   };
 
   const send = async (raw: string) => {
@@ -339,23 +328,20 @@ export function AiChatPanel({
       if (courseAttachments.length > 0) {
         const seeds = courseAttachments.flatMap((attachment) => attachment.courseSeeds ?? []);
         const replyId = pushAssistant(
-          `我在附件里读到 ${seeds.length} 门课程，已经整理成导入动作。本地模式不会擅自写入，请核对下面的动作卡。`,
+          `我在附件里读到 ${seeds.length} 门课程，正在导入。`,
         );
-        setPrepared((current) => [
-          ...current,
-          {
-            id: replyId,
-            actions: [
-              {
-                action: "add_courses_from_text",
-                args: { text: courseSeedsToText(seeds), parsedCount: seeds.length },
-                reason: "来自拖入的课程表附件",
-              },
-            ],
-            errors: [],
-          },
-        ]);
-        onNotify("已生成课程导入动作，请确认。");
+        setRunningId(replyId);
+        try {
+          await executeActions([
+            {
+              action: "add_courses_from_text",
+              args: { text: courseSeedsToText(seeds), parsedCount: seeds.length },
+              reason: "来自拖入的课程表附件",
+            },
+          ]);
+        } finally {
+          setRunningId(null);
+        }
         if (ready.some((attachment) => attachment.kind === "image")) {
           onNotify("本地模式读不了图片，本次只处理了课程表附件。", "error");
         }
@@ -363,7 +349,7 @@ export function AiChatPanel({
       }
       if (ready.some((attachment) => attachment.kind === "image")) {
         pushAssistant(
-          "本地规则模式不能读图。把提供方切换成「OpenAI 兼容」并填写支持图片输入的模型后，再把图片发给我。",
+          "本地规则模式不能读图。到设置里切换云端或本地模型，并选择支持图片输入的模型，再把图片发给我。",
         );
         onNotify("图片需要远程视觉模型。", "error");
         return;
@@ -385,7 +371,7 @@ export function AiChatPanel({
       }
       if (ready.length > 0) {
         pushAssistant(
-          "附件已经在本地读完，但本地规则模式只会处理固定指令和课程表文本。切换到「OpenAI 兼容」后，我就能按文件内容整理任务、笔记或考试。",
+          "附件已经在本地读完，但当前仍是本地规则模式，只会处理固定指令和课程表文本。接入云端或本地模型后，我就能按文件内容整理任务、笔记或考试。",
         );
         onNotify("本地模式无法理解这类附件。", "error");
         return;
@@ -410,18 +396,19 @@ export function AiChatPanel({
           notes,
           tasks,
           exams,
+          inventory,
           memory: nextMemory,
         },
         settings,
         undefined,
         now,
       );
-      handleReply(result.content || "这次没有拿到内容，再试一次？", result.truncated);
+      await handleReply(result.content || "这次没有拿到内容，再试一次？", result.truncated);
       if (result.error) {
         onNotify("AI 请求没有成功，已返回可读的错误提示。", "error");
       }
     } catch {
-      pushAssistant("刚刚出了点问题，没有拿到回答。可以再发一次，或先切回本地规则模式。");
+      pushAssistant("刚刚出了点问题，没有拿到回答。可以再发一次，或检查设置里的模型配置。");
       onNotify("AI 请求失败，请稍后再试。", "error");
     } finally {
       setBusy(false);
@@ -473,7 +460,9 @@ export function AiChatPanel({
           <div>
             <strong>{settings.persona.name}</strong>
             <span>
-              {settings.provider === "local" ? "本地规则" : settings.model || "远程模型"}
+              {settings.provider === "local"
+                ? "本地规则"
+                : `${aiProviderLabel(settings.provider)} · ${settings.model || "未选模型"}`}
               {" · "}
               {TONE_LABEL[settings.persona.tone]}
             </span>
@@ -497,7 +486,7 @@ export function AiChatPanel({
       </header>
 
       <div className="ai-chat-log" ref={logRef}>
-        {chat.messages.length === 0 && prepared.length === 0 ? (
+        {chat.messages.length === 0 ? (
           <div className="ai-chat-empty">
             <span className="ai-empty-mark" aria-hidden="true">
               <Sparkles size={22} />
@@ -552,68 +541,6 @@ export function AiChatPanel({
             ) : null}
           </ol>
         )}
-
-        {prepared.map((item) => (
-          <div className="ai-action-card" key={item.id} role="group" aria-label="待确认动作">
-            <header className="ai-action-head">
-              <span className="ai-action-mark" aria-hidden="true">
-                <Sparkles size={15} />
-              </span>
-              <div>
-                <strong>
-                  {item.actions.length > 0
-                    ? `已准备 ${item.actions.length} 个操作`
-                    : "动作没有解析成功"}
-                </strong>
-                <small>执行前请核对；写操作会修改本机数据，删除后不可恢复。</small>
-              </div>
-            </header>
-            {item.actions.length > 0 ? (
-              <ol className="ai-action-list">
-                {item.actions.map((action, index) => (
-                  <li key={`${item.id}-${index}`}>
-                    <span>{describeAiAction(action, actionContext)}</span>
-                    {isDestructiveAction(action) ? (
-                      <small className="ai-action-danger">
-                        <TriangleAlert size={12} />
-                        高风险
-                      </small>
-                    ) : null}
-                    {action.reason ? <small className="ai-action-reason">{action.reason}</small> : null}
-                  </li>
-                ))}
-              </ol>
-            ) : null}
-            {item.errors.length > 0 ? (
-              <p className="ai-action-error">
-                <TriangleAlert size={13} />
-                {item.errors.join(" ")}
-              </p>
-            ) : null}
-            <div className="ai-action-buttons">
-              {item.actions.length > 0 ? (
-                <button
-                  className="primary-button"
-                  type="button"
-                  onClick={() => void executePrepared(item)}
-                  disabled={runningId !== null}
-                >
-                  <Play size={14} />
-                  {runningId === item.id ? "执行中…" : "执行"}
-                </button>
-              ) : null}
-              <button
-                className="ai-ghost-button"
-                type="button"
-                onClick={() => cancelPrepared(item)}
-                disabled={runningId === item.id}
-              >
-                <X size={14} />
-                取消
-              </button>
-            </div>
-          </div>
-        ))}
       </div>
 
       {hasUserMessage && !locked ? (
@@ -655,7 +582,7 @@ export function AiChatPanel({
                 <button
                   className="ai-attachment-import"
                   type="button"
-                  onClick={() => prepareCourseImport(attachment)}
+                  onClick={() => void prepareCourseImport(attachment)}
                 >
                   导入 {attachment.courseSeeds?.length} 门课
                 </button>
@@ -736,7 +663,7 @@ export function AiChatPanel({
         <CircleAlert size={12} />
         {settings.provider === "local"
           ? "本地规则模式，不联网；支持固定指令与查课。"
-          : "远程模式下，只会发送你授权范围内的数据和本轮附件。"}
+          : "云端或本地模型下，只会发送你授权范围内的数据和本轮附件。"}
         {" "}
         可拖入图片、Word、PDF、Excel、文本；按 Enter 发送，Shift + Enter 换行。
       </p>
@@ -744,12 +671,11 @@ export function AiChatPanel({
       {clearOpen ? (
         <ConfirmDialog
           title="清空对话记录？"
-          message="聊天记录只保存在本机，清空后无法恢复。设置和笔记不会受影响。待确认的动作也会被丢弃。"
+          message="聊天记录只保存在本机，清空后无法恢复。设置和笔记不会受影响。"
           confirmLabel="清空对话"
           tone="danger"
           onConfirm={() => {
             setChat({ version: 1, messages: [], updatedAt: new Date().toISOString() });
-            setPrepared([]);
             setClearOpen(false);
             onNotify("对话记录已清空。");
           }}

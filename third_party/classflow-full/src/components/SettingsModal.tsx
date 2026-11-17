@@ -63,10 +63,11 @@ import {
   removeMemory,
   saveAiSettings,
   saveMemory,
+  validateAiSettings,
   type AiMemoryData,
   type AiSettings,
 } from "../lib/ai";
-import { AiSettingsPanel, isValidAiBaseUrl } from "./ai/AiSettingsPanel";
+import { AiSettingsPanel } from "./ai/AiSettingsPanel";
 import { QqqPlayground } from "./playground/QqqPlayground";
 import { Woodfish } from "./woodfish/Woodfish";
 import { WhaleMascot } from "./WhaleMascot";
@@ -124,7 +125,7 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Database }> = [
   { id: "calendar", label: "系统日历", icon: CalendarDays },
   { id: "academic", label: "教务导入", icon: CloudDownload },
   { id: "data", label: "数据与备份", icon: Database },
-  { id: "ai", label: "笔记与 AI", icon: Sparkles },
+  { id: "ai", label: "AI 助手", icon: Sparkles },
   { id: "playground", label: "QQQ 游乐场", icon: Waves },
   { id: "woodfish", label: "敲木鱼", icon: Drum },
 ];
@@ -372,20 +373,9 @@ export function SettingsModal({
 
   const saveAiDraft = (): boolean => {
     if (!aiDirty) return true;
-    if (aiDraft.provider === "openai-compatible") {
-      if (!isValidAiBaseUrl(aiDraft.baseUrl)) {
-        setError("Base URL 需要是 http(s) 地址，例如 https://api.openai.com/v1。");
-        setTab("ai");
-        return false;
-      }
-      if (!aiDraft.apiKey.trim()) {
-        setError("远程模式需要填写 API Key；也可以先切回本地规则模式。");
-        setTab("ai");
-        return false;
-      }
-    }
-    if (!aiDraft.persona.name.trim()) {
-      setError("给 AI 起一个名字吧。");
+    const aiError = validateAiSettings(aiDraft);
+    if (aiError) {
+      setError(aiError);
       setTab("ai");
       return false;
     }
@@ -488,10 +478,20 @@ export function SettingsModal({
   const handleSaveAndClose = () => {
     setError("");
     if (!saveAiDraft()) return;
-    if (semesterDirty) {
-      saveSemesterDraft();
-      return;
+    if (semesterDirty && !saveSemesterDraft()) return;
+    onClose();
+  };
+
+  // 叉号、Esc 和点遮罩只负责关闭；草稿有效就顺手保存，无效则丢弃后直接关，不能把人困在设置里。
+  const handleClose = () => {
+    setError("");
+    if (aiDirty && !validateAiSettings(aiDraft)) {
+      const next = normalizeAiSettings(aiDraft);
+      saveAiSettings(next);
+      setAiDraft(next);
+      setAiDirty(false);
     }
+    if (semesterDirty) saveSemesterDraft();
     onClose();
   };
 
@@ -505,7 +505,7 @@ export function SettingsModal({
       className="settings-modal"
       eyebrow="PREFERENCES"
       title="设置"
-      onClose={handleSaveAndClose}
+      onClose={handleClose}
       footer={
         <>
           <p className="modal-foot-note">
@@ -1115,10 +1115,10 @@ export function SettingsModal({
             {tab === "ai" ? (
               <section className="settings-pane">
                 <div className="settings-pane-head">
-                  <p className="eyebrow">NOTES & AI</p>
-                  <h3>笔记与 AI 助手</h3>
+                  <p className="eyebrow">AI ASSISTANT</p>
+                  <h3>AI 助手</h3>
                   <p>
-                    本地规则零配置可用；需要自由聊天时再接入兼容 OpenAI 的服务。
+                    接入云端服务或本机 Ollama / LM Studio 后即可使用。
                     笔记、聊天记录与密钥都只保存在这台设备。
                   </p>
                 </div>

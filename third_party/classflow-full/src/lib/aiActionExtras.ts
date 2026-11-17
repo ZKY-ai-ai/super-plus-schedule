@@ -27,7 +27,20 @@ type CategoryId = (typeof CATEGORIES)[number];
 
 const GRADE_STATUSES = ["normal", "retake", "exempt", "audit", "planned"] as const;
 
-const AI_PROVIDERS = ["local", "openai-compatible"] as const;
+const AI_PROVIDERS = [
+  "local",
+  "openai",
+  "deepseek",
+  "zhipu",
+  "qwen",
+  "moonshot",
+  "siliconflow",
+  "openrouter",
+  "openai-compatible",
+  "ollama",
+  "lmstudio",
+  "custom-local",
+] as const;
 
 const AI_TONES = ["concise", "warm", "playful"] as const;
 
@@ -975,7 +988,9 @@ export function validateExtraAction(
       const patch: Record<string, unknown> = {};
       if (args.provider !== undefined) {
         const provider = asOneOf(args.provider, AI_PROVIDERS);
-        if (!provider) return fail("provider 必须是 local/openai-compatible。");
+        if (!provider) {
+          return fail(`provider 必须是 ${AI_PROVIDERS.join("/")}。`);
+        }
         patch.provider = provider;
       }
       if (args.baseUrl !== undefined) {

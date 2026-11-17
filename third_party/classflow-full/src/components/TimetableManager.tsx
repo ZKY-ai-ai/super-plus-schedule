@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   Check,
   Copy,
+  FileUp,
   Layers,
   Pencil,
   Plus,
@@ -20,6 +21,7 @@ interface TimetableManagerProps {
   onClose: () => void;
   onSwitch: (id: string) => void;
   onCreate: (input: TimetableCreateInput) => void;
+  onCreateAndImport: (input: TimetableCreateInput) => void;
   onRename: (id: string, name: string) => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
@@ -30,11 +32,13 @@ export function TimetableManager({
   onClose,
   onSwitch,
   onCreate,
+  onCreateAndImport,
   onRename,
   onDuplicate,
   onDelete,
 }: TimetableManagerProps) {
   const [creating, setCreating] = useState(false);
+  const [importAfterCreate, setImportAfterCreate] = useState(false);
   const [name, setName] = useState("");
   const [semesterName, setSemesterName] = useState("");
   const [startDate, setStartDate] = useState(() => getDefaultStartDate(new Date()));
@@ -54,8 +58,9 @@ export function TimetableManager({
   );
   const canCreate = data.timetables.length < MAX_TIMETABLES;
 
-  const startCreate = () => {
+  const startCreate = (importAfter = false) => {
     setCreating(true);
+    setImportAfterCreate(importAfter);
     setName(`我的课表 ${data.timetables.length + 1}`);
     setSemesterName("");
     setStartDate(getDefaultStartDate(new Date()));
@@ -67,17 +72,16 @@ export function TimetableManager({
     setError("");
   };
 
-  const submitCreate = (event: FormEvent) => {
-    event.preventDefault();
+  const buildCreateInput = (): TimetableCreateInput | null => {
     if (!name.trim()) {
       setError("给这套课表起个名字吧。");
-      return;
+      return null;
     }
     if (!profileId) {
       setError("请选择一套作息时间。");
-      return;
+      return null;
     }
-    onCreate({
+    return {
       name: name.trim(),
       semesterName: semesterName.trim(),
       startDate,
@@ -86,7 +90,20 @@ export function TimetableManager({
       weekStartsOn,
       periodProfileId: profileId,
       templateId,
-    });
+    };
+  };
+
+  const submitCreate = (event: FormEvent) => {
+    event.preventDefault();
+    const input = buildCreateInput();
+    if (!input) return;
+    onCreate(input);
+  };
+
+  const submitCreateAndImport = () => {
+    const input = buildCreateInput();
+    if (!input) return;
+    onCreateAndImport(input);
   };
 
   const startRename = (id: string, currentName: string) => {
@@ -122,9 +139,18 @@ export function TimetableManager({
             关闭
           </button>
           <button
+            className="secondary-button"
+            type="button"
+            onClick={() => startCreate(true)}
+            disabled={!canCreate}
+          >
+            <FileUp size={15} />
+            新建并导入
+          </button>
+          <button
             className="primary-button"
             type="button"
-            onClick={startCreate}
+            onClick={() => startCreate()}
             disabled={!canCreate}
           >
             <Plus size={15} />
@@ -152,6 +178,11 @@ export function TimetableManager({
                 <X size={16} />
               </button>
             </div>
+            {importAfterCreate ? (
+              <p className="field-hint">
+                创建后会打开导入窗口，用 AI 把图片 / Word / PDF / Excel / CSV / ICS 转成课程。
+              </p>
+            ) : null}
             <div className="form-grid">
               <label className="field">
                 <span className="field-label">课表名称</span>
@@ -278,10 +309,29 @@ export function TimetableManager({
               <button className="secondary-button" type="button" onClick={() => setCreating(false)}>
                 取消
               </button>
-              <button className="primary-button" type="submit">
-                <Check size={15} />
-                创建并进入
-              </button>
+              {importAfterCreate ? (
+                <>
+                  <button className="secondary-button" type="button" onClick={submitCreate}>
+                    <Check size={15} />
+                    仅创建
+                  </button>
+                  <button className="primary-button" type="button" onClick={submitCreateAndImport}>
+                    <FileUp size={15} />
+                    创建并导入课程
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="secondary-button" type="button" onClick={submitCreateAndImport}>
+                    <FileUp size={15} />
+                    创建并导入课程
+                  </button>
+                  <button className="primary-button" type="submit">
+                    <Check size={15} />
+                    创建并进入
+                  </button>
+                </>
+              )}
             </div>
           </form>
         ) : null}

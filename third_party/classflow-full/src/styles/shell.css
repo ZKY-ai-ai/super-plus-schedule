@@ -111,26 +111,37 @@
   border: 1px solid rgba(244, 241, 232, 0.1);
   border-radius: 14px;
   background: rgba(244, 241, 232, 0.055);
+  cursor: pointer;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.term-card:hover,
+.term-card:has(.term-card-hit:focus-visible) {
+  border-color: rgba(244, 241, 232, 0.24);
+  background-color: rgba(244, 241, 232, 0.09);
+}
+
+.term-card-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.term-card-hit:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 2px;
 }
 
 .term-card-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.term-edit {
-  display: grid;
-  width: 22px;
-  height: 22px;
-  place-items: center;
-  color: rgba(244, 241, 232, 0.42);
-  border-radius: 5px;
-}
-
-.term-edit:hover {
-  color: var(--cream);
-  background: rgba(244, 241, 232, 0.08);
 }
 
 .term-name-row {

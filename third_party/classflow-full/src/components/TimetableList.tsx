@@ -21,7 +21,7 @@ interface TimetableListProps {
   showAliases: boolean;
   now: Date;
   onSelectCourse: (course: Course) => void;
-  onSessionMenu: (session: Session) => void;
+  onSessionMenu: (session: Session, point: { x: number; y: number }) => void;
   onAddAt: (day: number, start: number) => void;
   onAddCourse: () => void;
 }
@@ -136,7 +136,7 @@ export function TimetableList({
                       }}
                       onContextMenu={(event) => {
                         event.preventDefault();
-                        onSessionMenu(session);
+                        onSessionMenu(session, { x: event.clientX, y: event.clientY });
                       }}
                     >
                       <span className="tt-list-time">
@@ -170,11 +170,12 @@ export function TimetableList({
                         <button
                           className="tt-list-menu"
                           type="button"
-                          aria-label="调整这一次课"
-                          title="调整这一次课"
+                          aria-label="课程操作"
+                          title="课程操作"
                           onClick={(event) => {
                             event.stopPropagation();
-                            onSessionMenu(session);
+                            const rect = event.currentTarget.getBoundingClientRect();
+                            onSessionMenu(session, { x: rect.left, y: rect.bottom + 4 });
                           }}
                         >
                           ⋯

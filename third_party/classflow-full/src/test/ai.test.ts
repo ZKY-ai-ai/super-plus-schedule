@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   AI_CHAT_KEY,
   AI_MEMORY_KEY,
+  AI_PROVIDER_PRESETS,
   AI_SETTINGS_KEY,
   addMemory,
+  aiProviderRequiresApiKey,
   appendChat,
   answerScheduleQuestion,
   buildAiContext,
@@ -24,7 +26,9 @@ import {
   saveAiSettings,
   saveChat,
   saveMemory,
+  testAiConnection,
   updateMemory,
+  validateAiSettings,
   type AiCompletionRequest,
   type AiMemoryData,
   type AiSettings,
@@ -212,7 +216,10 @@ describe("permissions and context", () => {
   );
 
   it("never leaks notes when the permission is off", () => {
-    const context = buildAiContext({ snapshot, notes: [note] }, { ...DEFAULT_AI_SETTINGS.permissions });
+    const context = buildAiContext(
+      { snapshot, notes: [note] },
+      { schedule: true, notes: false, noteTags: false, tasks: false, exams: false },
+    );
     expect(context).toContain("【课表】");
     expect(context).not.toContain("高数错题");
     expect(context).not.toContain("洛必达");
@@ -221,7 +228,7 @@ describe("permissions and context", () => {
   it("shares titles only when noteTags is on", () => {
     const context = buildAiContext(
       { snapshot, notes: [note] },
-      { ...DEFAULT_AI_SETTINGS.permissions, noteTags: true },
+      { ...DEFAULT_AI_SETTINGS.permissions, notes: false, noteTags: true },
     );
     expect(context).toContain("高数错题");
     expect(context).toContain("#数学");
@@ -237,7 +244,7 @@ describe("permissions and context", () => {
   });
 
   it("describes each permission switch", () => {
-    const items = describePermissions({ ...DEFAULT_AI_SETTINGS.permissions, notes: true });
+    const items = describePermissions({ ...DEFAULT_AI_SETTINGS.permissions, exams: false });
     expect(items.map((item) => item.key)).toEqual([
       "schedule",
       "notes",
@@ -251,7 +258,10 @@ describe("permissions and context", () => {
 
   it("puts the persona and authorized context into the system prompt", () => {
     const prompt = buildSystemPrompt(
-      baseSettings({ persona: { name: "阿序", tone: "concise", customPrompt: "少用感叹号" } }),
+      baseSettings({
+        persona: { name: "阿序", tone: "concise", customPrompt: "少用感叹号" },
+        permissions: { schedule: true, notes: false, noteTags: false, tasks: false, exams: false },
+      }),
       { snapshot, notes: [note] },
     );
     expect(prompt).toContain("阿序");
@@ -259,6 +269,46 @@ describe("permissions and context", () => {
     expect(prompt).toContain("少用感叹号");
     expect(prompt).toContain("高等数学");
     expect(prompt).not.toContain("洛必达");
+  });
+
+  it("shows every timetable with its id so actions can target them", () => {
+    const context = buildAiContext(
+      {
+        snapshot,
+        inventory: {
+          timetables: [
+            {
+              id: "tt-main",
+              name: "我的课表",
+              semesterName: "2026 秋",
+              courseCount: 4,
+              eventCount: 1,
+              active: true,
+            },
+            {
+              id: "tt-old",
+              name: "旧课表",
+              semesterName: "2026 春",
+              courseCount: 6,
+              eventCount: 0,
+              active: false,
+            },
+          ],
+          events: [],
+          grades: [],
+          periodProfiles: [],
+          templates: [],
+          catalogSections: [],
+          selectionPlans: [],
+          chapters: [],
+        },
+      },
+      DEFAULT_AI_SETTINGS.permissions,
+    );
+    expect(context).toContain("【课表清单】");
+    expect(context).toContain("id=tt-main");
+    expect(context).toContain("id=tt-old");
+    expect(context).toContain("旧课表");
   });
 });
 
@@ -281,7 +331,7 @@ describe("settings and chat storage", () => {
     expect(settings.persona.customPrompt).toBe("");
     expect(settings.permissions.schedule).toBe(true);
     expect(settings.permissions.notes).toBe(true);
-    expect(settings.permissions.noteTags).toBe(false);
+    expect(settings.permissions.noteTags).toBe(true);
   });
 
   it("round-trips settings and falls back on corrupt data", () => {
@@ -334,6 +384,151 @@ describe("settings and chat storage", () => {
   });
 });
 
+describe("model provider presets", () => {
+  it("lists unique cloud and local presets with Ollama as the local default", () => {
+    const ids = AI_PROVIDER_PRESETS.map((preset) => preset.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(AI_PROVIDER_PRESETS.some((preset) => preset.group === "cloud")).toBe(true);
+    const ollama = AI_PROVIDER_PRESETS.find((preset) => preset.id === "ollama");
+    expect(ollama?.group).toBe("local");
+    expect(ollama?.baseUrl).toBe("http://localhost:11434/v1");
+    expect(ollama?.requiresApiKey).toBe(false);
+  });
+
+  it("applies provider-specific defaults when stored fields are empty", () => {
+    const ollama = normalizeAiSettings({ provider: "ollama", baseUrl: "", model: "" });
+    expect(ollama.provider).toBe("ollama");
+    expect(ollama.baseUrl).toBe("http://localhost:11434/v1");
+    expect(ollama.model).toBe("qwen2.5:7b");
+    expect(aiProviderRequiresApiKey("ollama")).toBe(false);
+
+    const deepseek = normalizeAiSettings({ provider: "deepseek" });
+    expect(deepseek.baseUrl).toBe("https://api.deepseek.com");
+    expect(deepseek.model).toBe("deepseek-flash");
+    expect(aiProviderRequiresApiKey("deepseek")).toBe(true);
+
+    expect(normalizeAiSettings({ provider: "unknown-provider" }).provider).toBe("local");
+  });
+
+  it("validates settings by provider key and model requirements", () => {
+    const localModel: AiSettings = {
+      ...DEFAULT_AI_SETTINGS,
+      provider: "ollama",
+      baseUrl: "http://localhost:11434/v1",
+      model: "qwen2.5:7b",
+      apiKey: "",
+    };
+    expect(validateAiSettings(localModel)).toBeNull();
+    expect(validateAiSettings(DEFAULT_AI_SETTINGS)).toBeNull();
+
+    const cloudWithoutKey: AiSettings = {
+      ...localModel,
+      provider: "deepseek",
+      baseUrl: "https://api.deepseek.com",
+      model: "deepseek-flash",
+    };
+    expect(validateAiSettings(cloudWithoutKey)).toContain("API Key");
+
+    expect(validateAiSettings({ ...localModel, model: "" })).toContain("模型");
+    expect(validateAiSettings({ ...localModel, baseUrl: "ftp://example.com" })).toContain(
+      "Base URL",
+    );
+  });
+});
+
+describe("connection test", () => {
+  it("posts a tiny ping with the selected local model and no auth header", async () => {
+    let seenUrl = "";
+    let seenInit: RequestInit | undefined;
+    const fetchImpl: FetchLike = async (input, init) => {
+      seenUrl = input;
+      seenInit = init;
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ choices: [{ message: { content: "pong" } }] }),
+      } as unknown as Response;
+    };
+    const result = await testAiConnection(
+      baseSettings({
+        provider: "ollama",
+        baseUrl: "http://localhost:11434/v1/",
+        model: "qwen2.5:7b",
+        apiKey: "",
+      }),
+      fetchImpl,
+    );
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("连接成功");
+    expect(seenUrl).toBe("http://localhost:11434/v1/chat/completions");
+    const body = JSON.parse(String(seenInit?.body));
+    expect(body.model).toBe("qwen2.5:7b");
+    expect(body.messages[0].content).toBe("ping");
+    expect((seenInit?.headers as Record<string, string>).Authorization).toBeUndefined();
+  });
+
+  it("reports auth and network failures without throwing", async () => {
+    const missingKey = await testAiConnection(
+      baseSettings({ provider: "deepseek", apiKey: "" }),
+      async () => {
+        throw new Error("should not be called");
+      },
+    );
+    expect(missingKey.ok).toBe(false);
+    expect(missingKey.message).toContain("API Key");
+
+    const unauthorized = await testAiConnection(
+      baseSettings({ provider: "openai-compatible", apiKey: "sk-bad" }),
+      async () =>
+        ({
+          ok: false,
+          status: 401,
+          text: async () => JSON.stringify({ error: { message: "invalid key" } }),
+        }) as unknown as Response,
+    );
+    expect(unauthorized.ok).toBe(false);
+    expect(unauthorized.message).toContain("HTTP 401");
+    expect(unauthorized.message).toContain("invalid key");
+
+    const offline = await testAiConnection(
+      baseSettings({ provider: "ollama", baseUrl: "http://localhost:11434/v1" }),
+      async () => {
+        throw new Error("network down");
+      },
+    );
+    expect(offline.ok).toBe(false);
+    expect(offline.message).toContain("无法连接");
+    expect(offline.message).toContain("OLLAMA_ORIGINS");
+  });
+
+  it("allows local model providers to complete without an api key", async () => {
+    let authorization: string | undefined;
+    const fetchImpl: FetchLike = async (_input, init) => {
+      authorization = (init?.headers as Record<string, string> | undefined)?.Authorization;
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ choices: [{ message: { content: "本地回答" } }] }),
+      } as unknown as Response;
+    };
+    const result = await complete(
+      userRequest("你好"),
+      baseSettings({
+        provider: "ollama",
+        baseUrl: "http://localhost:11434/v1",
+        model: "qwen2.5:7b",
+        apiKey: "",
+      }),
+      fetchImpl,
+      NOW,
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.content).toBe("本地回答");
+    expect(result.provider).toBe("ollama");
+    expect(authorization).toBeUndefined();
+  });
+});
+
 describe("local provider", () => {
   it("answers schedule questions without network access", async () => {
     const result = await complete(userRequest("高数在哪上"), baseSettings(), undefined, NOW);
@@ -372,7 +567,7 @@ describe("local provider", () => {
     );
     const denied = await complete(
       userRequest("帮我找一下复习笔记", [note, unrelated]),
-      baseSettings({ permissions: { ...DEFAULT_AI_SETTINGS.permissions, notes: false } }),
+      baseSettings({ permissions: { ...DEFAULT_AI_SETTINGS.permissions, notes: false, noteTags: false } }),
       undefined,
       NOW,
     );

@@ -58,6 +58,22 @@ describe("schedule import", () => {
         apiKey: "sk-test",
       }),
     ).toBe(true);
+    expect(
+      isAiImportReady({
+        ...DEFAULT_AI_SETTINGS,
+        provider: "ollama",
+        apiKey: "",
+        model: "qwen2.5:7b",
+      }),
+    ).toBe(true);
+    expect(
+      isAiImportReady({
+        ...DEFAULT_AI_SETTINGS,
+        provider: "ollama",
+        apiKey: "",
+        model: "",
+      }),
+    ).toBe(false);
   });
 
   it("converts ICS events into course seeds with weeks and periods", () => {

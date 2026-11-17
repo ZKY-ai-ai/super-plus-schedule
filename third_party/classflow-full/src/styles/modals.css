@@ -593,3 +593,84 @@ input[type="date"].field-input {
   white-space: pre-line;
 }
 
+
+/* 课程右键菜单 */
+.course-context-menu {
+  position: fixed;
+  z-index: 130;
+  display: flex;
+  width: 208px;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  animation: course-menu-in 120ms ease both;
+}
+
+.course-context-title {
+  overflow: hidden;
+  padding: 6px 9px 7px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.course-context-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  border-radius: 8px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 550;
+  text-align: left;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.course-context-item svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.course-context-item:hover:not(:disabled),
+.course-context-item:focus-visible:not(:disabled) {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.course-context-item:hover:not(:disabled) svg,
+.course-context-item:focus-visible:not(:disabled) svg {
+  color: var(--coral);
+}
+
+.course-context-item:disabled {
+  color: var(--faint);
+  cursor: not-allowed;
+}
+
+.course-context-item:disabled svg {
+  color: var(--faint);
+}
+
+.course-context-divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--line);
+}
+
+@keyframes course-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

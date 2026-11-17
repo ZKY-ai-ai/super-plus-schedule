@@ -684,7 +684,7 @@ export const AI_ATTACHMENT_SYSTEM_RULES = [
   "成绩单、考试安排或作业清单：整理成 create_exam、create_task 或 create_note，不要把整张表的原文塞进动作。",
   "图片：直接读取随消息发送的视觉内容；看不清或与课表无关时先说明，不要编造字段。",
   "不确定用途时，先用一两句话概括附件内容并询问用户，不要擅自清空、覆盖或批量删除数据。",
-  "动作仍需放进 kexu-action 代码块，等待用户确认；不要声称已经写入成功。",
+  "动作仍需放进 kexu-action 代码块；不要在文字里征求确认或要求用户回复「确认」。普通操作会直接执行，删除、清空等不可逆操作会弹一次确认框。不要声称已经写入成功，执行结果会由界面写回对话。",
 ].join("\n");
 
 export function buildAttachmentPromptBlock(

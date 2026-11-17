@@ -162,14 +162,17 @@ export function buildScreenshotMessages(
   ];
 }
 
+const LOCAL_PROVIDERS = new Set(["ollama", "lmstudio", "custom-local"]);
+
 export function visionConfigFromAiSettings(
   settings: VisionSettingsLike | null | undefined,
 ): ScreenshotVisionConfig | null {
-  if (!settings || settings.provider !== "openai-compatible") return null;
+  if (!settings || !settings.provider || settings.provider === "local") return null;
   const baseUrl = (settings.baseUrl ?? "").trim().replace(/\/+$/, "");
   const apiKey = (settings.apiKey ?? "").trim();
   const model = (settings.model ?? "").trim();
-  if (!baseUrl || !apiKey || !model) return null;
+  if (!baseUrl || !model) return null;
+  if (!apiKey && !LOCAL_PROVIDERS.has(settings.provider)) return null;
   if (!/^https?:\/\//i.test(baseUrl)) return null;
   return { baseUrl, apiKey, model };
 }
@@ -653,9 +656,9 @@ export async function recognizeScreenshot(
   options: RecognizeScreenshotOptions,
 ): Promise<ScreenshotParseResult> {
   const config = options.config;
-  if (!config?.baseUrl.trim() || !config.apiKey.trim() || !config.model.trim()) {
+  if (!config?.baseUrl.trim() || !config.model.trim()) {
     throw new ScreenshotImportError(
-      "还没有可用的视觉模型配置。请先在「设置 → AI 与授权」切换到「OpenAI 兼容」，填写 Base URL、API Key 和支持图片输入的模型（例如 gpt-4o-mini）。",
+      "还没有可用的视觉模型配置。请先在「设置 → AI 与授权」选择云端或本地模型，填写 Base URL、API Key（本地可留空）和支持图片输入的模型。",
     );
   }
   if (!options.dataUrl.startsWith("data:image/")) {
@@ -678,7 +681,7 @@ export async function recognizeScreenshot(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`,
+        ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
       },
       body: JSON.stringify({
         model: config.model,

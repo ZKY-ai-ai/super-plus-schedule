@@ -1,5 +1,6 @@
 import type {
   Course,
+  CourseSlot,
   CourseTemplate,
   ImportDraft,
   ImportResult,
@@ -170,12 +171,90 @@ export function useScheduleActions({
     return { courses: addedCourses, slots: addedSlots };
   };
 
-  const requestDeleteCourse = (course: Course): Promise<boolean> =>    askConfirm({
-      title: "删除这门课？",
-      message: `“${course.name}”的所有上课时间会一起删除，这个操作无法撤销。`,
-      confirmLabel: "删除课程",
-      tone: "danger",
-    }).then((ok) => {
+  const removeCourse = (course: Course) => {
+    updateActiveTimetable((current) => ({
+      ...current,
+      courses: current.courses.filter((item) => item.id !== course.id),
+    }));
+  };
+
+  const slotSignature = (slot: CourseSlot) =>
+    `${slot.day}|${slot.start}|${slot.end}|${slot.weekStart}|${slot.weekEnd}|${slot.pattern}`;
+
+  const pasteCourse = (source: Course): { added: number; merged: boolean } => {
+    let merged = false;
+    let addedSlots = 0;
+    updateActiveTimetable((current) => {
+      const now = new Date().toISOString();
+      const maxPeriod = Math.max(1, current.semester.periods.length);
+      const totalWeeks = Math.max(1, Math.min(current.semester.totalWeeks, 30));
+      const slots = source.slots.map((slot) =>
+        makeSlot(
+          {
+            day: Math.min(Math.max(slot.day, 1), 7),
+            start: Math.min(Math.max(slot.start, 1), maxPeriod),
+            end: Math.min(Math.max(slot.end, slot.start), maxPeriod),
+            weekStart: Math.min(Math.max(slot.weekStart, 1), totalWeeks),
+            weekEnd: Math.min(Math.max(slot.weekEnd, slot.weekStart), totalWeeks),
+            pattern: slot.pattern,
+            weeks: slot.weeks?.filter((week) => week >= 1 && week <= totalWeeks),
+          },
+          totalWeeks,
+        ),
+      );
+      const key = `${normalizeCourseNameKey(source.name)}|${normalizeTeacherKey(source.teacher)}`;
+      const existingIndex = current.courses.findIndex(
+        (course) =>
+          `${normalizeCourseNameKey(course.name)}|${normalizeTeacherKey(course.teacher)}` === key,
+      );
+      if (existingIndex >= 0) {
+        merged = true;
+        const existing = current.courses[existingIndex];
+        const known = new Set(existing.slots.map(slotSignature));
+        const fresh = slots.filter((slot) => !known.has(slotSignature(slot)));
+        if (fresh.length === 0) return current;
+        addedSlots = fresh.length;
+        const next = [...current.courses];
+        next[existingIndex] = {
+          ...existing,
+          alias: existing.alias || source.alias,
+          note: existing.note || source.note,
+          location: existing.location || source.location,
+          slots: [...existing.slots, ...fresh],
+          updatedAt: now,
+        };
+        return { ...current, courses: next };
+      }
+      addedSlots = slots.length;
+      return {
+        ...current,
+        courses: [
+          ...current.courses,
+          { ...source, id: uid("course"), slots, createdAt: now, updatedAt: now },
+        ],
+      };
+    });
+    notify(
+      merged
+        ? addedSlots > 0
+          ? `已把《${source.name}》的 ${addedSlots} 个时段合并进现有课程。`
+          : `《${source.name}》已经在这套课表里了。`
+        : `已粘贴《${source.name}》到当前课表。`,
+      merged && addedSlots === 0 ? "info" : "success",
+    );
+    return { added: addedSlots, merged };
+  };
+
+  const requestDeleteCourse = (course: Course, skipConfirm = false): Promise<boolean> =>
+    (skipConfirm
+      ? Promise.resolve(true)
+      : askConfirm({
+          title: "删除这门课？",
+          message: `“${course.name}”的所有上课时间会一起删除，这个操作无法撤销。`,
+          confirmLabel: "删除课程",
+          tone: "danger",
+        })
+    ).then((ok) => {
       if (!ok) return false;
       updateActiveTimetable((current) => ({
         ...current,
@@ -239,13 +318,16 @@ export function useScheduleActions({
     notify(editing ? "日程已更新。" : "日程已添加。");
   };
 
-  const requestDeleteEvent = (event: ScheduleEvent): Promise<boolean> =>
-    askConfirm({
-      title: "删除这条日程？",
-      message: `“${event.title}”会从课表中移除，这个操作无法撤销。`,
-      confirmLabel: "删除日程",
-      tone: "danger",
-    }).then((ok) => {
+  const requestDeleteEvent = (event: ScheduleEvent, skipConfirm = false): Promise<boolean> =>
+    (skipConfirm
+      ? Promise.resolve(true)
+      : askConfirm({
+          title: "删除这条日程？",
+          message: `“${event.title}”会从课表中移除，这个操作无法撤销。`,
+          confirmLabel: "删除日程",
+          tone: "danger",
+        })
+    ).then((ok) => {
       if (!ok) return false;
       updateActiveTimetable((current) => ({
         ...current,
@@ -394,19 +476,22 @@ export function useScheduleActions({
     notify(`已复制为「${copy.name}」。`);
   };
 
-  const requestDeleteTimetable = (id: string): Promise<boolean> => {
+  const requestDeleteTimetable = (id: string, skipConfirm = false): Promise<boolean> => {
     if (data.timetables.length <= 1) {
       notify("至少保留一套课表。", "error");
       return Promise.resolve(false);
     }
     const target = data.timetables.find((item) => item.id === id);
     if (!target) return Promise.resolve(false);
-    return askConfirm({
-      title: `删除「${target.name}」？`,
-      message: "这套课表里的课程、日程和壁纸都会一起删除，无法撤销。",
-      confirmLabel: "删除课表",
-      tone: "danger",
-    }).then((ok) => {
+    return (skipConfirm
+      ? Promise.resolve(true)
+      : askConfirm({
+          title: `删除「${target.name}」？`,
+          message: "这套课表里的课程、日程和壁纸都会一起删除，无法撤销。",
+          confirmLabel: "删除课表",
+          tone: "danger",
+        })
+    ).then((ok) => {
       if (!ok) return false;
       const remaining = data.timetables.filter((item) => item.id !== id);
       const nextActive =
@@ -426,14 +511,17 @@ export function useScheduleActions({
     });
   };
 
-  const clearAll = (): Promise<boolean> =>
-    askConfirm({
-      title: "清空全部数据？",
-      message:
-        "所有课表、课程、日程和壁纸都会被清空，无法撤销。主题和节假日开关会保留。建议先导出备份。",
-      confirmLabel: "清空全部",
-      tone: "danger",
-    }).then((ok) => {
+  const clearAll = (skipConfirm = false): Promise<boolean> =>
+    (skipConfirm
+      ? Promise.resolve(true)
+      : askConfirm({
+          title: "清空全部数据？",
+          message:
+            "所有课表、课程、日程和壁纸都会被清空，无法撤销。主题和节假日开关会保留。建议先导出备份。",
+          confirmLabel: "清空全部",
+          tone: "danger",
+        })
+    ).then((ok) => {
       if (!ok) return false;
       const next = createInitialData();
       setData(next);
@@ -751,6 +839,8 @@ export function useScheduleActions({
     saveCourse,
     addTextCourses,
     moveCourseSlot,
+    removeCourse,
+    pasteCourse,
     requestDeleteCourse,
     saveEvent,
     requestDeleteEvent,

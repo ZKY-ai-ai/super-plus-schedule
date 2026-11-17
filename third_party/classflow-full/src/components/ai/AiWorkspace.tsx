@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   BookOpenCheck,
   CalendarClock,
+  Cpu,
   Heart,
   Layers,
   MapPin,
@@ -14,6 +15,7 @@ import {
 import type { Course, ScheduleEvent, Semester, Timetable } from "../../types";
 import {
   addMemory,
+  aiProviderLabel,
   buildAiScheduleSnapshot,
   clearMemory,
   describePermissions,
@@ -22,6 +24,7 @@ import {
   removeMemory,
   saveAiSettings,
   saveMemory,
+  type AiInventory,
   type AiMemoryData,
   type AiMemoryEntry,
   type AiSettings,
@@ -29,8 +32,9 @@ import {
 import type { AiAction, AiActionContext } from "../../lib/aiActions";
 import { loadNotes } from "../../lib/notes";
 import { loadExams } from "../../lib/exams";
+import { loadGrades } from "../../lib/grades";
 import { loadTasks } from "../../lib/tasks";
-import { loadTemplates } from "../../lib/storage";
+import { loadPreferences, loadTemplates } from "../../lib/storage";
 import { loadCatalog } from "../../lib/planner";
 import { formatMonthDay, getWeekNumber, weekdayLabel } from "../../lib/date";
 import { AiChatPanel } from "./AiChatPanel";
@@ -41,7 +45,14 @@ import "../../styles/ai.css";
 interface AiWorkspaceProps {
   timetableId: string;
   timetable: Timetable;
-  timetables: Array<{ id: string; name: string }>;
+  timetables: Array<{
+    id: string;
+    name: string;
+    semesterName: string;
+    courseCount: number;
+    eventCount: number;
+    active: boolean;
+  }>;
   periodProfiles: Array<{ id: string; name: string }>;
   courses: Course[];
   events: ScheduleEvent[];
@@ -51,7 +62,7 @@ interface AiWorkspaceProps {
   onNotify: (message: string, tone?: "success" | "error") => void;
 }
 
-type AiTab = "chat" | "catalog" | "settings";
+type AiTab = "chat" | "catalog" | "model" | "profile";
 
 export function AiWorkspace({
   timetableId,
@@ -79,8 +90,39 @@ export function AiWorkspace({
   const chapters = useMemo(() => loadNotes().chapters, [dataVersion]);
   const tasks = useMemo(() => loadTasks(timetableId), [timetableId, dataVersion]);
   const exams = useMemo(() => loadExams(timetableId), [timetableId, dataVersion]);
+  const grades = useMemo(() => loadGrades(timetableId), [timetableId, dataVersion]);
+  const preferences = useMemo(() => loadPreferences(), [dataVersion]);
   const templates = useMemo(() => loadTemplates(), [dataVersion]);
   const catalog = useMemo(() => loadCatalog(), [dataVersion]);
+  const inventory = useMemo<AiInventory>(() => {
+    const courseNames = new Map(courses.map((course) => [course.id, course.name]));
+    return {
+      timetables,
+      events,
+      grades: grades.map((grade) => ({
+        courseId: grade.courseId,
+        courseName: courseNames.get(grade.courseId) ?? grade.courseId,
+        score: grade.score,
+        credits: grade.credits,
+      })),
+      periodProfiles,
+      templates: templates.map((template) => ({ id: template.id, name: template.name })),
+      catalogSections: catalog.sections.map((section) => ({ id: section.id, name: section.name })),
+      selectionPlans: catalog.plans.map((plan) => ({ id: plan.id, name: plan.name })),
+      chapters: chapters.map((chapter) => ({ id: chapter.id, title: chapter.title })),
+      preferences,
+    };
+  }, [
+    timetables,
+    events,
+    grades,
+    courses,
+    periodProfiles,
+    templates,
+    catalog,
+    chapters,
+    preferences,
+  ]);
   const actionContext = useMemo<AiActionContext>(
     () => ({
       totalWeeks: semester.totalWeeks,
@@ -150,7 +192,7 @@ export function AiWorkspace({
     const next = addMemory(memory, text);
     saveMemory(next);
     setMemory(next);
-    onNotify("已加入长期记忆，可在「人与授权」里管理。");
+    onNotify("已加入长期记忆，可在「人格与授权」里管理。");
     return next.entries;
   };
 
@@ -181,7 +223,9 @@ export function AiWorkspace({
           <div className="ai-hero-chips">
             <span>
               <Sparkles size={13} />
-              {settings.provider === "local" ? "本地规则" : settings.model || "远程模型"}
+              {settings.provider === "local"
+                ? "本地规则"
+                : `${aiProviderLabel(settings.provider)} · ${settings.model || "未选模型"}`}
             </span>
             <span>
               <ShieldCheck size={13} />
@@ -191,7 +235,7 @@ export function AiWorkspace({
               <Heart size={13} />
               记忆 {memory.entries.length} 条
             </span>
-            <button type="button" className="ai-inline-link" onClick={() => setTab("settings")}>
+            <button type="button" className="ai-inline-link" onClick={() => setTab("profile")}>
               调整授权与人设
             </button>
           </div>
@@ -242,12 +286,22 @@ export function AiWorkspace({
             <button
               type="button"
               role="tab"
-              aria-selected={tab === "settings"}
-              className={tab === "settings" ? "is-active" : ""}
-              onClick={() => setTab("settings")}
+              aria-selected={tab === "model"}
+              className={tab === "model" ? "is-active" : ""}
+              onClick={() => setTab("model")}
+            >
+              <Cpu size={15} />
+              模型设置
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "profile"}
+              className={tab === "profile" ? "is-active" : ""}
+              onClick={() => setTab("profile")}
             >
               <ShieldCheck size={15} />
-              人与授权
+              人格与授权
             </button>
           </div>
           {tab === "chat" ? (
@@ -257,12 +311,13 @@ export function AiWorkspace({
               notes={notes}
               tasks={tasks}
               exams={exams}
+              inventory={inventory}
               memory={memory.entries}
               actionContext={actionContext}
               onRemember={remember}
               onRunAction={onRunAction}
               onAfterAction={() => setDataVersion((value) => value + 1)}
-              onOpenSettings={() => setTab("settings")}
+              onOpenSettings={() => setTab("model")}
               onNotify={onNotify}
             />
           ) : tab === "catalog" ? (
@@ -276,6 +331,7 @@ export function AiWorkspace({
               onClearMemory={forgetAll}
               onSave={saveSettings}
               onNotify={onNotify}
+              view={tab === "model" ? "model" : "profile"}
             />
           )}
         </section>
@@ -347,7 +403,7 @@ export function AiWorkspace({
                   ? "已授权标题与标签，正文仍然只留在本机。"
                   : "笔记未授权。开启后 AI 才能帮你检索资料。"}
             </p>
-            <button type="button" className="ai-inline-link" onClick={() => setTab("settings")}>
+            <button type="button" className="ai-inline-link" onClick={() => setTab("profile")}>
               去调整授权
             </button>
           </section>
@@ -363,7 +419,7 @@ export function AiWorkspace({
               ))}
             </ul>
             <p className="ai-side-foot">
-              默认只共享课表。所有开关都能随时关闭，聊天与密钥只存在这台设备。
+              默认共享本机全部数据。所有开关都能随时关闭，聊天与密钥只存在这台设备。
             </p>
           </section>
         </aside>

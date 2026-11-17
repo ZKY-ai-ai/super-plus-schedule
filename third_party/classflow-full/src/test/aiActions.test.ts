@@ -382,6 +382,15 @@ describe("全功能动作", () => {
       }).ok,
     ).toBe(true);
     expect(
+      validate({
+        action: "update_ai_settings",
+        args: { provider: "ollama", model: "qwen2.5:7b" },
+      }).ok,
+    ).toBe(true);
+    expect(
+      validate({ action: "update_ai_settings", args: { provider: "unknown-provider" } }).ok,
+    ).toBe(false);
+    expect(
       validate({ action: "update_ai_settings", args: { apiKey: "sk-secret" } }).ok,
     ).toBe(false);
   });

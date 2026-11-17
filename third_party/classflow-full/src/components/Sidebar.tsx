@@ -2,7 +2,6 @@ import {
   BookOpen,
   CalendarDays,
   Compass,
-  Layers,
   LayoutGrid,
   Moon,
   NotebookPen,
@@ -73,17 +72,15 @@ export function Sidebar({
       </div>
 
       <section className="term-card" aria-label="当前课表">
+        <button
+          className="term-card-hit"
+          type="button"
+          onClick={onManageTimetables}
+          aria-label={`管理课表：${timetableName}`}
+          title="管理课表"
+        />
         <div className="term-card-top">
           <span className="micro-label">TIMETABLE</span>
-          <button
-            className="term-edit"
-            type="button"
-            onClick={onManageTimetables}
-            aria-label="管理课表"
-            title="管理课表"
-          >
-            <Layers size={13} />
-          </button>
         </div>
         <div className="term-name-row">
           <h2>{timetableName}</h2>

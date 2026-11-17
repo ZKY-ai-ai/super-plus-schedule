@@ -1,12 +1,28 @@
-import { useEffect, useState } from "react";
-import { Bot, Heart, KeyRound, Plus, ShieldCheck, Sparkles, Trash2, UserRound } from "lucide-react";
+import { useEffect, useId, useState } from "react";
 import {
+  Bot,
+  Heart,
+  KeyRound,
+  LoaderCircle,
+  Plus,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  UserRound,
+} from "lucide-react";
+import {
+  AI_PROVIDER_PRESETS,
   DEFAULT_AI_SETTINGS,
   describePermissions,
+  getAiProviderPreset,
   normalizeAiSettings,
+  testAiConnection,
+  validateAiSettings,
   type AiMemoryEntry,
   type AiPersona,
   type AiPermissions,
+  type AiProviderGroup,
+  type AiProviderId,
   type AiSettings,
   type AiTone,
 } from "../../lib/ai";
@@ -22,6 +38,7 @@ interface AiSettingsPanelProps {
   onSave?: (next: AiSettings) => void;
   onChange?: (next: AiSettings) => void;
   onNotify?: (message: string, tone?: "success" | "error") => void;
+  view?: "all" | "model" | "profile";
 }
 
 const TONES: Array<{ value: AiTone; label: string; hint: string }> = [
@@ -30,14 +47,10 @@ const TONES: Array<{ value: AiTone; label: string; hint: string }> = [
   { value: "playful", label: "俏皮", hint: "轻快一点点" },
 ];
 
-export function isValidAiBaseUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
+type AiSettingsMode = AiProviderGroup;
+
+const CLOUD_PROVIDERS = AI_PROVIDER_PRESETS.filter((preset) => preset.group === "cloud");
+const LOCAL_PROVIDERS = AI_PROVIDER_PRESETS.filter((preset) => preset.group === "local");
 
 export function AiSettingsPanel({
   settings,
@@ -48,12 +61,27 @@ export function AiSettingsPanel({
   onSave,
   onChange,
   onNotify,
+  view = "all",
 }: AiSettingsPanelProps) {
   const [draft, setDraft] = useState<AiSettings>(settings);
   const [showKey, setShowKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [memoryInput, setMemoryInput] = useState("");
   const [clearMemoryOpen, setClearMemoryOpen] = useState(false);
+  const [testState, setTestState] = useState<{
+    status: "testing" | "success" | "error";
+    message: string;
+  } | null>(null);
+  const [keyCache, setKeyCache] = useState<Partial<Record<AiProviderId, string>>>({});
+  const [preferredCloud, setPreferredCloud] = useState<AiProviderId>(() => {
+    const preset = getAiProviderPreset(settings.provider);
+    return preset?.group === "cloud" ? settings.provider : "openai";
+  });
+  const [preferredLocal, setPreferredLocal] = useState<AiProviderId>(() => {
+    const preset = getAiProviderPreset(settings.provider);
+    return preset?.group === "local" ? settings.provider : "ollama";
+  });
+  const modelListId = useId();
 
   useEffect(() => {
     setDraft(settings);
@@ -62,7 +90,39 @@ export function AiSettingsPanel({
   const updateDraft = (updater: (current: AiSettings) => AiSettings) => {
     const next = updater(draft);
     setDraft(next);
+    setTestState(null);
     onChange?.(next);
+  };
+
+  const selectedPreset = getAiProviderPreset(draft.provider);
+  const mode: AiSettingsMode = selectedPreset?.group === "local" ? "local" : "cloud";
+
+  const selectProvider = (id: AiProviderId) => {
+    if (draft.provider === id) return;
+    const preset = getAiProviderPreset(id);
+    if (!preset) return;
+    if (preset.group === "cloud") setPreferredCloud(id);
+    else setPreferredLocal(id);
+    const nextKey = keyCache[id] ?? "";
+    setKeyCache((cache) => ({ ...cache, [draft.provider]: draft.apiKey }));
+    updateDraft((current) => ({
+      ...current,
+      provider: id,
+      baseUrl: preset.baseUrl,
+      model: preset.model,
+      apiKey: nextKey,
+    }));
+  };
+
+  const chooseMode = (next: AiSettingsMode) => {
+    if (next === mode) return;
+    selectProvider(next === "cloud" ? preferredCloud : preferredLocal);
+  };
+
+  const runConnectionTest = async () => {
+    setTestState({ status: "testing", message: "正在连接…" });
+    const result = await testAiConnection(draft);
+    setTestState({ status: result.ok ? "success" : "error", message: result.message });
   };
 
   const updatePersona = (patch: Partial<AiPersona>) => {
@@ -80,18 +140,9 @@ export function AiSettingsPanel({
   };
 
   const save = () => {
-    if (draft.provider === "openai-compatible") {
-      if (!isValidAiBaseUrl(draft.baseUrl)) {
-        setError("Base URL 需要是 http(s) 地址，例如 https://api.openai.com/v1。");
-        return;
-      }
-      if (!draft.apiKey.trim()) {
-        setError("远程模式需要填写 API Key；也可以先切回本地规则模式。");
-        return;
-      }
-    }
-    if (!draft.persona.name.trim()) {
-      setError("给 AI 起一个名字吧。");
+    const message = validateAiSettings(draft);
+    if (message) {
+      setError(message);
       return;
     }
     setError(null);
@@ -108,94 +159,155 @@ export function AiSettingsPanel({
 
   return (
     <div className="ai-settings">
-      <section className="ai-settings-section">
+      {view !== "profile" ? (
+        <section className="ai-settings-section">
         <div className="ai-settings-heading">
           <Sparkles size={15} />
           <div>
-            <h3>运行模式</h3>
-            <p>本地规则零配置可用；远程模式只对接兼容 OpenAI 的接口。</p>
+            <h3>模型服务</h3>
+            <p>云端服务和本机 Ollama / LM Studio 都走 OpenAI 兼容协议。</p>
           </div>
         </div>
-        <div className="ai-segmented" role="group" aria-label="AI 运行模式">
+        <div className="ai-segmented ai-mode-row" role="group" aria-label="AI 运行模式">
           <button
             type="button"
-            className={draft.provider === "local" ? "is-active" : ""}
-            onClick={() => updateDraft((current) => ({ ...current, provider: "local" }))}
+            className={mode === "cloud" ? "is-active" : ""}
+            onClick={() => chooseMode("cloud")}
           >
-            本地规则
+            云端模型
           </button>
           <button
             type="button"
-            className={draft.provider === "openai-compatible" ? "is-active" : ""}
-            onClick={() =>
-              updateDraft((current) => ({ ...current, provider: "openai-compatible" }))
-            }
+            className={mode === "local" ? "is-active" : ""}
+            onClick={() => chooseMode("local")}
           >
-            OpenAI 兼容
+            本地模型
           </button>
         </div>
 
-        {draft.provider === "openai-compatible" ? (
-          <div className="ai-field-grid">
-            <label className="ai-field ai-field--wide">
-              <span>Base URL</span>
-              <input
-                className="field-input"
-                value={draft.baseUrl}
-                onChange={(event) =>
-                  updateDraft((current) => ({ ...current, baseUrl: event.target.value }))
-                }
-                placeholder="https://api.openai.com/v1"
-                spellCheck={false}
-                autoComplete="off"
-              />
-            </label>
-            <label className="ai-field">
-              <span>
-                <KeyRound size={12} /> API Key
-              </span>
-              <span className="ai-key-row">
+        {draft.provider === "local" ? (
+          <p className="ai-inline-hint">
+            当前仍是旧的本地规则配置；选择一种云端或本地模型并保存后才会切换。
+          </p>
+        ) : null}
+
+        <div
+          className="ai-provider-grid"
+          role="radiogroup"
+          aria-label={mode === "cloud" ? "云端服务商" : "本地模型服务"}
+        >
+          {(mode === "cloud" ? CLOUD_PROVIDERS : LOCAL_PROVIDERS).map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              role="radio"
+              aria-checked={draft.provider === preset.id}
+              className={`ai-provider-card ${draft.provider === preset.id ? "is-active" : ""}`}
+              onClick={() => selectProvider(preset.id)}
+            >
+              <strong>{preset.label}</strong>
+              <small>{preset.hint}</small>
+            </button>
+          ))}
+        </div>
+
+        {mode === "local" ? (
+          <p className="ai-inline-hint">
+            Ollama 默认地址是 http://localhost:11434/v1。浏览器跨域被拦截时，先设置
+            OLLAMA_ORIGINS 再启动服务；模型需要提前用 ollama pull 下载。
+          </p>
+        ) : null}
+
+            <div className="ai-field-grid">
+              <label className="ai-field ai-field--wide">
+                <span>Base URL</span>
                 <input
                   className="field-input"
-                  type={showKey ? "text" : "password"}
-                  value={draft.apiKey}
+                  value={draft.baseUrl}
                   onChange={(event) =>
-                    updateDraft((current) => ({ ...current, apiKey: event.target.value }))
+                    updateDraft((current) => ({ ...current, baseUrl: event.target.value }))
                   }
-                  placeholder="sk-..."
+                  placeholder={selectedPreset?.baseUrl ?? "https://api.openai.com/v1"}
                   spellCheck={false}
                   autoComplete="off"
                 />
-                <button
-                  className="ai-ghost-button"
-                  type="button"
-                  onClick={() => setShowKey((value) => !value)}
-                >
-                  {showKey ? "隐藏" : "显示"}
-                </button>
-              </span>
-            </label>
-            <label className="ai-field">
-              <span>模型</span>
-              <input
-                className="field-input"
-                value={draft.model}
-                onChange={(event) =>
-                  updateDraft((current) => ({ ...current, model: event.target.value }))
-                }
-                placeholder="gpt-4o-mini"
-                spellCheck={false}
-                autoComplete="off"
-              />
-            </label>
-          </div>
-        ) : (
-          <p className="ai-inline-hint">
-            本地规则不会联网，能回答课表与笔记相关的问题。需要自由聊天时再切换远程模式。
-          </p>
-        )}
-      </section>
+              </label>
+              <label className="ai-field">
+                <span>
+                  <KeyRound size={12} /> API Key
+                  {selectedPreset && !selectedPreset.requiresApiKey ? "（本地可留空）" : ""}
+                </span>
+                <span className="ai-key-row">
+                  <input
+                    className="field-input"
+                    type={showKey ? "text" : "password"}
+                    value={draft.apiKey}
+                    onChange={(event) =>
+                      updateDraft((current) => ({ ...current, apiKey: event.target.value }))
+                    }
+                    placeholder={
+                      selectedPreset && !selectedPreset.requiresApiKey ? "本地服务通常留空" : "sk-..."
+                    }
+                    spellCheck={false}
+                    autoComplete="off"
+                  />
+                  <button
+                    className="ai-ghost-button"
+                    type="button"
+                    onClick={() => setShowKey((value) => !value)}
+                  >
+                    {showKey ? "隐藏" : "显示"}
+                  </button>
+                </span>
+              </label>
+              <label className="ai-field">
+                <span>模型</span>
+                <input
+                  className="field-input"
+                  list={modelListId}
+                  value={draft.model}
+                  onChange={(event) =>
+                    updateDraft((current) => ({ ...current, model: event.target.value }))
+                  }
+                  placeholder={selectedPreset?.model || "例如 qwen2.5:7b"}
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+                <datalist id={modelListId}>
+                  {(selectedPreset?.models ?? []).map((model) => (
+                    <option key={model} value={model} />
+                  ))}
+                </datalist>
+              </label>
+            </div>
 
+            <div className="ai-test-row">
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={runConnectionTest}
+                disabled={testState?.status === "testing"}
+              >
+                {testState?.status === "testing" ? (
+                  <LoaderCircle className="is-spinning" size={14} />
+                ) : null}
+                {testState?.status === "testing" ? "正在测试…" : "测试连接"}
+              </button>
+              {testState ? (
+                <span className={`ai-test-status is-${testState.status}`} role="status">
+                  {testState.message}
+                </span>
+              ) : null}
+            </div>
+
+            <p className="ai-inline-hint">
+              <ShieldCheck size={13} /> 测试连接会用当前模型发送一条极短的 ping 请求；密钥只保存在本机。
+            </p>
+      </section>
+      ) : null}
+
+      {view !== "model" ? (
+        <>
       <section className="ai-settings-section">
         <div className="ai-settings-heading">
           <UserRound size={15} />
@@ -346,6 +458,8 @@ export function AiSettingsPanel({
           <ShieldCheck size={13} /> 所有设置、密钥和聊天记录都只保存在这台设备，不会上传到课序PLUS服务器。
         </p>
       </section>
+        </>
+      ) : null}
 
       {error ? <p className="inline-notice inline-notice--error">{error}</p> : null}
 

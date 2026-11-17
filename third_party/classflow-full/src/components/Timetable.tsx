@@ -21,7 +21,7 @@ interface TimetableProps {
   showAliases: boolean;
   now: Date;
   onSelectCourse: (course: Course) => void;
-  onSessionMenu: (session: Session) => void;
+  onSessionMenu: (session: Session, point: { x: number; y: number }) => void;
   onMoveSlot: (courseId: string, slotId: string, day: number, start: number) => void;
   onPrevWeek: () => void;
   onNextWeek: () => void;

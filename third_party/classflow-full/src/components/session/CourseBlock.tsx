@@ -27,7 +27,7 @@ interface CourseBlockProps {
   showAliases: boolean;
   onPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
   onSelect: (session: LaidOutSession) => void;
-  onOpenMenu: (session: LaidOutSession) => void;
+  onOpenMenu: (session: LaidOutSession, point: { x: number; y: number }) => void;
 }
 
 /** 周网格里的课程块：负责并排冲突、进行中与周次信息。 */
@@ -61,9 +61,9 @@ export function CourseBlock({
       }}
       onContextMenu={(event) => {
         event.preventDefault();
-        onOpenMenu(session);
+        onOpenMenu(session, { x: event.clientX, y: event.clientY });
       }}
-      title={`${name}｜${session.course.location || "未填地点"}｜拖动换时间，右键调整这一次课`}
+      title={`${name}｜${session.course.location || "未填地点"}｜拖动换时间，右键打开课程菜单`}
     >
       <span className="course-block-top">
         <span className="course-block-name">{name}</span>
@@ -76,11 +76,12 @@ export function CourseBlock({
         <button
           className="course-block-menu"
           type="button"
-          aria-label="调整这一次课"
-          title="调整这一次课"
+          aria-label="课程操作"
+          title="课程操作"
           onClick={(event) => {
             event.stopPropagation();
-            onOpenMenu(session);
+            const rect = event.currentTarget.getBoundingClientRect();
+            onOpenMenu(session, { x: rect.left, y: rect.bottom + 4 });
           }}
         >
           ⋯

@@ -26,6 +26,7 @@ import type {
 } from "./types";
 import { dateKey, formatWeekRange } from "./lib/date";
 import { readCourseShareFromHash } from "./lib/courseShare";
+import { courseDisplayName } from "./lib/schedule";
 import { wallpaperStyle } from "./lib/wallpaper";
 import { isNativeApp } from "./lib/nativeFile";
 import { useClock } from "./hooks/useClock";
@@ -50,6 +51,7 @@ import { Timetable } from "./components/Timetable";
 import { ImportPreviewDialog } from "./components/ImportPreviewDialog";
 import { ImportScheduleDialog } from "./components/ImportScheduleDialog";
 import { SessionOverrideDialog } from "./components/SessionOverrideDialog";
+import { CourseContextMenu } from "./components/CourseContextMenu";
 import { TextImportDialog } from "./components/TextImportDialog";
 import { TimetableShareDialog } from "./components/TimetableShareDialog";
 import { TimetableList } from "./components/TimetableList";
@@ -98,7 +100,7 @@ import {
 } from "./lib/notes";
 import { makeCourse, makeEvent, makeSlot, nextTone } from "./lib/factory";
 import { parseCourseText } from "./lib/textImport";
-import type { AiAction } from "./lib/aiActions";
+import { describeAiAction, isDestructiveAction, type AiAction } from "./lib/aiActions";
 import { toggleEventCheckIn } from "./lib/eventRepeat";
 import {
   loadGradeSettings,
@@ -136,11 +138,14 @@ import { syncAndroidWidget } from "./lib/widget";
 import {
   addMemory as addAiMemory,
   clearMemory as clearAiMemory,
+  getAiProviderPreset,
   loadAiSettings,
   loadMemory as loadAiMemory,
   removeMemory as removeAiMemory,
   saveAiSettings,
   saveMemory as saveAiMemory,
+  type AiProviderId,
+  type AiSettings,
 } from "./lib/ai";
 
 interface ConfirmState {
@@ -199,6 +204,15 @@ export default function App() {
   const [eventSeed, setEventSeed] = useState<EventSeed | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [sessionMenu, setSessionMenu] = useState<{ session: Session; week: number } | null>(null);
+  const [courseMenu, setCourseMenu] = useState<{
+    session: Session;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [courseClipboard, setCourseClipboard] = useState<{
+    course: Course;
+    mode: "copy" | "cut";
+  } | null>(null);
   const [textImportOpen, setTextImportOpen] = useState(false);
   const [importScheduleOpen, setImportScheduleOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -327,6 +341,34 @@ export default function App() {
     setDetailId(course.id);
   };
 
+  const cloneCourseForClipboard = (course: Course): Course => ({
+    ...course,
+    slots: course.slots.map((slot) => ({
+      ...slot,
+      ...(slot.weeks ? { weeks: [...slot.weeks] } : {}),
+    })),
+  });
+
+  const copyCourse = (course: Course) => {
+    setCourseClipboard({ course: cloneCourseForClipboard(course), mode: "copy" });
+    setCourseMenu(null);
+    notify(`已复制《${course.name}》，切换到其他课表后右键即可粘贴。`);
+  };
+
+  const cutCourse = (course: Course) => {
+    setCourseClipboard({ course: cloneCourseForClipboard(course), mode: "cut" });
+    actions.removeCourse(course);
+    setCourseMenu(null);
+    notify(`已剪切《${course.name}》，右键任意课程即可粘贴。`);
+  };
+
+  const pasteCourse = () => {
+    if (!courseClipboard) return;
+    actions.pasteCourse(courseClipboard.course);
+    if (courseClipboard.mode === "cut") setCourseClipboard(null);
+    setCourseMenu(null);
+  };
+
   const handleSaveCourse = (course: Course) => {
     actions.saveCourse(course);
     setEditorSeed(null);
@@ -354,6 +396,15 @@ export default function App() {
   ): Promise<{ ok: boolean; message: string }> => {
     const { action, args } = rawAction;
     const fail = (message: string) => ({ ok: false, message });
+    if (isDestructiveAction(rawAction)) {
+      const confirmed = await askConfirm({
+        title: "确认执行不可逆操作？",
+        message: `即将${describeAiAction(rawAction)}，此操作无法撤销。`,
+        confirmLabel: "确认执行",
+        tone: "danger",
+      });
+      if (!confirmed) return fail("已取消。");
+    }
     try {
       switch (action) {
         case "navigate": {
@@ -529,7 +580,7 @@ export default function App() {
         case "delete_course": {
           const course = courses.find((item) => item.id === args.id);
           if (!course) return fail("没有找到这门课程。");
-          const deleted = await actions.requestDeleteCourse(course);
+          const deleted = await actions.requestDeleteCourse(course, true);
           return deleted
             ? { ok: true, message: `已删除课程《${course.name}》。` }
             : fail("已取消删除课程。");
@@ -553,7 +604,7 @@ export default function App() {
         case "delete_event": {
           const event = events.find((item) => item.id === args.id);
           if (!event) return fail("没有找到这条日程。");
-          const deleted = await actions.requestDeleteEvent(event);
+          const deleted = await actions.requestDeleteEvent(event, true);
           return deleted
             ? { ok: true, message: `已删除日程《${event.title}》。` }
             : fail("已取消删除日程。");
@@ -594,7 +645,7 @@ export default function App() {
         }
 
         case "clear_all": {
-          const cleared = await actions.clearAll();
+          const cleared = await actions.clearAll(true);
           return cleared ? { ok: true, message: "已清空当前数据。" } : fail("已取消清空。");
         }
 
@@ -988,7 +1039,7 @@ export default function App() {
         }
 
         case "delete_timetable": {
-          const deleted = await actions.requestDeleteTimetable(String(args.id));
+          const deleted = await actions.requestDeleteTimetable(String(args.id), true);
           return deleted
             ? { ok: true, message: "已删除这套课表。" }
             : fail("已取消删除课表。");
@@ -1281,13 +1332,23 @@ export default function App() {
             args.permissions && typeof args.permissions === "object"
               ? (args.permissions as Partial<typeof current.permissions>)
               : undefined;
-          const next = {
+          const provider =
+            typeof args.provider === "string" ? (args.provider as AiProviderId) : current.provider;
+          const providerChanged = provider !== current.provider;
+          const preset = getAiProviderPreset(provider);
+          const next: AiSettings = {
             ...current,
-            ...(typeof args.provider === "string"
-              ? { provider: args.provider as "local" | "openai-compatible" }
-              : {}),
-            ...(typeof args.baseUrl === "string" ? { baseUrl: args.baseUrl } : {}),
-            ...(typeof args.model === "string" ? { model: args.model } : {}),
+            provider,
+            ...(typeof args.baseUrl === "string"
+              ? { baseUrl: args.baseUrl }
+              : providerChanged && preset
+                ? { baseUrl: preset.baseUrl }
+                : {}),
+            ...(typeof args.model === "string"
+              ? { model: args.model }
+              : providerChanged && preset
+                ? { model: preset.model }
+                : {}),
             persona: {
               ...current.persona,
               ...(typeof args.personaName === "string" ? { name: args.personaName } : {}),
@@ -1681,7 +1742,7 @@ export default function App() {
                       showAliases={prefs.showAliases}
                       now={now}
                       onSelectCourse={openCourseDetail}
-                      onSessionMenu={(session) => setSessionMenu({ session, week: view.week })}
+                      onSessionMenu={(session, point) => setCourseMenu({ session, x: point.x, y: point.y })}
                       onAddAt={(day, start) => openEditor({ prefill: { day, start } })}
                       onAddCourse={() => openEditor()}
                     />
@@ -1699,7 +1760,7 @@ export default function App() {
                       showAliases={prefs.showAliases}
                       now={now}
                       onSelectCourse={openCourseDetail}
-                      onSessionMenu={(session) => setSessionMenu({ session, week: view.week })}
+                      onSessionMenu={(session, point) => setCourseMenu({ session, x: point.x, y: point.y })}
                       onMoveSlot={actions.moveCourseSlot}
                       onPrevWeek={() => view.goToWeek(view.week - 1)}
                       onNextWeek={() => view.goToWeek(view.week + 1)}
@@ -1772,7 +1833,14 @@ export default function App() {
             <AiWorkspace
               timetableId={timetable.id}
               timetable={timetable}
-              timetables={data.timetables.map((item) => ({ id: item.id, name: item.name }))}
+              timetables={data.timetables.map((item) => ({
+                id: item.id,
+                name: item.name,
+                semesterName: item.semester.name,
+                courseCount: item.courses.length,
+                eventCount: item.events.length,
+                active: item.id === data.activeTimetableId,
+              }))}
               periodProfiles={data.periodProfiles.map((item) => ({
                 id: item.id,
                 name: item.name,
@@ -1935,6 +2003,33 @@ export default function App() {
         />
       ) : null}
 
+      {courseMenu ? (
+        <CourseContextMenu
+          key={`${courseMenu.session.id}-${courseMenu.x}-${courseMenu.y}`}
+          x={courseMenu.x}
+          y={courseMenu.y}
+          courseName={courseDisplayName(courseMenu.session.course, prefs.showAliases)}
+          clipboardName={
+            courseClipboard
+              ? courseDisplayName(courseClipboard.course, prefs.showAliases)
+              : null
+          }
+          onClose={() => setCourseMenu(null)}
+          onEdit={() => {
+            const course = courseMenu.session.course;
+            setCourseMenu(null);
+            openEditor({ course });
+          }}
+          onAdjust={() => {
+            setSessionMenu({ session: courseMenu.session, week: view.week });
+            setCourseMenu(null);
+          }}
+          onCopy={() => copyCourse(courseMenu.session.course)}
+          onCut={() => cutCourse(courseMenu.session.course)}
+          onPaste={pasteCourse}
+        />
+      ) : null}
+
       {sessionMenu ? (
         <SessionOverrideDialog
           key={sessionMenu.session.id}
@@ -2015,6 +2110,11 @@ export default function App() {
           onClose={() => setTimetablesOpen(false)}
           onSwitch={actions.switchTimetable}
           onCreate={actions.createTimetable}
+          onCreateAndImport={(input) => {
+            actions.createTimetable(input);
+            setTimetablesOpen(false);
+            setImportScheduleOpen(true);
+          }}
           onRename={actions.renameTimetable}
           onDuplicate={actions.duplicateTimetable}
           onDelete={actions.requestDeleteTimetable}

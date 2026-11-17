@@ -339,4 +339,19 @@ describe("visionConfigFromAiSettings", () => {
       model: "gpt-4o-mini",
     });
   });
+
+  it("accepts local model providers without an api key", () => {
+    expect(
+      visionConfigFromAiSettings({
+        provider: "ollama",
+        baseUrl: "http://localhost:11434/v1",
+        apiKey: "",
+        model: "qwen2.5:7b",
+      }),
+    ).toEqual({
+      baseUrl: "http://localhost:11434/v1",
+      apiKey: "",
+      model: "qwen2.5:7b",
+    });
+  });
 });

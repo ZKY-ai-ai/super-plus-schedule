@@ -1,7 +1,9 @@
 import type { Semester } from "../types";
 import {
+  aiProviderRequiresApiKey,
   complete,
   createChatMessage,
+  isRemoteAiProvider,
   type AiChatMessage,
   type AiSettings,
 } from "./ai";
@@ -23,9 +25,9 @@ export interface CourseImportConversion {
 
 export function isAiImportReady(settings: AiSettings): boolean {
   return (
-    settings.provider === "openai-compatible" &&
-    Boolean(settings.apiKey.trim()) &&
-    Boolean(settings.model.trim())
+    isRemoteAiProvider(settings.provider) &&
+    Boolean(settings.model.trim()) &&
+    (!aiProviderRequiresApiKey(settings.provider) || Boolean(settings.apiKey.trim()))
   );
 }
 

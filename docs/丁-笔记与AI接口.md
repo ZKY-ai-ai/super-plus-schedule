@@ -181,10 +181,16 @@ interface AiPersona {
   customPrompt: string;       // 追加到系统提示，最多 500 字
 }
 
+type AiProviderId =
+  | "local"               // 本地规则，不联网
+  | "openai" | "deepseek" | "zhipu" | "qwen" | "moonshot"
+  | "siliconflow" | "openrouter" | "openai-compatible"  // 云端
+  | "ollama" | "lmstudio" | "custom-local";             // 本地模型
+
 interface AiSettings {
-  provider: "local" | "openai-compatible";
+  provider: AiProviderId;
   baseUrl: string;            // 例如 https://api.example.com/v1
-  apiKey: string;
+  apiKey: string;             // 本地模型可留空
   model: string;
   persona: AiPersona;
   permissions: AiPermissions;
@@ -198,13 +204,20 @@ complete(request: {
   memory?: AiMemoryEntry[];
 }, settings?: AiSettings, fetchImpl?: FetchLike, now?: Date): Promise<{
   content: string;
-  provider: "local" | "openai-compatible";
+  provider: AiProviderId;
   error?: string;
+}>
+
+testAiConnection(settings: AiSettings, fetchImpl?: FetchLike): Promise<{
+  ok: boolean;
+  message: string;
+  latencyMs: number;
 }>
 
 loadAiSettings(storage?: StorageLike): AiSettings
 saveAiSettings(settings: AiSettings, storage?: StorageLike): boolean
 normalizeAiSettings(raw: unknown): AiSettings
+validateAiSettings(settings: AiSettings): string | null
 
 loadChat(storage?: StorageLike, now?: Date): AiChatData
 saveChat(data: AiChatData, storage?: StorageLike): boolean
@@ -215,7 +228,8 @@ aiComplete(prompt: string, context?, settings?): Promise<string>
 ```
 
 - `local`：不联网，用 `answerScheduleQuestion`、笔记检索与人格文案作答，保证无密钥可用。
-- `openai-compatible`：`POST {baseUrl}/chat/completions`，兼容 OpenAI 协议；密钥只存本机，设置页明确提示。
+- 其余 provider：都走 `POST {baseUrl}/chat/completions`，兼容 OpenAI 协议；云端需要 API Key，`ollama` / `lmstudio` / `custom-local` 可留空。密钥只存本机，设置页明确提示。
+- `AI_PROVIDER_PRESETS` 提供服务商名称、分组、默认 Base URL、默认模型与推荐模型列表；切换 provider 时界面套用默认值，并可用 `testAiConnection` 发送极短 ping 显示延迟与错误。
 - 请求失败返回可读错误与 `error` 字段，不抛出网络细节；UI 保留用户消息。
 - `aiComplete` 是不抛错的便捷入口，供甲（F114 识课）与丙（F116 选课建议）直接调用。
 
@@ -251,7 +265,7 @@ extractMemoryRequest(question: string): string | null
 - 只识别明确的「记住/记一下/记下/记着……」与「以后叫我……」；疑问句、少于 2 字或超过 200 字返回 `null`。
 - 记忆属于用户主动保存的偏好，不受分项授权裁剪；`complete` 收到 `memory` 时写入系统提示的【长期记忆】段。
 - 本地模式：「记住……」直接确认并提示可管理；「你记得什么」列出条目；没有记忆时给出引导。
-- 界面在「人与授权」中逐条删除或清空，聊天页识别到「记住」时同步落盘并提示。远程模式下记忆会随请求发送，设置页有明确提示。
+- 界面在「人格与授权」中逐条删除或清空，聊天页识别到「记住」时同步落盘并提示。远程模式下记忆会随请求发送，设置页有明确提示。
 
 ### 3.5 分项授权（F118）
 
@@ -279,8 +293,8 @@ describePermissions(permissions: AiPermissions): Array<{ key; label; enabled; hi
 ### 3.6 页面与调用方式
 
 - `components/notes/NotesWorkspace.tsx`：笔记列表、章节看板、链接导入、全文搜索。
-- `components/ai/AiWorkspace.tsx`：对话、目录提取、人格与授权、长期记忆、下一节/今日概览；内部按当前周构建快照并调用 `complete`。
-- `components/SettingsModal.tsx` 的「笔记与 AI」tab：复用 `AiSettingsPanel`，与工作台共享同一份 `kexu:ai:settings:v1`。
+- `components/ai/AiWorkspace.tsx`：对话、目录提取、模型设置、人格与授权（含长期记忆）、下一节/今日概览；模型配置与保存紧跟在一起，人格、记忆和分项授权放在单独一栏；内部按当前周构建快照并调用 `complete`。
+- `components/SettingsModal.tsx` 的「AI 助手」tab：复用 `AiSettingsPanel`（`view="all"`），与工作台共享同一份 `kexu:ai:settings:v1`；界面只提供云端模型和本地模型两种模式，旧的 `local` 配置仍按本地规则运行，选择模型并保存后切换。
 - 路由：`AppPage` 增加 `notes`、`ai`，由 `App.tsx` 按页面渲染，不新增课表数据耦合。
 
 ### 3.7 课程目录提取（F115）
