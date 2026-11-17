@@ -45,7 +45,8 @@ import java.util.regex.Pattern;
 public class SystemCalendarPlugin extends Plugin {
 
     private static final String PERMISSION_ALIAS = "calendar";
-    private static final int WRITABLE_ACCESS = CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL_CONTRIBUTOR;
+    // CALENDAR_ACCESS_LEVEL_CONTRIBUTOR was dropped from the API 36 SDK; the provider contract value is still 500.
+    private static final int WRITABLE_ACCESS = 500;
     private static final Pattern KEY_PATTERN = Pattern.compile("\\[KEXU:([^\\]]+)\\]");
 
     @PluginMethod
