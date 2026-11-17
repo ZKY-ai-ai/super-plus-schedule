@@ -207,6 +207,10 @@
   margin-top: 31px;
 }
 
+.main-nav--play {
+  margin-top: 22px;
+}
+
 .nav-label {
   padding: 0 10px 8px;
   color: rgba(244, 241, 232, 0.3);

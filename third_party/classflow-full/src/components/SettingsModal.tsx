@@ -12,7 +12,6 @@ import {
   Sparkles,
   X,
   Database,
-  Drum,
   GraduationCap,
   Trash2,
   Waves,
@@ -68,8 +67,6 @@ import {
   type AiSettings,
 } from "../lib/ai";
 import { AiSettingsPanel } from "./ai/AiSettingsPanel";
-import { QqqPlayground } from "./playground/QqqPlayground";
-import { Woodfish } from "./woodfish/Woodfish";
 import { WhaleMascot } from "./WhaleMascot";
 
 
@@ -126,8 +123,6 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Database }> = [
   { id: "academic", label: "教务导入", icon: CloudDownload },
   { id: "data", label: "数据与备份", icon: Database },
   { id: "ai", label: "AI 助手", icon: Sparkles },
-  { id: "playground", label: "QQQ 游乐场", icon: Waves },
-  { id: "woodfish", label: "敲木鱼", icon: Drum },
 ];
 
 function isValidMonthDay(value: string): boolean {
@@ -509,18 +504,12 @@ export function SettingsModal({
       footer={
         <>
           <p className="modal-foot-note">
-            {tab === "playground"
-              ? "这片水面只保存在本机"
-              : tab === "woodfish"
-                ? "功德只保存在本机"
-                : tab === "ai"
-                  ? "聊天与密钥只保存在本机"
-                  : "所有内容只保存在本机"}
+            {tab === "ai" ? "聊天与密钥只保存在本机" : "所有内容只保存在本机"}
           </p>
           <span className="modal-foot-spacer" />
           <button className="primary-button" type="button" onClick={handleSaveAndClose}>
             <Check size={16} />
-            {tab === "playground" || tab === "woodfish" ? "完成" : "保存设置"}
+            保存设置
           </button>
         </>
       }
@@ -1134,18 +1123,6 @@ export function SettingsModal({
                     setError("");
                   }}
                 />
-              </section>
-            ) : null}
-
-            {tab === "playground" ? (
-              <section className="settings-pane" aria-label="QQQ 游乐场">
-                <QqqPlayground />
-              </section>
-            ) : null}
-
-            {tab === "woodfish" ? (
-              <section className="settings-pane" aria-label="敲木鱼">
-                <Woodfish />
               </section>
             ) : null}
           </div>

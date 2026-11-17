@@ -186,6 +186,8 @@ export type AppPage =
   | "plan"
   | "notes"
   | "ai"
+  | "playground"
+  | "woodfish"
   | "profile";
 
 export type SettingsTab =
@@ -197,9 +199,7 @@ export type SettingsTab =
   | "calendar"
   | "academic"
   | "data"
-  | "ai"
-  | "playground"
-  | "woodfish";
+  | "ai";
 
 export interface Preferences {
   theme: Theme;

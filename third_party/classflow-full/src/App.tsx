@@ -66,6 +66,8 @@ import { CommandPalette, type CommandItem } from "./components/CommandPalette";
 import { PlanPage, type PlanTab } from "./components/planner/PlanPage";
 import { NotesWorkspace } from "./components/notes/NotesWorkspace";
 import { AiWorkspace } from "./components/ai/AiWorkspace";
+import { QqqPlayground } from "./components/playground/QqqPlayground";
+import { Woodfish } from "./components/woodfish/Woodfish";
 import {
   DEFAULT_GAP_PREFERENCES,
   loadGapPreferences,
@@ -162,6 +164,8 @@ const PAGE_NAMES: Record<AppPage, string> = {
   notes: "笔记与看板",
   ai: "AI 助手",
   courses: "课程库",
+  playground: "QQQ 游乐场",
+  woodfish: "敲木鱼",
   profile: "我的",
 };
 
@@ -1528,6 +1532,20 @@ export default function App() {
       run: () => navigate("ai"),
     },
     { id: "go-courses", group: "导航", label: "课程库", run: () => navigate("courses") },
+    {
+      id: "go-playground",
+      group: "导航",
+      label: "QQQ 游乐场",
+      hint: "小黄鸭与水面",
+      run: () => navigate("playground"),
+    },
+    {
+      id: "go-woodfish",
+      group: "导航",
+      label: "敲木鱼",
+      hint: "功德 +1",
+      run: () => navigate("woodfish"),
+    },
     { id: "go-profile", group: "导航", label: "我的", run: () => navigate("profile") },
     {
       id: "act-new-course",
@@ -1852,6 +1870,14 @@ export default function App() {
               onRunAction={runAiAction}
               onNotify={notify}
             />
+          ) : page === "playground" ? (
+            <section className="game-page" aria-label="QQQ 游乐场">
+              <QqqPlayground />
+            </section>
+          ) : page === "woodfish" ? (
+            <section className="game-page" aria-label="敲木鱼">
+              <Woodfish />
+            </section>
           ) : page === "profile" ? (
             <ProfilePage
               data={data}

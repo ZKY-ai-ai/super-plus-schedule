@@ -36,6 +36,8 @@
 | `notes` | 笔记与看板 | 笔记增删改、章节看板、标签、全文搜索、链接导入 | `src/components/notes/NotesWorkspace.tsx` |
 | `ai` | AI 助手 | 对话、目录提取、人格与授权、长期记忆 | `src/components/ai/AiWorkspace.tsx` |
 | `courses` | 课程库 | 课程卡片、搜索、编辑、删除、恢复隐藏课程 | `src/components/CourseLibrary.tsx` |
+| `playground` | QQQ 游乐场 | 小黄鸭跟随鼠标游动、WebGL 水面涟漪（无 WebGL 时静态降级） | `src/components/playground/QqqPlayground.tsx` |
+| `woodfish` | 敲木鱼 | 3D 木雕风格木鱼、功德计数、实时手速、空格敲击 | `src/components/woodfish/Woodfish.tsx` |
 | `profile` | 我的 | 课表信息、主题、壁纸、导入导出、打印、数据状态 | `src/components/ProfilePage.tsx` |
 
 常用弹窗与入口：
@@ -43,7 +45,8 @@
 - 新建/编辑课程：`CourseEditor`（快捷键 `N`）。
 - 新建/编辑日程：`EventEditor`（快捷键 `E`）。
 - 命令面板：`Ctrl/Cmd + K`，可搜索页面、课程和操作。
-- 设置：`SettingsModal`，包含学期、作息、任务、成绩、提醒、日历、教务导入、数据、AI、QQQ 游乐场、木鱼。
+- 设置：`SettingsModal`，包含学期、作息、任务、成绩、提醒、日历、教务导入、数据、AI。
+- 游乐场：侧栏「游乐场」分组下的 QQQ 游乐场与敲木鱼独立页面（原设置页彩蛋，已迁出）。
 - 文本导入、课表分享、多课表管理、壁纸、周次选择。
 
 全局快捷键：`N` 新建课程，`E` 新建日程，`T` 回到今天，`←/→` 切换周，`Ctrl/Cmd+Z` 撤销，`Ctrl/Cmd+Shift+Z` 或 `Ctrl/Cmd+Y` 重做，`Ctrl/Cmd+K` 命令面板。
@@ -257,8 +260,8 @@
 | 教务导入 | 可配置适配器与学校档案；无预置学校、无登录流程 |
 | 数据 | JSON/ICS/文件导入导出、模板、文本导入、清空数据 |
 | AI | AI 模型服务（云端/本地）、密钥、模型、连接测试、人格、分项授权、长期记忆 |
-| QQQ 游乐场 | 参考页面视觉复刻的小游戏/彩蛋 |
-| 木鱼 | 3D 木雕风格木鱼与计数 |
+
+QQQ 游乐场与敲木鱼不再是设置 tab，已升级为侧栏「游乐场」分组下的独立页面（`playground` / `woodfish`），用 `navigate` 打开。
 
 ---
 
@@ -327,9 +330,9 @@
 
 | action | 参数 | 说明 |
 |---|---|---|
-| `navigate` | `{ page: "timetable" \| "agenda" \| "plan" \| "notes" \| "ai" \| "courses" \| "profile", planTab?: "gaps" \| "study" \| "select" }` | 切换页面；`plan` 可指定子页 |
+| `navigate` | `{ page: "timetable" \| "agenda" \| "plan" \| "notes" \| "ai" \| "courses" \| "playground" \| "woodfish" \| "profile", planTab?: "gaps" \| "study" \| "select" }` | 切换页面；`plan` 可指定子页；`playground`/`woodfish` 为游乐场页面 |
 | `set_week` | `{ week: number }` | 跳到指定教学周并打开周课表 |
-| `open_settings` | `{ tab?: "term" \| "periods" \| "tasks" \| "grades" \| "reminders" \| "calendar" \| "academic" \| "data" \| "ai" \| "playground" \| "woodfish" }` | 打开设置页 |
+| `open_settings` | `{ tab?: "term" \| "periods" \| "tasks" \| "grades" \| "reminders" \| "calendar" \| "academic" \| "data" \| "ai" }` | 打开设置页 |
 | `open_text_import` | `{ text: string }` | 打开文本导入并预填内容，由用户预览确认 |
 | `open_dialog` | `{ dialog: "text-import" \| "share" \| "timetables" \| "wallpaper" \| "week-picker" \| "command-palette" }` | 打开对应弹窗或面板，由用户完成文件选择与授权 |
 | `print` | `{}` | 打印当前课表 |

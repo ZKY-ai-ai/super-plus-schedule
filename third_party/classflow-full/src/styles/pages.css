@@ -1641,3 +1641,22 @@
     padding: 9px 12px;
   }
 }
+
+/* 游乐场独立页面：QQQ 游乐场 / 敲木鱼从设置彩蛋升级为侧栏页面。 */
+.game-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 26px;
+}
+
+.game-page > .qqq-playground,
+.game-page > .woodfish {
+  width: min(760px, 100%);
+}
+
+@media (max-width: 760px) {
+  .game-page {
+    padding-top: 16px;
+  }
+}

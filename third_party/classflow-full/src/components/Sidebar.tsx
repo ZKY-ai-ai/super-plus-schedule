@@ -2,6 +2,7 @@ import {
   BookOpen,
   CalendarDays,
   Compass,
+  Drum,
   LayoutGrid,
   Moon,
   NotebookPen,
@@ -153,6 +154,28 @@ export function Sidebar({
           <BookOpen size={17} strokeWidth={1.8} />
           <span>课程库</span>
           <span className="nav-count">{courseCount}</span>
+        </button>
+      </nav>
+
+      <nav className="main-nav main-nav--play" aria-label="游乐场">
+        <span className="nav-label">游乐场</span>
+        <button
+          className={`nav-item ${page === "playground" ? "is-active" : ""}`}
+          type="button"
+          onClick={() => onNavigate("playground")}
+          aria-current={page === "playground" ? "page" : undefined}
+        >
+          <Waves size={17} strokeWidth={1.8} />
+          <span>QQQ 游乐场</span>
+        </button>
+        <button
+          className={`nav-item ${page === "woodfish" ? "is-active" : ""}`}
+          type="button"
+          onClick={() => onNavigate("woodfish")}
+          aria-current={page === "woodfish" ? "page" : undefined}
+        >
+          <Drum size={17} strokeWidth={1.8} />
+          <span>敲木鱼</span>
         </button>
       </nav>
 

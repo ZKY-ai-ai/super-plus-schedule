@@ -127,6 +127,8 @@ const PAGES: AppPage[] = [
   "notes",
   "ai",
   "courses",
+  "playground",
+  "woodfish",
   "profile",
 ];
 
@@ -142,8 +144,6 @@ const SETTINGS_TABS: SettingsTab[] = [
   "academic",
   "data",
   "ai",
-  "playground",
-  "woodfish",
 ];
 
 const TASK_REPEATS = ["none", "daily", "weekly", "monthly"] as const;
@@ -156,6 +156,8 @@ const PAGE_LABELS: Record<AppPage, string> = {
   notes: "笔记与看板",
   ai: "AI 助手",
   courses: "课程库",
+  playground: "QQQ 游乐场",
+  woodfish: "敲木鱼",
   profile: "我的",
 };
 
@@ -175,8 +177,6 @@ const SETTINGS_LABELS: Record<SettingsTab, string> = {
   academic: "教务导入",
   data: "数据",
   ai: "AI",
-  playground: "QQQ 游乐场",
-  woodfish: "木鱼",
 };
 
 export const AI_ACTION_DEFINITIONS: AiActionDefinition[] = [
@@ -472,7 +472,9 @@ export function validateAiAction(
     case "navigate": {
       const page = asString(args.page, 20) as AppPage | null;
       if (!page || !PAGES.includes(page)) {
-        return fail("navigate 需要合法 page：timetable/agenda/plan/notes/ai/courses/profile。");
+        return fail(
+          "navigate 需要合法 page：timetable/agenda/plan/notes/ai/courses/playground/woodfish/profile。",
+        );
       }
       const rawTab = asString(args.planTab, 10) as AiPlanTab | null;
       const planTab = page === "plan" && rawTab && PLAN_TABS.includes(rawTab) ? rawTab : undefined;
@@ -1095,6 +1097,8 @@ export function parseLocalCommand(
     if (/学习|统计|番茄|复习/.test(input)) {
       return [{ action: "navigate", args: { page: "plan", planTab: "study" } }];
     }
+    if (/木鱼/.test(input)) return [{ action: "navigate", args: { page: "woodfish" } }];
+    if (/游乐场|qqq/i.test(input)) return [{ action: "navigate", args: { page: "playground" } }];
     if (/设置/.test(input)) {
       const tab: SettingsTab | undefined =
         /学期/.test(input) ? "term"
@@ -1105,9 +1109,7 @@ export function parseLocalCommand(
                   : /日历|节假日/.test(input) ? "calendar"
                     : /数据|导入|导出/.test(input) ? "data"
                       : /ai|助手/i.test(input) ? "ai"
-                        : /木鱼/.test(input) ? "woodfish"
-                          : /游乐场|qqq/i.test(input) ? "playground"
-                            : undefined;
+                        : undefined;
       return [{ action: "open_settings", args: tab ? { tab } : {} }];
     }
     const weekMatch = /第?\s*(\d{1,2})\s*周/.exec(input);
