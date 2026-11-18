@@ -37,7 +37,6 @@ target/
 .gradle/
 local.properties
 *.apk
-!安装包/kexu-plus-*.apk
 *.aab
 *.ipa
 *.xcuserstate
@@ -54,3 +53,9 @@ captures/
 
 # 个人课表样例（含个人信息，不入库）
 示例课表/
+
+# 发布安装包不入库：正式产物连同校验文件挂 GitHub Releases，仓库仅保留参考项目校验信息
+安装包/*.apk.sha256
+安装包/*.exe
+安装包/*.exe.sha256
+安装包/*.url
