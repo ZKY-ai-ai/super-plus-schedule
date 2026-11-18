@@ -86,7 +86,7 @@ void main() {
     float phase = sqrt(rr) * 18.8495559;
     float wave = cos(phase);
     // 折射按波的坡度交替内外偏移，焦散纹理绕波列扭动而非单向推移。
-    rippleShift += (delta / d) * amount * -sin(phase) * 0.028;
+    rippleShift += (delta / d) * amount * -sin(phase) * 0.02;
     rippleLight += amount * wave;
   }
 
@@ -121,8 +121,8 @@ void main() {
   // 波动明暗：波脊迎光提亮为主，波谷轻微压暗；压暗过重会叠成暗色靶心。
   float crest = max(rippleLight, 0.0);
   float trough = min(rippleLight, 0.0);
-  color += vec3(0.90, 0.97, 1.0) * min(crest, 1.2) * 0.32;
-  color *= 1.0 + max(trough, -0.8) * 0.20;
+  color += vec3(0.90, 0.97, 1.0) * min(crest, 1.2) * 0.20;
+  color *= 1.0 + max(trough, -0.8) * 0.12;
 
   vec2 centered = uv - 0.5;
   float vignette = smoothstep(0.95, 0.26, length(centered * vec2(0.85, 1.35)));
