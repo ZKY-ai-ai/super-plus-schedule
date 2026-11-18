@@ -61,7 +61,7 @@ function upstreamPreferences(preferences: GapPreferences): UpstreamGapPreference
   };
 }
 
-/** 把课序的 DayGap 交给 Gapwise 的评估器打分，步行分钟沿用课序现有估算。 */
+/** 把课序PLUS的 DayGap 交给 Gapwise 的评估器打分，步行分钟沿用课序PLUS现有估算。 */
 export function assessDayGap(gap: DayGap, preferences: GapPreferences): GapAssessment {
   const aliases = preferences.aliases;
   const previous = meeting(

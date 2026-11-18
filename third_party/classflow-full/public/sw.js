@@ -1,4 +1,4 @@
-/* 课序 · 极简离线缓存：首次在线打开后，断网也能看课表。 */
+/* 课序PLUS · 极简离线缓存：首次在线打开后，断网也能看课表。 */
 const CACHE_NAME = "kexu-shell-v1";
 const APP_SHELL = [
   "./",

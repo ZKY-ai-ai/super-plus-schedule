@@ -1,5 +1,5 @@
 // Minimal adapters for the Gapwise gap assessment engine. Gapwise models
-// campus routing as a graph; 课序 only has building-to-building estimates, so
+// campus routing as a graph; 课序PLUS only has building-to-building estimates, so
 // the route object below carries the same fields with an approximate status.
 
 export type RouteAccuracy = string;

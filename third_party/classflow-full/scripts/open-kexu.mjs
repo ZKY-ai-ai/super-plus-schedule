@@ -63,12 +63,12 @@ async function main() {
     console.error("找不到 Vite 依赖，请先在项目目录运行 npm install。");
     process.exit(1);
   }
-  console.log("正在检查课序服务…");
+  console.log("正在检查课序PLUS服务…");
   const target = await chooseTarget();
   const url = `http://${host}:${target.port}/?launch=${Date.now()}`;
 
   if (target.running) {
-    console.log(`课序已在运行：${url}`);
+    console.log(`课序PLUS已在运行：${url}`);
     openBrowser(url);
     return;
   }
@@ -89,7 +89,7 @@ async function main() {
   child.once("exit", (code) => process.exit(code ?? 0));
 
   if (!(await waitUntilReady(target.port, child))) {
-    console.error("课序启动超时，请查看上方的 Vite 输出。");
+    console.error("课序PLUS启动超时，请查看上方的 Vite 输出。");
     stop();
     process.exit(1);
   }
