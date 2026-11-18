@@ -168,7 +168,7 @@ export function Sidebar({
           aria-current={page === "models" ? "page" : undefined}
         >
           <ServerCog size={17} strokeWidth={1.8} />
-          <span>模型服务</span>
+          <span>运行模式</span>
         </button>
         <button
           className={`nav-item ${page === "persona" ? "is-active" : ""}`}
@@ -177,7 +177,7 @@ export function Sidebar({
           aria-current={page === "persona" ? "page" : undefined}
         >
           <UserRound size={17} strokeWidth={1.8} />
-          <span>人格与记忆</span>
+          <span>人格与授权</span>
         </button>
       </nav>
 

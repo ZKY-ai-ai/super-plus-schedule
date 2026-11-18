@@ -44,8 +44,13 @@ export function ModelsPage({ onNotify }: ModelsPageProps) {
   const preset = providerPreset(draft.provider);
   const activePreset = providerPreset(settings.provider);
   const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(settings), [draft, settings]);
-  const localPresets = AI_PROVIDER_PRESETS.filter((item) => item.kind === "local");
-  const cloudPresets = AI_PROVIDER_PRESETS.filter((item) => item.kind === "cloud");
+  const rulePresets = AI_PROVIDER_PRESETS.filter((item) => item.probe === "none");
+  const localModelPresets = AI_PROVIDER_PRESETS.filter(
+    (item) => item.kind === "local" && item.probe !== "none" && item.id !== "custom",
+  );
+  const cloudPresets = AI_PROVIDER_PRESETS.filter(
+    (item) => item.kind === "cloud" || item.id === "custom",
+  );
 
   const selectProvider = (id: AiProviderId) => {
     const next = providerPreset(id);
@@ -129,7 +134,7 @@ export function ModelsPage({ onNotify }: ModelsPageProps) {
         aria-pressed={isDraft}
       >
         <span className="models-card-head">
-          {item.kind === "cloud" ? <Cloud size={15} /> : <HardDrive size={15} />}
+          {item.kind === "cloud" || item.id === "custom" ? <Cloud size={15} /> : <HardDrive size={15} />}
           <strong>{item.label}</strong>
           {isActive ? <em className="models-badge models-badge--active">使用中</em> : null}
         </span>
@@ -148,16 +153,16 @@ export function ModelsPage({ onNotify }: ModelsPageProps) {
     <div className="models-page">
       <section className="ai-hero models-hero">
         <div className="ai-hero-copy">
-          <span className="eyebrow">MODEL PROVIDERS</span>
-          <h1>模型服务</h1>
+          <span className="eyebrow">AI RUN MODE</span>
+          <h1>运行模式</h1>
           <p>
-            默认使用本机 Ollama，不上传任何数据；也可以接 DeepSeek、OpenAI、Kimi、智谱、通义等云端服务。
-            先测试连接，再保存切换，密钥只存在这台设备。
+            三种运行模式：本地规则离线兜底；本地模型默认用本机 Ollama，数据不出本机；
+            云端模型可接 DeepSeek、OpenAI、Kimi、智谱、通义等。先测试连接，再保存切换，密钥只存在这台设备。
           </p>
           <div className="ai-hero-chips">
             <span>
               <ServerCog size={13} />
-              当前：{activePreset.label}
+              当前模式：{activePreset.label}
             </span>
             <span>
               <PlugZap size={13} />
@@ -174,18 +179,29 @@ export function ModelsPage({ onNotify }: ModelsPageProps) {
         <div className="models-section-head">
           <HardDrive size={15} />
           <div>
-            <h2>本地模型</h2>
+            <h2>模式一 · 本地规则（离线）</h2>
+            <p>零配置、不联网，能查课、查笔记和执行固定指令；其他模式连不上时自动回退到这里。</p>
+          </div>
+        </div>
+        <div className="models-grid">{rulePresets.map(renderCard)}</div>
+      </section>
+
+      <section className="models-section">
+        <div className="models-section-head">
+          <HardDrive size={15} />
+          <div>
+            <h2>模式二 · 本地模型</h2>
             <p>数据不出本机。Ollama 需先 <code>ollama serve</code> 并 <code>ollama pull</code> 一个模型。</p>
           </div>
         </div>
-        <div className="models-grid">{localPresets.map(renderCard)}</div>
+        <div className="models-grid">{localModelPresets.map(renderCard)}</div>
       </section>
 
       <section className="models-section">
         <div className="models-section-head">
           <Cloud size={15} />
           <div>
-            <h2>云端模型</h2>
+            <h2>模式三 · 云端模型 / 自定义端点</h2>
             <p>均为 OpenAI 兼容端点，只需 Base URL + API Key + 模型名；请求会携带你授权的数据。</p>
           </div>
         </div>
@@ -203,7 +219,7 @@ export function ModelsPage({ onNotify }: ModelsPageProps) {
 
         {preset.probe === "none" ? (
           <p className="ai-inline-hint">
-            本地规则零配置、不联网，能查课、查笔记和执行固定指令。模型服务连不上时也会自动回退到这里。
+            本地规则零配置、不联网，能查课、查笔记和执行固定指令。模型连不上时也会自动回退到这里。
           </p>
         ) : (
           <div className="ai-field-grid">

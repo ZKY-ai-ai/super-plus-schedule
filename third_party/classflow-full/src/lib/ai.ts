@@ -620,7 +620,7 @@ export const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
     model: "",
     keyRequired: false,
     probe: "none",
-    note: "零配置、不联网：查课、查笔记与固定指令。模型服务连不上时也会自动回退到这里。",
+    note: "零配置、不联网：查课、查笔记与固定指令。模型连不上时也会自动回退到这里。",
   },
   {
     id: "deepseek",
@@ -1638,7 +1638,7 @@ async function completeRemote(
   const preset = providerPreset(settings.provider);
   if (preset.keyRequired && !settings.apiKey.trim()) {
     return {
-      content: `「${preset.label}」需要 API Key。到「模型服务」页填入 Key，或切换成本地模型 / 本地规则。`,
+      content: `「${preset.label}」需要 API Key。到「运行模式」页填入 Key，或切换成本地模型 / 本地规则。`,
       provider: settings.provider,
       error: "missing-api-key",
     };
@@ -1876,14 +1876,14 @@ function completeLocal(
   const memoryText = extractMemoryRequest(question);
   if (memoryText) {
     return {
-      content: `记下了：${memoryText}。以后回答时会参考这条，可在「人格与记忆」里修改或删除。`,
+      content: `记下了：${memoryText}。以后回答时会参考这条，可在「人格与授权」里修改或删除。`,
       provider: "local",
     };
   }
   if (request.images?.length) {
     return {
       content:
-        "本地规则模式不能读图。请到「模型服务」页选择支持图片输入的模型（例如 gpt-4o-mini、qwen-vl、glm-4v），再把图片发给我。",
+        "本地规则模式不能读图。请到「运行模式」页选择支持图片输入的模型（例如 gpt-4o-mini、qwen-vl、glm-4v），再把图片发给我。",
       provider: "local",
       error: "vision-requires-remote",
     };
@@ -1891,7 +1891,7 @@ function completeLocal(
   if (request.hasAttachments) {
     return {
       content:
-        "附件已经在本地读取，但本地规则模式只会处理固定指令和课程表文本。到「模型服务」页接上本地或云端模型后，我就能按文件内容自由整理任务、笔记或考试。",
+        "附件已经在本地读取，但本地规则模式只会处理固定指令和课程表文本。到「运行模式」页接上本地或云端模型后，我就能按文件内容自由整理任务、笔记或考试。",
       provider: "local",
       error: "attachments-require-remote",
     };
@@ -1901,7 +1901,7 @@ function completeLocal(
     return {
       content: memory.length > 0
         ? `我记得这些：\n${memory.map((entry) => `· ${entry.text}`).join("\n")}\n这些只保存在本机，随时可以删掉。`
-        : "还没有保存任何记忆。说「记住……」我就会记下来，之后可以在「人格与记忆」里管理。",
+        : "还没有保存任何记忆。说「记住……」我就会记下来，之后可以在「人格与授权」里管理。",
       provider: "local",
     };
   }
@@ -1958,7 +1958,7 @@ function completeLocal(
   if (/你是谁|介绍一下|能做什么/.test(question)) {
     return {
       content:
-        `我是${settings.persona.name}，本地课表助手。不联网也能回答今天/明天/周几的课、下一节、课程地点和数量；开启笔记授权后还能帮你找笔记。到「模型服务」页接上 Ollama 或云端模型后可以自由聊天。`,
+        `我是${settings.persona.name}，本地课表助手。不联网也能回答今天/明天/周几的课、下一节、课程地点和数量；开启笔记授权后还能帮你找笔记。到「运行模式」页接上 Ollama 或云端模型后可以自由聊天。`,
       provider: "local",
     };
   }
@@ -1968,7 +1968,7 @@ function completeLocal(
   if (/授权|隐私|权限/.test(question)) {
     return {
       content:
-        "AI 只会读取你逐项开启的数据：课表、笔记、任务与考试默认全部开启，可在「人格与记忆」里逐项关闭。所有设置和密钥都只保存在这台设备上，可随时关闭。",
+        "AI 只会读取你逐项开启的数据：课表、笔记、任务与考试默认全部开启，可在「人格与授权」里逐项关闭。所有设置和密钥都只保存在这台设备上，可随时关闭。",
       provider: "local",
     };
   }
@@ -1995,7 +1995,7 @@ export async function complete(
       const fallback = completeLocal(request, settings, now);
       return {
         ...fallback,
-        content: `模型服务里还没选模型，也拉不到模型列表（${probe.message}）先用本地规则回答：\n\n${fallback.content}`,
+        content: `运行模式里还没选模型，也拉不到模型列表（${probe.message}）先用本地规则回答：\n\n${fallback.content}`,
         error: "missing-model",
       };
     }
@@ -2006,7 +2006,7 @@ export async function complete(
     const fallback = completeLocal(request, settings, now);
     return {
       ...fallback,
-      content: `模型服务连不上（${remote.content}）已改用本地规则回答：\n\n${fallback.content}`,
+      content: `模型连不上（${remote.content}）已改用本地规则回答：\n\n${fallback.content}`,
       error: "network-fallback",
     };
   }

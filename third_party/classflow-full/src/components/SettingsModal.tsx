@@ -1054,7 +1054,7 @@ export function SettingsModal({
                   <p className="eyebrow">AI & MODELS</p>
                   <h3>AI 与模型</h3>
                   <p>
-                    AI 配置已独立成页：模型服务管提供方与连接测试，人格与记忆管人设、长期记忆和数据授权。
+                    AI 配置已独立成页：运行模式管本地规则 / 本地模型 / 云端模型与连接测试，人格与授权管人设、长期记忆和数据授权。
                     聊天、密钥与记忆都只保存在这台设备。
                   </p>
                 </div>
@@ -1062,15 +1062,15 @@ export function SettingsModal({
                   <button type="button" className="settings-ai-link" onClick={() => onOpenAiPage("models")}>
                     <ServerCog size={18} />
                     <span>
-                      <strong>模型服务</strong>
-                      <small>默认 Ollama 本地模型，也可接 DeepSeek、OpenAI、Kimi 等云端服务，带连接测试。</small>
+                      <strong>运行模式</strong>
+                      <small>本地规则离线兜底，默认 Ollama 本地模型，也可接 DeepSeek、OpenAI、Kimi 等云端服务，带连接测试。</small>
                     </span>
                     <ArrowUpRight size={15} />
                   </button>
                   <button type="button" className="settings-ai-link" onClick={() => onOpenAiPage("persona")}>
                     <UserRound size={18} />
                     <span>
-                      <strong>人格与记忆</strong>
+                      <strong>人格与授权</strong>
                       <small>名字与语气、长期记忆逐条管理、笔记 / 任务 / 考试的分项数据授权。</small>
                     </span>
                     <ArrowUpRight size={15} />

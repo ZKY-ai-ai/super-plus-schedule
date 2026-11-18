@@ -97,8 +97,8 @@ export function PersonaPage({ onNotify }: PersonaPageProps) {
     <div className="persona-page">
       <section className="ai-hero models-hero">
         <div className="ai-hero-copy">
-          <span className="eyebrow">PERSONA & MEMORY</span>
-          <h1>人格与记忆</h1>
+          <span className="eyebrow">PERSONA & PERMISSIONS</span>
+          <h1>人格与授权</h1>
           <p>
             名字和语气只影响表达方式，不影响事实；记忆只保存你主动说「记住」的内容；
             数据授权逐项开关，关闭后 AI 完全看不到对应数据。

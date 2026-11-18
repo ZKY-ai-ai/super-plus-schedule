@@ -562,7 +562,7 @@ describe("OpenAI-compatible provider", () => {
     const network = await complete(userRequest("你好"), remoteSettings, broken, NOW);
     expect(network.error).toBe("network-fallback");
     expect(network.provider).toBe("local");
-    expect(network.content).toContain("模型服务连不上");
+    expect(network.content).toContain("模型连不上");
   });
 
   it("surfaces an empty response", async () => {

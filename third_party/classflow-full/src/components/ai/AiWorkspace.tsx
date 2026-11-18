@@ -184,7 +184,7 @@ export function AiWorkspace({
     const next = addMemory(memory, text);
     saveMemory(next);
     setMemory(next);
-    onNotify("已加入长期记忆，可在「人格与记忆」里管理。");
+    onNotify("已加入长期记忆，可在「人格与授权」里管理。");
     return next.entries;
   };
 
@@ -213,10 +213,10 @@ export function AiWorkspace({
               记忆 {memory.entries.length} 条
             </span>
             <button type="button" className="ai-inline-link" onClick={() => onNavigate("models")}>
-              模型服务
+              运行模式
             </button>
             <button type="button" className="ai-inline-link" onClick={() => onNavigate("persona")}>
-              人格与记忆
+              人格与授权
             </button>
           </div>
         </div>
@@ -368,7 +368,7 @@ export function AiWorkspace({
               ))}
             </ul>
             <p className="ai-side-foot">
-              默认全部授权，可在「人格与记忆」逐项关闭。聊天与密钥只存在这台设备。
+              默认全部授权，可在「人格与授权」逐项关闭。聊天与密钥只存在这台设备。
             </p>
           </section>
         </aside>

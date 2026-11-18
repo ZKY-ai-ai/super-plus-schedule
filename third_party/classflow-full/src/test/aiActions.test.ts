@@ -221,6 +221,12 @@ describe("parseLocalCommand", () => {
       action: "set_week",
       args: { week: 8 },
     });
+    expect(parseLocalCommand("打开运行模式")).toEqual([
+      { action: "navigate", args: { page: "models" } },
+    ]);
+    expect(parseLocalCommand("打开人格与授权")).toEqual([
+      { action: "navigate", args: { page: "persona" } },
+    ]);
   });
 
   it("识别新建任务并提取日期、时长和课程", () => {
