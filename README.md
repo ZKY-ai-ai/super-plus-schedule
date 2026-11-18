@@ -21,7 +21,6 @@ pnpm build      # 产物在 dist/
 ```
 third_party/classflow-full/   课序完整源码（开发主工程）
 docs/                         调研与清单文档
-示例课表/                      个人课表导出样例
 安装包/                        参考项目安装包校验信息
 ```
 

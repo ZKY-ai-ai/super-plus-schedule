@@ -48,3 +48,6 @@ captures/
 
 # 本地并行开发用的临时 worktree，不属于源码
 .qoder-worktrees/
+
+# 个人课表样例（含个人信息，不入库）
+示例课表/
