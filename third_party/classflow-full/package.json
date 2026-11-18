@@ -1,7 +1,7 @@
 {
   "name": "classflow",
   "private": true,
-  "version": "1.11.1",
+  "version": "1.11.2",
   "type": "module",
   "packageManager": "pnpm@11.28.5",
   "description": "课序PLUS · 本地优先的大学课表。首页显示周数+日期、紧凑七天网格、年年循环的作息、我的功能页、dsh-pet 鲸鱼娘互动桌宠与鲸海夜航壁纸。",

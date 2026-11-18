@@ -90,7 +90,7 @@ export function ProfilePage({
           <p className="eyebrow">MY CLASSFLOW PLUS</p>
           <h1>我的课序PLUS</h1>
           <p className="profile-hero-sub">没有账号，没有云端；你的课表、日程和壁纸都只在这台设备上。</p>
-          <p className="profile-version">课序PLUS v1.11.1 · {storageOk ? "本机保存正常" : "保存失败，请检查浏览器空间"}</p>
+          <p className="profile-version">课序PLUS v1.11.2 · {storageOk ? "本机保存正常" : "保存失败，请检查浏览器空间"}</p>
         </div>
         {prefs.theme === "whale" ? <WhaleMascot size={124} /> : null}
       </section>

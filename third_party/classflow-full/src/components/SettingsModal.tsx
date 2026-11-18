@@ -487,7 +487,7 @@ export function SettingsModal({
                 <ArrowUpRight size={15} />
                 GitHub
               </a>
-              <span>课序PLUS v1.11.1</span>
+              <span>课序PLUS v1.11.2</span>
             </div>
           </nav>
 
