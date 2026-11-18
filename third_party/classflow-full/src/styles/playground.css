@@ -1,5 +1,7 @@
 /* --------------------------------------------------------------------------
-   QQQ 游乐场（设置页彩蛋）
+   QQQ 游乐场（泳池页面）
+   泳池比例、小鸭尺寸与阴影均对齐 Qoder 原版彩蛋：
+   池 1000:380、宽 84.46%、圆角 12px；鸭宽 13.7%；池内隐藏鼠标指针。
    -------------------------------------------------------------------------- */
 
 .qqq-playground {
@@ -32,29 +34,18 @@
 
 .qqq-playground__stage {
   position: relative;
-  width: 100%;
-  aspect-ratio: 1.75 / 1;
-  min-height: 300px;
+  width: 84.46%;
+  aspect-ratio: 1000 / 380;
+  margin: 0 auto;
   overflow: hidden;
   isolation: isolate;
-  border-radius: 16px;
+  border-radius: 12px;
   background: #2a8fe0;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
-    inset 0 -30px 65px rgba(6, 60, 140, 0.22),
-    0 18px 42px rgba(7, 38, 96, 0.24);
+  box-shadow: 0 18px 42px rgba(7, 38, 96, 0.18);
+  cursor: none;
   touch-action: none;
   user-select: none;
-}
-
-.qqq-playground__stage::after {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  border-radius: inherit;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
-  content: "";
-  pointer-events: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .qqq-playground__water {
@@ -82,68 +73,21 @@
   }
 }
 
-.qqq-playground__ripples {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.qqq-playground__ripple {
-  position: absolute;
-  border: 2px solid rgba(234, 250, 255, 0.78);
-  border-radius: 50%;
-  opacity: 0;
-  box-shadow:
-    0 0 18px rgba(190, 240, 255, 0.35),
-    inset 0 0 12px rgba(220, 248, 255, 0.22);
-  transform: translate(-50%, -50%) scale(0.22);
-  animation: qqq-ripple 1700ms cubic-bezier(0.16, 0.7, 0.3, 1) forwards;
-}
-
-@keyframes qqq-ripple {
-  0% {
-    opacity: 0.9;
-    transform: translate(-50%, -50%) scale(0.22);
-  }
-  65% {
-    opacity: 0.4;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
-
+/*
+ * 小鸭：位置与旋转完全由 requestAnimationFrame 引擎直写 style，
+ * 不加 left/top 过渡（每帧都在更新，过渡反而拖后腿）；
+ * 只保留入场时的淡入。
+ */
 .qqq-playground__duck {
   position: absolute;
   z-index: 3;
-  width: clamp(40px, 11.5%, 96px);
+  width: 13.7%;
   aspect-ratio: 1;
-  padding: 0;
-  border: 0;
-  margin: 0;
-  background: none;
-  cursor: grab;
-  transform: translate(-50%, -50%) rotate(var(--duck-tilt, 0deg));
-  transition:
-    left 160ms ease,
-    top 160ms ease,
-    transform 620ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
-  -webkit-tap-highlight-color: transparent;
-  touch-action: none;
-}
-
-.qqq-playground__duck.is-dragging {
-  cursor: grabbing;
-  transition: none;
-}
-
-.qqq-playground__duck:focus-visible {
-  border-radius: 50%;
-  outline: 2px solid rgba(255, 255, 255, 0.92);
-  outline-offset: 5px;
+  opacity: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 10px 10px rgb(0 48 72 / 0.24)) drop-shadow(0 3px 2px rgb(0 48 72 / 0.18));
+  transition: opacity 360ms ease;
+  will-change: transform;
 }
 
 .qqq-playground__duck svg {
@@ -151,26 +95,6 @@
   width: 100%;
   height: 100%;
   overflow: visible;
-}
-
-.qqq-playground__bob {
-  display: block;
-  animation: qqq-bob 4.8s ease-in-out infinite;
-  transform-origin: 50% 82%;
-}
-
-.qqq-playground__duck.is-dragging .qqq-playground__bob {
-  animation-play-state: paused;
-}
-
-@keyframes qqq-bob {
-  0%,
-  100% {
-    transform: translateY(0) rotate(-1.4deg);
-  }
-  50% {
-    transform: translateY(-4px) rotate(1.4deg);
-  }
 }
 
 .qqq-playground__hint {
@@ -208,9 +132,8 @@
   }
 
   .qqq-playground__stage {
-    aspect-ratio: 1.45 / 1;
-    min-height: 260px;
-    border-radius: 14px;
+    width: 92%;
+    border-radius: 10px;
   }
 
   .qqq-playground__caption {
@@ -219,16 +142,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .qqq-playground__bob,
   .qqq-playground__water--fallback {
     animation: none;
   }
 
   .qqq-playground__duck {
     transition: none;
-  }
-
-  .qqq-playground__ripple {
-    animation-duration: 900ms;
   }
 }

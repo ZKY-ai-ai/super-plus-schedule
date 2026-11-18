@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type {
-  CSSProperties,
-  KeyboardEvent as ReactKeyboardEvent,
-  PointerEvent as ReactPointerEvent,
-} from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import {
-  clampDuckPosition,
-  duckTiltFromDelta,
-  rippleRadius,
-  type DuckPosition,
+  CURSOR_RIPPLE_SPACING,
+  DUCK_RIPPLE_SPACING,
+  DUCK_RIPPLE_STRENGTH,
+  DUCK_SPAWN,
+  DUCK_SIZE_RATIO,
+  chaseStep,
+  clampFrameSeconds,
+  rescalePoint,
+  rippleDue,
+  wanderTarget,
+  type DuckPoint,
+  type DuckPose,
 } from "../../lib/playground";
 
 const VERTEX_SHADER = `
@@ -20,12 +24,15 @@ void main() {
 }
 `;
 
+// 水面着色器：程序化泳池底色 + 焦散，涟漪用「三环笔刷扩散包」模型
+// （笔刷随时间扩张、按 500^(-age/2.4) 衰减，参数对齐原版彩蛋的手感）。
 const FRAGMENT_SHADER = `
 precision highp float;
 varying vec2 vUv;
 uniform float uTime;
 uniform float uAspect;
-uniform vec4 uRipples[8];
+uniform float uBrush;
+uniform vec4 uRipples[24];
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -59,19 +66,24 @@ void main() {
 
   vec2 rippleShift = vec2(0.0);
   float rippleLight = 0.0;
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < 24; i++) {
     vec4 rp = uRipples[i];
     if (rp.w <= 0.001) continue;
     float age = uTime - rp.z;
-    if (age < 0.0 || age > 3.2) continue;
+    if (age < 0.0 || age > 2.4) continue;
     vec2 delta = p - vec2(rp.x * uAspect, rp.y);
     float d = length(delta) + 0.0001;
-    float phase = d * 52.0 - age * 18.0;
-    float swell = sin(phase) * exp(-d * 6.0) * exp(-age * 2.2) * rp.w;
-    float fine = sin(d * 120.0 - age * 30.0) * exp(-d * 10.0) * exp(-age * 2.8) * rp.w;
-    float crest = pow(max(sin(phase), 0.0), 3.0) * exp(-d * 5.0) * exp(-age * 1.8) * rp.w;
-    rippleShift += (delta / d) * (swell * 0.012 + fine * 0.005);
-    rippleLight += crest * 0.3 + abs(fine) * 0.05;
+    float grow = exp(-age * 1.09);
+    float scale = rp.w * (6.6 - 5.1 * grow);
+    float radius = scale * uBrush * 0.5;
+    float rr = d / radius;
+    if (rr > 1.0) continue;
+    float opacity = exp(-age * 6.2146081 / 2.4);
+    float envelope = (exp(-5.0 * rr * rr) - 0.0067379) / 0.9932620;
+    float rings = 0.55 + 0.45 * cos(sqrt(rr) * 18.8495559);
+    float amount = envelope * rings * opacity * opacity;
+    rippleShift += (delta / d) * amount * 0.022;
+    rippleLight += amount;
   }
 
   float t = uTime * 0.05;
@@ -93,25 +105,30 @@ void main() {
   float caustic = v1 * 1.05 + v2 * 0.70 + v3 * 0.48;
 
   float depth = fbm(p * 1.6 + vec2(uTime * 0.012, -uTime * 0.008));
-  vec3 deep = vec3(0.05, 0.36, 0.75);
-  vec3 mid = vec3(0.10, 0.50, 0.90);
-  vec3 shallow = vec3(0.30, 0.68, 0.98);
+  vec3 deep = vec3(0.07, 0.42, 0.86);
+  vec3 mid = vec3(0.13, 0.55, 0.93);
+  vec3 shallow = vec3(0.36, 0.72, 1.0);
   vec3 color = mix(deep, mid, smoothstep(0.10, 0.92, depth));
   color = mix(color, shallow, smoothstep(0.60, 1.05, depth) * 0.6);
 
   float glow = fbm(p * 2.4 + vec2(uTime * 0.02, uTime * 0.015));
   color += vec3(0.08, 0.32, 0.66) * glow * 0.24;
-  color = mix(color, vec3(0.84, 0.97, 1.0), caustic * 0.9);
-  color += vec3(0.86, 0.97, 1.0) * max(rippleLight, 0.0) * 0.9;
-  color *= 1.0 + rippleLight * 0.45;
+  color = mix(color, vec3(0.87, 0.97, 1.0), caustic * 0.9);
+  color += vec3(0.88, 0.97, 1.0) * min(rippleLight, 1.4) * 0.55;
+  color *= 1.0 + min(rippleLight, 1.4) * 0.28;
 
   vec2 centered = uv - 0.5;
   float vignette = smoothstep(0.95, 0.26, length(centered * vec2(0.85, 1.35)));
-  color *= mix(0.82, 1.0, vignette);
+  color *= mix(0.84, 1.0, vignette);
 
   gl_FragColor = vec4(color, 1.0);
 }
 `;
+
+const RIPPLE_SLOTS = 24;
+/** 原版笔刷直径 172px（设计稿尺度），渲染时换算成水面纹理坐标。 */
+const BRUSH_SIZE_PX = 172;
+const RIPPLE_LIFETIME = 2.4;
 
 function compileShader(gl: WebGLRenderingContext, type: number, source: string) {
   const shader = gl.createShader(type);
@@ -123,6 +140,17 @@ function compileShader(gl: WebGLRenderingContext, type: number, source: string) 
     return null;
   }
   return shader;
+}
+
+interface WaterPoint {
+  x: number;
+  y: number;
+  t: number;
+  strength: number;
+}
+
+interface WaterInput {
+  points: WaterPoint[];
 }
 
 function WaterCanvas({ inputRef }: { inputRef: { current: WaterInput } }) {
@@ -170,6 +198,7 @@ function WaterCanvas({ inputRef }: { inputRef: { current: WaterInput } }) {
     const positionLocation = gl.getAttribLocation(program, "aPosition");
     const timeLocation = gl.getUniformLocation(program, "uTime");
     const aspectLocation = gl.getUniformLocation(program, "uAspect");
+    const brushLocation = gl.getUniformLocation(program, "uBrush");
     const rippleLocation = gl.getUniformLocation(program, "uRipples");
     gl.useProgram(program);
     gl.enableVertexAttribArray(positionLocation);
@@ -181,7 +210,7 @@ function WaterCanvas({ inputRef }: { inputRef: { current: WaterInput } }) {
     let startedAt = performance.now();
     let pausedAt = 0;
     const activeRipples: { x: number; y: number; start: number; strength: number }[] = [];
-    const rippleData = new Float32Array(32);
+    const rippleData = new Float32Array(RIPPLE_SLOTS * 4);
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
@@ -192,18 +221,25 @@ function WaterCanvas({ inputRef }: { inputRef: { current: WaterInput } }) {
         canvas.height = height;
         gl.viewport(0, 0, width, height);
       }
+      if (rect.height > 0) {
+        // 172px 笔刷直径换算成水面 p 空间（p.y 纵向铺满画布高度）。
+        gl.useProgram(program);
+        gl.uniform1f(
+          brushLocation,
+          (BRUSH_SIZE_PX * (canvas.width / Math.max(1, rect.width))) / canvas.height,
+        );
+      }
     };
 
     const draw = (now: number) => {
       const seconds = reducedMotion ? 8 : (now - startedAt) / 1000;
       const pending = inputRef.current?.points;
-      if (pending && pending.length) {
+      if (pending && pending.length && !reducedMotion) {
         for (const point of pending) {
           const startAt = (point.t - startedAt) / 1000;
           if (startAt >= 0 && startAt <= seconds + 0.05) {
-            if (activeRipples.length >= 8) {
-              const oldest = activeRipples[0];
-              oldest.start = Math.min(oldest.start, startAt - 1.4);
+            if (activeRipples.length >= RIPPLE_SLOTS) {
+              activeRipples.shift();
             }
             activeRipples.push({ x: point.x, y: point.y, start: startAt, strength: point.strength });
           }
@@ -211,9 +247,8 @@ function WaterCanvas({ inputRef }: { inputRef: { current: WaterInput } }) {
         pending.length = 0;
       }
       for (let i = activeRipples.length - 1; i >= 0; i--) {
-        if (seconds - activeRipples[i].start > 3.2) activeRipples.splice(i, 1);
+        if (seconds - activeRipples[i].start > RIPPLE_LIFETIME) activeRipples.splice(i, 1);
       }
-      while (activeRipples.length > 8) activeRipples.shift();
       rippleData.fill(0);
       for (let i = 0; i < activeRipples.length; i++) {
         const ripple = activeRipples[i];
@@ -281,282 +316,246 @@ function WaterCanvas({ inputRef }: { inputRef: { current: WaterInput } }) {
   return <canvas ref={canvasRef} className="qqq-playground__water" aria-hidden="true" />;
 }
 
-function RubberDuck() {
+/**
+ * 俯视视角的小黄鸭：鸭头朝向图片下方（前进方向），
+ * 旋转角交给 headingRotation，让鸭头始终指向移动方向。
+ */
+function TopDuck() {
   return (
-    <svg viewBox="0 0 160 160" role="img" aria-hidden="true" focusable="false">
+    <svg viewBox="0 0 160 160" aria-hidden="true" focusable="false">
       <defs>
-        <linearGradient id="qqq-duck-body" x1="54" y1="34" x2="106" y2="118" gradientUnits="userSpaceOnUse">
+        <linearGradient id="qqq-duck-body" x1="80" y1="22" x2="80" y2="132" gradientUnits="userSpaceOnUse">
           <stop offset="0" stopColor="#ffe985" />
           <stop offset="0.52" stopColor="#ffd537" />
           <stop offset="1" stopColor="#f6b31a" />
         </linearGradient>
-        <linearGradient id="qqq-duck-beak" x1="104" y1="72" x2="130" y2="90" gradientUnits="userSpaceOnUse">
+        <linearGradient id="qqq-duck-beak" x1="72" y1="112" x2="88" y2="132" gradientUnits="userSpaceOnUse">
           <stop offset="0" stopColor="#ffbb52" />
           <stop offset="1" stopColor="#f0820f" />
         </linearGradient>
-        <radialGradient id="qqq-duck-gloss" cx="0.34" cy="0.2" r="0.62">
-          <stop offset="0" stopColor="#fffdf0" stopOpacity="0.92" />
+        <radialGradient id="qqq-duck-gloss" cx="0.32" cy="0.24" r="0.6">
+          <stop offset="0" stopColor="#fffdf0" stopOpacity="0.85" />
           <stop offset="1" stopColor="#fffdf0" stopOpacity="0" />
         </radialGradient>
-        <filter id="qqq-duck-shadow" x="-60%" y="-60%" width="220%" height="220%">
-          <feGaussianBlur stdDeviation="3.4" />
-        </filter>
       </defs>
-      <ellipse cx="84" cy="130" rx="31" ry="7.5" fill="#6f8cb4" opacity="0.38" filter="url(#qqq-duck-shadow)" />
-      <circle cx="50" cy="86" r="11.5" fill="url(#qqq-duck-body)" />
-      <ellipse cx="76" cy="94" rx="40" ry="27" fill="url(#qqq-duck-body)" />
-      <circle cx="90" cy="56" r="31" fill="url(#qqq-duck-body)" />
-      <path
-        d="M64 62c1-17 14-30 30-30 8 0 15 3 20 8-6-3-13-4-20-2-12 3-20 12-23 24-1 4-1 8 0 11-5-3-7-7-7-11Z"
-        fill="url(#qqq-duck-gloss)"
-      />
-      <path
-        d="M50 106c14 6 33 6 47 1 5-2 9-5 12-8-1 10-10 17-22 19-16 2-30-4-37-12Z"
-        fill="#ee9c12"
-        opacity="0.45"
-      />
-      <circle cx="102" cy="52" r="7" fill="#241d12" />
-      <circle cx="104" cy="49.4" r="2.3" fill="#fffdf4" opacity="0.95" />
-      <path
-        d="M110 67c12-2 27 2 28 10 1 8-12 13-27 10-4-5-5-15-1-20Z"
-        fill="url(#qqq-duck-beak)"
-      />
-      <path d="M113 78c7 2 16 2 23 1" stroke="#cf6c09" strokeWidth="1.8" strokeLinecap="round" opacity="0.6" />
-      <path d="M56 97c11 4 27 4 38 0" stroke="#e7a516" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.55" />
+      {/* 尾巴绒毛：鸭头朝下时尾巴在图片顶端 */}
+      <path d="M80 12c-5 7-5 14 0 19 5-5 5-12 0-19Z" fill="#f6b31a" />
+      {/* 身体与两侧翅膀绒毛 */}
+      <circle cx="34" cy="74" r="15" fill="url(#qqq-duck-body)" />
+      <circle cx="126" cy="74" r="15" fill="url(#qqq-duck-body)" />
+      <ellipse cx="80" cy="70" rx="46" ry="44" fill="url(#qqq-duck-body)" />
+      {/* 头部：朝下 */}
+      <circle cx="80" cy="97" r="30" fill="url(#qqq-duck-body)" />
+      {/* 背部高光 */}
+      <ellipse cx="62" cy="48" rx="26" ry="16" fill="url(#qqq-duck-gloss)" transform="rotate(-16 62 48)" />
+      {/* 眼睛 */}
+      <circle cx="68" cy="104" r="4.6" fill="#241d12" />
+      <circle cx="92" cy="104" r="4.6" fill="#241d12" />
+      <circle cx="69.6" cy="102.4" r="1.5" fill="#fffdf4" opacity="0.95" />
+      <circle cx="93.6" cy="102.4" r="1.5" fill="#fffdf4" opacity="0.95" />
+      {/* 嘴：指向行进方向（图片下方） */}
+      <ellipse cx="80" cy="124" rx="13" ry="10" fill="url(#qqq-duck-beak)" />
+      <path d="M70 124c6 3 14 3 20 0" stroke="#cf6c09" strokeWidth="1.8" strokeLinecap="round" fill="none" opacity="0.6" />
     </svg>
   );
 }
 
-interface Ripple {
-  id: number;
-  x: number;
-  y: number;
-  size: number;
-  delay: number;
-}
-
-interface WaterPoint {
-  x: number;
-  y: number;
-  t: number;
-  strength: number;
-}
-
-interface WaterInput {
-  points: WaterPoint[];
-}
-
-interface DragState {
-  pointerId: number;
-  lastX: number;
-  lastY: number;
-  startX: number;
-  startY: number;
-  moved: boolean;
+interface StageSize {
+  width: number;
+  height: number;
 }
 
 export function QqqPlayground() {
-  const stageRef = useRef<HTMLDivElement>(null);
-  const duckRef = useRef<HTMLButtonElement>(null);
-  const dragRef = useRef<DragState | null>(null);
-  const rippleId = useRef(0);
+  const pondRef = useRef<HTMLDivElement>(null);
+  const duckRef = useRef<HTMLSpanElement>(null);
   const waterInput = useRef<WaterInput>({ points: [] });
-  const waterDragging = useRef(false);
-  const lastWaterAt = useRef(0);
-  const followRef = useRef<{ x: number; y: number } | null>(null);
+  const [hintGone, setHintGone] = useState(false);
 
-  const [position, setPosition] = useState<DuckPosition>({ x: 50, y: 49 });
-  const [tilt, setTilt] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const [interacted, setInteracted] = useState(false);
-  const [ripples, setRipples] = useState<Ripple[]>([]);
+  // 引擎共享状态：渲染循环与指针处理器都要读写，放在 ref 里避免重挂载。
+  const pondSizeRef = useRef<StageSize>({ width: 0, height: 0 });
+  const duckWidthRef = useRef(0);
+  const poseRef = useRef<DuckPose>({ x: 0, y: 0, rotation: 0, visible: false });
+  const pointerInsideRef = useRef(false);
+  const cursorTargetRef = useRef<DuckPoint | null>(null);
+  const wanderRef = useRef<DuckPoint | null>(null);
+  const duckRippleAnchorRef = useRef<DuckPoint | null>(null);
+  const cursorRippleAnchorRef = useRef<DuckPoint | null>(null);
 
-  const addRipple = useCallback((x: number, y: number, delay = 0) => {
-    const duckSize = duckRef.current?.getBoundingClientRect().width ?? 64;
-    const size = rippleRadius(duckSize);
-    const id = ++rippleId.current;
-    setRipples((current) => [...current.slice(-7), { id, x, y, size, delay }]);
+  /** 把指针事件换算成泳池内像素坐标。 */
+  const toPond = useCallback((clientX: number, clientY: number): DuckPoint | null => {
+    const pond = pondRef.current;
+    if (!pond) return null;
+    const rect = pond.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    return { x: clientX - rect.left, y: clientY - rect.top };
   }, []);
 
-  const pushWater = useCallback((clientX: number, clientY: number, strength: number) => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    const rect = stage.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
-    const x = (clientX - rect.left) / rect.width;
-    const y = (clientY - rect.top) / rect.height;
-    if (x < 0 || x > 1 || y < 0 || y > 1) return;
+  /** 往水面里撒一圈涟漪（泳池像素 → shader 的 uv 坐标）。 */
+  const emitWaterRipple = useCallback((point: DuckPoint, strength: number) => {
+    const pond = pondRef.current;
+    if (!pond) return;
+    const rect = pond.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
     const points = waterInput.current.points;
-    points.push({ x, y: 1 - y, t: performance.now(), strength });
-    if (points.length > 48) points.splice(0, points.length - 48);
+    points.push({
+      x: point.x / rect.width,
+      y: 1 - point.y / rect.height,
+      t: performance.now(),
+      strength,
+    });
+    if (points.length > 64) points.splice(0, points.length - 64);
   }, []);
 
-  /** 鼠标只要在泳池里，小鸭就直接跟到指针下，不再需要按住拖动。 */
-  const followDuck = useCallback((clientX: number, clientY: number) => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    const rect = stage.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
-    const previous = followRef.current;
-    followRef.current = { x: clientX, y: clientY };
-    if (previous) {
-      setTilt(duckTiltFromDelta(clientX - previous.x, clientY - previous.y));
-    }
-    setPosition(
-      clampDuckPosition(
-        ((clientX - rect.left) / rect.width) * 100,
-        ((clientY - rect.top) / rect.height) * 100,
-      ),
-    );
-    setInteracted(true);
-  }, []);
+  useEffect(() => {
+    const pond = pondRef.current;
+    const duck = duckRef.current;
+    if (!pond || !duck) return;
 
-  const handleStagePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    waterDragging.current = true;
-    lastWaterAt.current = performance.now();
-    pushWater(event.clientX, event.clientY, 1);
-    if (event.pointerType !== "touch") {
-      followDuck(event.clientX, event.clientY);
-    }
-    const target = event.target as HTMLElement | null;
-    if (!target?.closest(".qqq-playground__duck")) {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    }
-  };
-
-  const handleStagePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const isTouch = event.pointerType === "touch";
-    if (isTouch && !waterDragging.current) return;
-
-    const now = performance.now();
-    const throttle = isTouch ? 55 : 90;
-    if (now - lastWaterAt.current >= throttle) {
-      lastWaterAt.current = now;
-      pushWater(event.clientX, event.clientY, isTouch ? 0.85 : 0.7);
-    }
-
-    if (isTouch) return;
-    followDuck(event.clientX, event.clientY);
-    setDragging(true);
-  };
-
-  const handleStagePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    waterDragging.current = false;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  };
-
-  const handleStagePointerLeave = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === "touch") return;
-    followRef.current = null;
-    setDragging(false);
-  };
-
-  const celebrate = useCallback(() => {
-    setTilt(0);
-    setInteracted(true);
-    addRipple(position.x, position.y, 0);
-    addRipple(position.x, position.y, 180);
-  }, [addRipple, position.x, position.y]);
-
-  const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    dragRef.current = {
-      pointerId: event.pointerId,
-      lastX: event.clientX,
-      lastY: event.clientY,
-      startX: event.clientX,
-      startY: event.clientY,
-      moved: false,
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const rect = pond.getBoundingClientRect();
+    pondSizeRef.current = { width: rect.width, height: rect.height };
+    duckWidthRef.current = rect.width * DUCK_SIZE_RATIO;
+    // 原版入场点：宽 48.95%、高 57.24%；第一次移动前鸭子不显示。
+    poseRef.current = {
+      x: rect.width * DUCK_SPAWN.x,
+      y: rect.height * DUCK_SPAWN.y,
+      rotation: 0,
+      visible: false,
     };
-    if (event.pointerType === "touch") {
-      event.preventDefault();
-      setDragging(true);
+
+    const applyPose = () => {
+      const pose = poseRef.current;
+      duck.style.left = `${pose.x}px`;
+      duck.style.top = `${pose.y}px`;
+      duck.style.transform = `translate(-50%, -50%) rotate(${pose.rotation}deg)`;
+      duck.style.opacity = pose.visible ? "1" : "0";
+    };
+    applyPose();
+
+    if (reducedMotion) {
+      // 减弱动效：小鸭停在入场点，水面保持静态，不做追踪与漫游。
+      poseRef.current = { ...poseRef.current, visible: true };
+      applyPose();
+      return;
     }
+
+    let lastTime = 0;
+    let frame = 0;
+    const tick = (now: number) => {
+      frame = window.requestAnimationFrame(tick);
+      const size = pondSizeRef.current;
+      const dt = clampFrameSeconds(lastTime ? (now - lastTime) / 1000 : 0);
+      lastTime = now;
+      const chasing = pointerInsideRef.current && cursorTargetRef.current !== null;
+      if (!wanderRef.current && !chasing) {
+        wanderRef.current = wanderTarget(size.width, size.height, duckWidthRef.current);
+      }
+      const target = chasing ? (cursorTargetRef.current as DuckPoint) : (wanderRef.current as DuckPoint);
+      const step = chaseStep(poseRef.current, target, dt, chasing);
+      if (step.arrived) {
+        if (!chasing) {
+          // 到达漫游目标就换下一个点，小鸭自己一直游。
+          wanderRef.current = wanderTarget(size.width, size.height, duckWidthRef.current);
+        }
+        return;
+      }
+      poseRef.current = { ...step.next, rotation: step.rotation, visible: true };
+      if (rippleDue(duckRippleAnchorRef.current, poseRef.current, DUCK_RIPPLE_SPACING)) {
+        emitWaterRipple(poseRef.current, DUCK_RIPPLE_STRENGTH);
+        duckRippleAnchorRef.current = { x: poseRef.current.x, y: poseRef.current.y };
+      }
+      applyPose();
+    };
+    frame = window.requestAnimationFrame(tick);
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const next = { width: entry.contentRect.width, height: entry.contentRect.height };
+      if (next.width <= 0 || next.height <= 0) return;
+      const from = { ...pondSizeRef.current };
+      pondSizeRef.current = next;
+      duckWidthRef.current = next.width * DUCK_SIZE_RATIO;
+      const pose = poseRef.current;
+      const migrated = pose.visible
+        ? rescalePoint(pose, from, next)
+        : { x: next.width * DUCK_SPAWN.x, y: next.height * DUCK_SPAWN.y };
+      poseRef.current = { ...pose, ...migrated };
+      wanderRef.current = wanderRef.current ? rescalePoint(wanderRef.current, from, next) : null;
+      duckRippleAnchorRef.current = duckRippleAnchorRef.current
+        ? rescalePoint(duckRippleAnchorRef.current, from, next)
+        : null;
+      cursorRippleAnchorRef.current = null;
+      applyPose();
+    });
+    observer.observe(pond);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [emitWaterRipple]);
+
+  /** 鼠标/笔进入泳池：小鸭开始追踪指针，涟漪锚点重置（对齐原版）。 */
+  const enterPond = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch") return;
+    const point = toPond(event.clientX, event.clientY);
+    if (!point) return;
+    pointerInsideRef.current = true;
+    cursorTargetRef.current = point;
+    duckRippleAnchorRef.current = null;
+    cursorRippleAnchorRef.current = null;
+    setHintGone(true);
   };
 
-  const handlePointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 4) {
-      drag.moved = true;
+  /** 指针在泳池里移动：更新追踪目标，并按 12px 间距往水面撒涟漪。 */
+  const movePond = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch") return;
+    const point = toPond(event.clientX, event.clientY);
+    if (!point) return;
+    pointerInsideRef.current = true;
+    cursorTargetRef.current = point;
+    duckRippleAnchorRef.current = null;
+    if (rippleDue(cursorRippleAnchorRef.current, point, CURSOR_RIPPLE_SPACING)) {
+      emitWaterRipple(point, 1);
+      cursorRippleAnchorRef.current = point;
     }
+    setHintGone(true);
+  };
+
+  /** 指针离开泳池：小鸭改回自主漫游，重新挑一个随机目标。 */
+  const leavePond = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch") return;
+    pointerInsideRef.current = false;
+    cursorTargetRef.current = null;
+    wanderRef.current = null;
+    cursorRippleAnchorRef.current = null;
+  };
+
+  /** 触屏：按住拖动等于「指针在泳池里」，松手后小鸭继续漫游。 */
+  const touchDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType !== "touch") return;
-    const stage = stageRef.current;
-    if (!stage) return;
-    const rect = stage.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
-    const dx = event.clientX - drag.lastX;
-    const dy = event.clientY - drag.lastY;
-    drag.lastX = event.clientX;
-    drag.lastY = event.clientY;
-    const next = clampDuckPosition(
-      ((event.clientX - rect.left) / rect.width) * 100,
-      ((event.clientY - rect.top) / rect.height) * 100,
-    );
-    setPosition(next);
-    setTilt(duckTiltFromDelta(dx, dy));
-    setInteracted(true);
+    const point = toPond(event.clientX, event.clientY);
+    if (!point) return;
+    pointerInsideRef.current = true;
+    cursorTargetRef.current = point;
+    duckRippleAnchorRef.current = null;
+    cursorRippleAnchorRef.current = point;
+    emitWaterRipple(point, 1);
+    setHintGone(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
   };
 
-  const finishDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    dragRef.current = null;
-    if (event.pointerType === "touch") {
-      setDragging(false);
-    }
+  const touchUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "touch") return;
+    pointerInsideRef.current = false;
+    cursorTargetRef.current = null;
+    wanderRef.current = null;
+    cursorRippleAnchorRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    if (!drag.moved) {
-      celebrate();
-    } else {
-      setInteracted(true);
-    }
   };
-
-  const handleKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-    const step = 3;
-    switch (event.key) {
-      case "ArrowLeft":
-      case "ArrowRight":
-      case "ArrowUp":
-      case "ArrowDown": {
-        event.preventDefault();
-        const dx = event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0;
-        const dy = event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0;
-        setPosition((current) => clampDuckPosition(current.x + dx, current.y + dy));
-        setTilt(dx * 2 + dy * 0.8);
-        setInteracted(true);
-        break;
-      }
-      case "Home": {
-        event.preventDefault();
-        setPosition({ x: 50, y: 49 });
-        setTilt(0);
-        setInteracted(true);
-        break;
-      }
-      case "Enter":
-      case " ": {
-        event.preventDefault();
-        celebrate();
-        break;
-      }
-      default:
-        break;
-    }
-  };
-
-  const duckStyle = {
-    left: `${position.x}%`,
-    top: `${position.y}%`,
-    "--duck-tilt": `${tilt}deg`,
-  } as CSSProperties;
 
   return (
     <div className="qqq-playground">
@@ -566,61 +565,30 @@ export function QqqPlayground() {
       </header>
 
       <div
-        ref={stageRef}
-        className={`qqq-playground__stage${dragging ? " is-dragging" : ""}`}
+        ref={pondRef}
+        className="qqq-playground__stage"
         role="group"
-        aria-label="QQQ 游乐场水面。鼠标进入泳池就能带着小黄鸭游动，点一下让它站直。"
-        onPointerDown={handleStagePointerDown}
-        onPointerMove={handleStagePointerMove}
-        onPointerUp={handleStagePointerUp}
-        onPointerCancel={handleStagePointerUp}
-        onPointerLeave={handleStagePointerLeave}
+        aria-label="QQQ 游乐场泳池。把鼠标放进泳池，小鸭就会追着指针游；移开后它自己四处漫游。"
+        onPointerEnter={enterPond}
+        onPointerMove={movePond}
+        onPointerLeave={leavePond}
+        onPointerDown={touchDown}
+        onPointerUp={touchUp}
+        onPointerCancel={touchUp}
       >
         <WaterCanvas inputRef={waterInput} />
 
-        <div className="qqq-playground__ripples" aria-hidden="true">
-          {ripples.map((ripple) => (
-            <span
-              key={ripple.id}
-              className="qqq-playground__ripple"
-              style={{
-                left: `${ripple.x}%`,
-                top: `${ripple.y}%`,
-                width: ripple.size,
-                height: ripple.size,
-                animationDelay: `${ripple.delay}ms`,
-              }}
-              onAnimationEnd={() =>
-                setRipples((current) => current.filter((item) => item.id !== ripple.id))
-              }
-            />
-          ))}
-        </div>
+        <span ref={duckRef} className="qqq-playground__duck" aria-hidden="true">
+          <TopDuck />
+        </span>
 
-        <button
-          ref={duckRef}
-          type="button"
-          className={`qqq-playground__duck${dragging ? " is-dragging" : ""}`}
-          style={duckStyle}
-          aria-label="小黄鸭：鼠标进入泳池就会跟着游，点击或按回车让它站直"
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={finishDrag}
-          onPointerCancel={finishDrag}
-          onKeyDown={handleKeyDown}
-        >
-          <span className="qqq-playground__bob">
-            <RubberDuck />
-          </span>
-        </button>
-
-        <p className={`qqq-playground__hint${interacted ? " is-hidden" : ""}`} aria-hidden="true">
+        <p className={`qqq-playground__hint${hintGone ? " is-hidden" : ""}`} aria-hidden="true">
           移动鼠标带小鸭游 · 划过水面
         </p>
       </div>
 
       <p className="qqq-playground__caption">
-        一个没有成绩、没有 DDL 的角落。把鼠标放进泳池，小黄鸭就会跟着你游。
+        一个没有成绩、没有 DDL 的角落。把鼠标放进泳池，小鸭就会追着你游；你离开时，它自己闲逛。
       </p>
     </div>
   );

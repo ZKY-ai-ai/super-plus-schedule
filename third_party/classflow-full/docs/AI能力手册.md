@@ -39,7 +39,7 @@
 | `models` | 运行模式 | 三种模式分组：本地规则 / 本地模型 / 云端与自定义端点；Base URL/Key/模型编辑、连接测试与模型拉取、每服务商 Key 保险库 | `src/components/ai/ModelsPage.tsx` |
 | `persona` | 人格与授权 | 名字语气、补充设定、长期记忆增删清空、分项数据授权 | `src/components/ai/PersonaPage.tsx` |
 | `courses` | 课程库 | 课程卡片、搜索、编辑、删除、恢复隐藏课程 | `src/components/CourseLibrary.tsx` |
-| `playground` | QQQ 游乐场 | 小黄鸭跟随鼠标游动、WebGL 水面涟漪（无 WebGL 时静态降级） | `src/components/playground/QqqPlayground.tsx` |
+| `playground` | QQQ 游乐场 | 俯视小鸭追踪鼠标游动（朝向随行进方向旋转）、无指针时自主漫游、沿路径与指针轨迹撒三环涟漪；泳池 1000:380、池内隐藏光标；运动参数与 Qoder 原版彩蛋对齐（速度 980+3.6·d、漫游 46、涟漪间距 24/12px）；无 WebGL 时静态降级 | `src/components/playground/QqqPlayground.tsx` |
 | `woodfish` | 敲木鱼 | 3D 木雕风格木鱼、功德计数、实时手速、空格敲击 | `src/components/woodfish/Woodfish.tsx` |
 | `profile` | 我的 | 课表信息、主题、壁纸、导入导出、打印、数据状态 | `src/components/ProfilePage.tsx` |
 
