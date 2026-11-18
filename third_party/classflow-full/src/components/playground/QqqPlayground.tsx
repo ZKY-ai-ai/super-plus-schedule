@@ -25,7 +25,8 @@ void main() {
 `;
 
 // 水面着色器：程序化泳池底色 + 焦散，涟漪用「三环笔刷扩散包」模型
-// （笔刷随时间扩张、按 500^(-age/2.4) 衰减，参数对齐原版彩蛋的手感）。
+// （笔刷随时间扩张、按 500^(-age/2.4) 衰减；波列带符号——波脊提亮、
+// 波谷压暗、折射按坡度交替偏移，手感对齐原版彩蛋）。
 const FRAGMENT_SHADER = `
 precision highp float;
 varying vec2 vUv;
@@ -80,10 +81,13 @@ void main() {
     if (rr > 1.0) continue;
     float opacity = exp(-age * 6.2146081 / 2.4);
     float envelope = (exp(-5.0 * rr * rr) - 0.0067379) / 0.9932620;
-    float rings = 0.55 + 0.45 * cos(sqrt(rr) * 18.8495559);
-    float amount = envelope * rings * opacity * opacity;
-    rippleShift += (delta / d) * amount * 0.015;
-    rippleLight += amount;
+    float amount = envelope * opacity * opacity;
+    // 波剖面：随半径外扩的多圈波列，波脊 +1、波谷 -1。
+    float phase = sqrt(rr) * 18.8495559;
+    float wave = cos(phase);
+    // 折射按波的坡度交替内外偏移，焦散纹理绕波列扭动而非单向推移。
+    rippleShift += (delta / d) * amount * -sin(phase) * 0.028;
+    rippleLight += amount * wave;
   }
 
   float t = uTime * 0.05;
@@ -114,9 +118,11 @@ void main() {
   float glow = fbm(p * 2.4 + vec2(uTime * 0.02, uTime * 0.015));
   color += vec3(0.08, 0.32, 0.66) * glow * 0.24;
   color = mix(color, vec3(0.87, 0.97, 1.0), caustic * 0.9);
-  // 轨迹光晕：只保留轻微的亮度和反射提升，避免拖动鸭子后水面泛白。
-  color += vec3(0.88, 0.97, 1.0) * min(rippleLight, 1.4) * 0.26;
-  color *= 1.0 + min(rippleLight, 1.4) * 0.12;
+  // 波动明暗：波脊迎光提亮为主，波谷轻微压暗；压暗过重会叠成暗色靶心。
+  float crest = max(rippleLight, 0.0);
+  float trough = min(rippleLight, 0.0);
+  color += vec3(0.90, 0.97, 1.0) * min(crest, 1.2) * 0.32;
+  color *= 1.0 + max(trough, -0.8) * 0.20;
 
   vec2 centered = uv - 0.5;
   float vignette = smoothstep(0.95, 0.26, length(centered * vec2(0.85, 1.35)));
