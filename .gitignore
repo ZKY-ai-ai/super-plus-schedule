@@ -14,6 +14,9 @@ desktop.ini
 *.key
 secrets/
 config.local.*
+keystore.properties
+*.jks
+*.keystore
 
 # 依赖
 node_modules/
