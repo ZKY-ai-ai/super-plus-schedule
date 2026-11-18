@@ -1,0 +1,15 @@
+[package]
+name = "kexu-desktop-launcher"
+version = "1.11.2"
+edition = "2021"
+description = "课序PLUS 桌面启动器：用 Edge 应用模式打开线上课表"
+license = "MIT"
+publish = false
+
+[profile.release]
+opt-level = "s"
+strip = true
+lto = true
+panic = "abort"
+
+[dependencies]
