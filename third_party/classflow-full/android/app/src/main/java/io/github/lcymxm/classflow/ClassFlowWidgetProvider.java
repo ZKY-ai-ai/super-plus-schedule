@@ -46,10 +46,10 @@ public class ClassFlowWidgetProvider extends AppWidgetProvider {
 
     private static void updateWidget(Context context, AppWidgetManager manager, int appWidgetId) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.classflow_widget);
-        String dateText = "打开课序同步今日课表";
-        String body = "打开课序后，小组件会自动显示今天的课程。";
-        String hint = "课序 · 一学期，排得明明白白";
-        String title = "课序 · 今日";
+        String dateText = "打开课序PLUS同步今日课表";
+        String body = "打开课序PLUS后，小组件会自动显示今天的课程。";
+        String hint = "课序PLUS · 一学期，排得明明白白";
+        String title = "课序PLUS · 今日";
 
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String payload = prefs.getString(KEY_PAYLOAD, "");
@@ -71,9 +71,9 @@ public class ClassFlowWidgetProvider extends AppWidgetProvider {
                     String classBody = "";
 
                     if ("before".equals(termState)) {
-                        classBody = "学期尚未开始。\n打开课序查看完整课表。";
+                        classBody = "学期尚未开始。\n打开课序PLUS查看完整课表。";
                     } else if ("after".equals(termState)) {
-                        classBody = "学期已经结束。\n打开课序查看完整课表。";
+                        classBody = "学期已经结束。\n打开课序PLUS查看完整课表。";
                     } else if (!holiday.isEmpty()) {
                         classBody = "今天放假 · " + holiday + "\n课程已自动隐藏。";
                     } else if (classes == null || classes.length() == 0) {
@@ -106,12 +106,12 @@ public class ClassFlowWidgetProvider extends AppWidgetProvider {
                     }
 
                     body = classBody;
-                    hint = timetableName + (week > 0 ? " · 第 " + week + " 周" : "") + " · 打开课序查看完整课表";
+                    hint = timetableName + (week > 0 ? " · 第 " + week + " 周" : "") + " · 打开课序PLUS查看完整课表";
                 }
             }
         } catch (Exception ignored) {
-            body = "课表同步失败。\n打开课序后再试一次。";
-            hint = "课序 · 打开应用更新小组件";
+            body = "课表同步失败。\n打开课序PLUS后再试一次。";
+            hint = "课序PLUS · 打开应用更新小组件";
         }
 
         views.setTextViewText(R.id.widget_title, title);

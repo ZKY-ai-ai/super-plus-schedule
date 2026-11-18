@@ -19,7 +19,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:fontFamily="sans-serif-medium"
-            android:text="课序 · 今日"
+            android:text="课序PLUS · 今日"
             android:textColor="#1d2b27"
             android:textSize="13sp" />
 
@@ -53,7 +53,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
         android:fontFamily="sans-serif"
-        android:text="我的课表 · 第 10 周 · 打开课序查看完整课表"
+        android:text="我的课表 · 第 10 周 · 打开课序PLUS查看完整课表"
         android:textColor="#7b857d"
         android:textSize="8.5sp" />
 </LinearLayout>
