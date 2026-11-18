@@ -19,9 +19,11 @@ pnpm build      # 产物在 dist/
 ## 目录
 
 ```
-third_party/classflow-full/   课序完整源码（开发主工程）
+third_party/classflow-full/   课序 ClassFlow 完整源码（开发主工程）
+桌面版/                        课序PLUS Windows 启动器（Edge 应用模式打开线上课表）
 docs/                         调研与清单文档
 安装包/                        参考项目安装包校验信息
+启动课序PLUS.cmd               本地开发一键启动脚本
 ```
 
 上游为 MIT 许可，许可证与版权声明保留在 [third_party/classflow-full/LICENSE](third_party/classflow-full/LICENSE)。
