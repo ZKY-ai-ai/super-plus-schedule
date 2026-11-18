@@ -82,7 +82,7 @@ void main() {
     float envelope = (exp(-5.0 * rr * rr) - 0.0067379) / 0.9932620;
     float rings = 0.55 + 0.45 * cos(sqrt(rr) * 18.8495559);
     float amount = envelope * rings * opacity * opacity;
-    rippleShift += (delta / d) * amount * 0.022;
+    rippleShift += (delta / d) * amount * 0.015;
     rippleLight += amount;
   }
 
@@ -114,8 +114,9 @@ void main() {
   float glow = fbm(p * 2.4 + vec2(uTime * 0.02, uTime * 0.015));
   color += vec3(0.08, 0.32, 0.66) * glow * 0.24;
   color = mix(color, vec3(0.87, 0.97, 1.0), caustic * 0.9);
-  color += vec3(0.88, 0.97, 1.0) * min(rippleLight, 1.4) * 0.55;
-  color *= 1.0 + min(rippleLight, 1.4) * 0.28;
+  // 轨迹光晕：只保留轻微的亮度和反射提升，避免拖动鸭子后水面泛白。
+  color += vec3(0.88, 0.97, 1.0) * min(rippleLight, 1.4) * 0.26;
+  color *= 1.0 + min(rippleLight, 1.4) * 0.12;
 
   vec2 centered = uv - 0.5;
   float vignette = smoothstep(0.95, 0.26, length(centered * vec2(0.85, 1.35)));
