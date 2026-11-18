@@ -123,9 +123,9 @@ jobs:
         with:
           files: dist-android/*
           generate_release_notes: true
-          name: 课序 ${{ github.ref_name }}
+          name: 课序PLUS ${{ github.ref_name }}
           body: |
-            ## 课序 ${{ github.ref_name }}
+            ## 课序PLUS ${{ github.ref_name }}
 
             Android 离线版 APK。首次安装需在系统设置中允许「安装未知应用」。
 
